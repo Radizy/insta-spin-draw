@@ -26,7 +26,8 @@ export default {
 				foreground: 'hsl(var(--foreground))',
 				primary: {
 					DEFAULT: 'hsl(var(--primary))',
-					foreground: 'hsl(var(--primary-foreground))'
+					foreground: 'hsl(var(--primary-foreground))',
+					glow: 'hsl(var(--primary-glow))'
 				},
 				secondary: {
 					DEFAULT: 'hsl(var(--secondary))',
@@ -43,6 +44,14 @@ export default {
 				accent: {
 					DEFAULT: 'hsl(var(--accent))',
 					foreground: 'hsl(var(--accent-foreground))'
+				},
+				success: {
+					DEFAULT: 'hsl(var(--success))',
+					foreground: 'hsl(var(--success-foreground))'
+				},
+				warning: {
+					DEFAULT: 'hsl(var(--warning))',
+					foreground: 'hsl(var(--warning-foreground))'
 				},
 				popover: {
 					DEFAULT: 'hsl(var(--popover))',
@@ -62,6 +71,22 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				}
+			},
+			backgroundImage: {
+				'gradient-primary': 'var(--gradient-primary)',
+				'gradient-secondary': 'var(--gradient-secondary)',
+				'gradient-accent': 'var(--gradient-accent)',
+				'gradient-rainbow': 'var(--gradient-rainbow)'
+			},
+			boxShadow: {
+				'primary': 'var(--shadow-primary)',
+				'secondary': 'var(--shadow-secondary)',
+				'glow': 'var(--shadow-glow)',
+				'card': 'var(--shadow-card)'
+			},
+			transitionTimingFunction: {
+				'smooth': 'var(--transition-smooth)',
+				'bounce': 'var(--transition-bounce)'
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -84,11 +109,68 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'confetti': {
+					'0%': { 
+						transform: 'translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg)', 
+						opacity: '1' 
+					},
+					'100%': { 
+						transform: 'translate3d(0, 100vh, 0) rotateX(180deg) rotateY(180deg)', 
+						opacity: '0' 
+					}
+				},
+				'roulette': {
+					'0%': { transform: 'rotate(0deg)' },
+					'100%': { transform: 'rotate(1800deg)' }
+				},
+				'bounce-in': {
+					'0%': { 
+						transform: 'scale(0.3)', 
+						opacity: '0' 
+					},
+					'50%': { 
+						transform: 'scale(1.05)' 
+					},
+					'70%': { 
+						transform: 'scale(0.9)' 
+					},
+					'100%': { 
+						transform: 'scale(1)', 
+						opacity: '1' 
+					}
+				},
+				'pulse-glow': {
+					'0%, 100%': { 
+						boxShadow: '0 0 20px hsl(315 100% 60% / 0.5)' 
+					},
+					'50%': { 
+						boxShadow: '0 0 40px hsl(315 100% 60% / 0.8)' 
+					}
+				},
+				'float': {
+					'0%, 100%': { transform: 'translateY(0px)' },
+					'50%': { transform: 'translateY(-10px)' }
+				},
+				'wobble': {
+					'0%': { transform: 'rotate(0deg)' },
+					'15%': { transform: 'rotate(-5deg)' },
+					'30%': { transform: 'rotate(3deg)' },
+					'45%': { transform: 'rotate(-2deg)' },
+					'60%': { transform: 'rotate(1deg)' },
+					'75%': { transform: 'rotate(-1deg)' },
+					'100%': { transform: 'rotate(0deg)' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'confetti': 'confetti 2s ease-out forwards',
+				'roulette': 'roulette 3s cubic-bezier(0.17, 0.67, 0.12, 0.99) forwards',
+				'bounce-in': 'bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+				'pulse-glow': 'pulse-glow 2s infinite',
+				'float': 'float 3s ease-in-out infinite',
+				'wobble': 'wobble 0.8s ease-in-out'
 			}
 		}
 	},
