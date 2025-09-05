@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AtSign, Link, Search, Instagram, Users, MessageSquare, Loader2 } from "lucide-react";
 import { Comment, InstagramPost } from "@/types/instagram";
+import { realInstagramApi } from "@/lib/instagram-api";
 import { mockInstagramApi } from "@/lib/mockApi";
 import { toast } from "@/hooks/use-toast";
 
@@ -30,17 +31,23 @@ const PostSelector = ({ onPostSelected }: PostSelectorProps) => {
     }
 
     setLoading(true);
+    setUserPosts([]); // Clear previous results
+    
     try {
-      const posts = await mockInstagramApi.getUserPosts(username);
+      // Add realistic delay for better UX
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Use real Instagram API instead of mock
+      const posts = await realInstagramApi.getUserPosts();
       setUserPosts(posts);
       toast({
         title: "Posts carregados!",
-        description: `Encontrados ${posts.length} posts para @${username}`,
+        description: `Encontrados ${posts.length} posts`,
       });
     } catch (error) {
       toast({
         title: "Erro ao buscar posts",
-        description: "Verifique o nome de usuário e tente novamente",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
         variant: "destructive"
       });
     } finally {
@@ -60,8 +67,12 @@ const PostSelector = ({ onPostSelected }: PostSelectorProps) => {
 
     setLoading(true);
     try {
-      const postId = mockInstagramApi.extractPostId(postUrl);
-      const comments = await mockInstagramApi.getComments(postId);
+      // Add realistic delay for better UX 
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Use real Instagram API to get comments
+      const postId = realInstagramApi.extractPostId(postUrl);
+      const comments = await realInstagramApi.getComments(postUrl);
       
       onPostSelected({
         id: postId,
@@ -76,7 +87,7 @@ const PostSelector = ({ onPostSelected }: PostSelectorProps) => {
     } catch (error) {
       toast({
         title: "Erro ao carregar post",
-        description: "Verifique se o link está correto",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
         variant: "destructive"
       });
     } finally {
@@ -87,7 +98,11 @@ const PostSelector = ({ onPostSelected }: PostSelectorProps) => {
   const handlePostSelect = async (post: InstagramPost) => {
     setLoading(true);
     try {
-      const comments = await mockInstagramApi.getComments(post.id);
+      // Add realistic delay for better UX
+      await new Promise(resolve => setTimeout(resolve, 1800));
+      
+      // Use real Instagram API to get comments
+      const comments = await realInstagramApi.getComments(post.id);
       onPostSelected({
         id: post.id,
         url: post.permalink,
@@ -101,7 +116,7 @@ const PostSelector = ({ onPostSelected }: PostSelectorProps) => {
     } catch (error) {
       toast({
         title: "Erro ao carregar comentários",
-        description: "Tente novamente em alguns instantes",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
         variant: "destructive"
       });
     } finally {
@@ -138,25 +153,36 @@ const PostSelector = ({ onPostSelected }: PostSelectorProps) => {
             <div className="flex-1 relative">
               <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="nome_do_usuario"
+                placeholder="Buscar nos seus posts"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="pl-10 h-12 text-base"
                 onKeyDown={(e) => e.key === 'Enter' && handleUsernameSearch()}
+                disabled={loading}
               />
             </div>
             <Button onClick={handleUsernameSearch} disabled={loading} className="h-12 px-6 bg-gradient-primary hover:opacity-90 shadow-primary">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-              Buscar
+              {loading ? "Carregando..." : "Buscar"}
             </Button>
           </div>
 
-          {userPosts.length > 0 && (
+          {loading && (
+            <div className="text-center py-8 space-y-4">
+              <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
+              <div className="space-y-2">
+                <p className="font-medium">Buscando posts do Instagram...</p>
+                <p className="text-sm text-muted-foreground">Isso pode levar alguns segundos</p>
+              </div>
+            </div>
+          )}
+
+          {userPosts.length > 0 && !loading && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Posts de @{username}</h3>
+              <h3 className="text-lg font-semibold">Seus Posts Recentes</h3>
               <div className="grid gap-4 max-h-96 overflow-y-auto">
                 {userPosts.map((post) => (
-                  <Card key={post.id} className="p-4 cursor-pointer hover:shadow-primary/20 transition-all hover:scale-[1.02] bg-card/50 border-border/50">
+                  <Card key={post.id} className="p-4 cursor-pointer hover:shadow-primary/20 transition-all hover:scale-[1.02] bg-card/50 border-border/50 relative">
                     <div className="flex items-start gap-4" onClick={() => handlePostSelect(post)}>
                       <img 
                         src={post.media_url} 
@@ -176,6 +202,11 @@ const PostSelector = ({ onPostSelected }: PostSelectorProps) => {
                         </div>
                       </div>
                     </div>
+                    {loading && (
+                      <div className="absolute inset-0 bg-card/80 backdrop-blur-sm rounded-lg flex items-center justify-center">
+                        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                      </div>
+                    )}
                   </Card>
                 ))}
               </div>
@@ -193,13 +224,24 @@ const PostSelector = ({ onPostSelected }: PostSelectorProps) => {
                 onChange={(e) => setPostUrl(e.target.value)}
                 className="pl-10 h-12 text-base"
                 onKeyDown={(e) => e.key === 'Enter' && handleUrlSubmit()}
+                disabled={loading}
               />
             </div>
             <Button onClick={handleUrlSubmit} disabled={loading} className="h-12 px-6 bg-gradient-secondary hover:opacity-90 shadow-secondary">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Instagram className="w-4 h-4" />}
-              Carregar
+              {loading ? "Carregando..." : "Carregar"}
             </Button>
           </div>
+          
+          {loading && (
+            <div className="text-center py-8 space-y-4">
+              <Loader2 className="w-12 h-12 animate-spin text-secondary mx-auto" />
+              <div className="space-y-2">
+                <p className="font-medium">Carregando comentários...</p>
+                <p className="text-sm text-muted-foreground">Buscando todos os comentários da publicação</p>
+              </div>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Instagram, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,8 @@ import PostSelector from "@/components/PostSelector";
 import FilterPanel from "@/components/FilterPanel";
 import RaffleRunner from "@/components/RaffleRunner";
 import ResultsDisplay from "@/components/ResultsDisplay";
-import { Comment } from "@/types/instagram";
+import InstagramLogin from "@/components/InstagramLogin";
+import { Comment, InstagramUser } from "@/types/instagram";
 import heroImage from "@/assets/hero-raffle.jpg";
 
 export interface RaffleFilters {
@@ -21,7 +22,9 @@ export interface RaffleConfig {
 }
 
 const Index = () => {
-  const [currentStep, setCurrentStep] = useState<'select' | 'filter' | 'raffle' | 'results'>('select');
+  const [currentStep, setCurrentStep] = useState<'auth' | 'select' | 'filter' | 'raffle' | 'results'>('auth');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState<InstagramUser | null>(null);
   const [selectedPost, setSelectedPost] = useState<{ id: string; url: string; caption: string } | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [filters, setFilters] = useState<RaffleFilters>({
@@ -34,6 +37,12 @@ const Index = () => {
   });
   const [winners, setWinners] = useState<Comment[]>([]);
   const [substitutes, setSubstitutes] = useState<Comment[]>([]);
+
+  const handleAuthChange = (authenticated: boolean, user?: InstagramUser) => {
+    setIsAuthenticated(authenticated);
+    setCurrentUser(user || null);
+    setCurrentStep(authenticated ? 'select' : 'auth');
+  };
 
   const handlePostSelected = (post: { id: string; url: string; caption: string }, postComments: Comment[]) => {
     setSelectedPost(post);
@@ -73,7 +82,7 @@ const Index = () => {
             </h1>
           </div>
           
-          {currentStep !== 'select' && (
+          {(currentStep !== 'auth' && currentStep !== 'select') && (
             <Button variant="outline" onClick={resetRaffle} className="gap-2">
               <Sparkles className="w-4 h-4" />
               Novo Sorteio
@@ -105,7 +114,11 @@ const Index = () => {
         )}
         
         <Card className="max-w-4xl mx-auto p-8 shadow-card border-0 bg-card/80 backdrop-blur-sm">
-          {currentStep === 'select' && (
+          {currentStep === 'auth' && (
+            <InstagramLogin onAuthChange={handleAuthChange} />
+          )}
+          
+          {currentStep === 'select' && isAuthenticated && (
             <PostSelector onPostSelected={handlePostSelected} />
           )}
           

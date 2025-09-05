@@ -1,73 +1,124 @@
-# Welcome to your Lovable project
+# Sorteio Insta - Sorteios de Instagram Fáceis e Divertidos
 
-## Project info
+Um aplicativo web moderno e colorido para realizar sorteios com comentários do Instagram de forma rápida, fácil e divertida.
 
-**URL**: https://lovable.dev/projects/0debf1ec-6af2-42fc-a5a9-9a0b5ad8e8da
+## 🎯 Funcionalidades
 
-## How can I edit this code?
+### ✅ Implementado
+- **Interface colorida e divertida** com animações suaves
+- **Dois métodos de seleção**: Por perfil (@usuario) ou link direto da publicação
+- **Filtros configuráveis**:
+  - Exigir 2+ menções no comentário
+  - Permitir/bloquear comentários duplicados
+- **Sorteio animado** com contagem regressiva e efeito roleta
+- **Múltiplos ganhadores** e suplentes
+- **Confete animado** nos resultados
+- **Download e compartilhamento** dos resultados
+- **Design responsivo** para desktop e mobile
+- **Sistema de autenticação** Instagram OAuth (em desenvolvimento)
+- **API real** do Instagram Graph API (configurável)
 
-There are several ways of editing your application.
+### 🚧 Em Desenvolvimento
+- Integração completa com Instagram Graph API
+- Backend para gerenciamento de tokens
+- Configurações avançadas de filtros
 
-**Use Lovable**
+## 🛠️ Tecnologias Utilizadas
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/0debf1ec-6af2-42fc-a5a9-9a0b5ad8e8da) and start prompting.
+- **Frontend**: React 18 + TypeScript + Vite
+- **Styling**: Tailwind CSS + Design System customizado
+- **UI Components**: shadcn/ui + Radix UI
+- **Animações**: CSS Animations + Tailwind
+- **API**: Instagram Graph API + Mock API para desenvolvimento
+- **Autenticação**: OAuth 2.0 do Instagram
 
-Changes made via Lovable will be committed automatically to this repo.
+## 🎨 Design System
 
-**Use your preferred IDE**
+O app utiliza um design system colorido e alegre:
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- **Cores primárias**: Rosa (#ff6b9d), Azul (#3742fa), Laranja (#f8b500)
+- **Gradientes**: Transições suaves entre cores complementares
+- **Animações**: Confete, roleta, bounce, glow effects
+- **Tipografia**: System fonts com hierarquia clara
+- **Componentes**: Botões grandes, cards arredondados, inputs intuitivos
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## 🚀 Como Usar
 
-Follow these steps:
+### Modo Desenvolvimento (Mock API)
+1. Clone o repositório
+2. Execute `npm install`
+3. Execute `npm run dev`
+4. Acesse `http://localhost:8080`
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+O app funcionará automaticamente em modo demo com dados simulados.
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### Modo Produção (Instagram Real)
+Para usar com dados reais do Instagram:
 
-# Step 3: Install the necessary dependencies.
-npm i
+1. **Configure o Instagram App**:
+   - Crie um app no [Facebook Developers](https://developers.facebook.com/)
+   - Configure Instagram Basic Display API
+   - Adicione as URLs de redirect
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+2. **Configure as variáveis de ambiente**:
+   ```bash
+   VITE_INSTAGRAM_APP_ID=your_app_id
+   ```
+
+3. **Deploy e configuração**:
+   - Configure o backend para processar tokens OAuth
+   - Adicione as URLs de produção no Instagram App
+
+## 📱 Fluxo de Uso
+
+1. **Autenticação**: Login com Instagram (ou modo demo)
+2. **Seleção**: Escolha um post por @ ou URL
+3. **Configuração**: Defina filtros e número de ganhadores
+4. **Sorteio**: Contagem regressiva + animação de roleta
+5. **Resultado**: Celebração com confete + download
+
+## 🔧 Configuração Técnica
+
+### Estrutura do Projeto
+```
+src/
+├── components/         # Componentes React
+├── lib/               # Utilitários e APIs
+├── pages/             # Páginas da aplicação
+├── types/             # Definições TypeScript
+└── assets/            # Imagens e recursos
 ```
 
-**Edit a file directly in GitHub**
+### APIs Principais
+- `realInstagramApi`: Integração real com Instagram
+- `mockInstagramApi`: Dados simulados para desenvolvimento
+- `instagramAuth`: Gerenciamento de autenticação OAuth
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 🎯 Próximos Passos
 
-**Use GitHub Codespaces**
+- [ ] Backend completo para tokens Instagram
+- [ ] Histórico de sorteios
+- [ ] Sorteios programados
+- [ ] Integração com outras redes sociais
+- [ ] Templates personalizados para resultados
+- [ ] Analytics de sorteios
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## 🐛 Resolução de Problemas
 
-## What technologies are used for this project?
+### Erro de Autenticação Instagram
+- Verifique se o App ID está correto
+- Confirme as URLs de redirect no Facebook Developers
+- Use o modo demo para testes
 
-This project is built with:
+### Comentários não carregam
+- Verifique se a publicação é pública
+- Confirme se o usuário tem permissões adequadas
+- O Instagram limita acessos à API
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 📄 Licença
 
-## How can I deploy this project?
+Este projeto é apenas para fins educacionais e de demonstração. Respeite os termos de uso do Instagram ao utilizar suas APIs.
 
-Simply open [Lovable](https://lovable.dev/projects/0debf1ec-6af2-42fc-a5a9-9a0b5ad8e8da) and click on Share -> Publish.
+---
 
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+**Desenvolvido com ❤️ para tornar sorteios mais divertidos!** 🎉
