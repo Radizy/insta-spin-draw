@@ -44,6 +44,50 @@ export type Database = {
         }
         Relationships: []
       }
+      auth_refresh_tokens: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          ip: string | null
+          revoked: boolean | null
+          token: string | null
+          token_hash: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          ip?: string | null
+          revoked?: boolean | null
+          token?: string | null
+          token_hash?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          ip?: string | null
+          revoked?: boolean | null
+          token?: string | null
+          token_hash?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auth_refresh_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "system_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       entregadores: {
         Row: {
           ativo: boolean
