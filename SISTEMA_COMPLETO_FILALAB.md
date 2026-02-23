@@ -26,6 +26,9 @@ Esses módulos podem ser geridos livremente pelo painel Super Admin na visualiza
 ### Frontend
 - **Framework**: React 18.3.1 com TypeScript
 - **Roteamento**: React Router DOM v6.30.1
+- **Páginas Principais**: 
+  - `Landing Page / (Index)`: Apresentação comercial do sistema (Home, Módulos, Contato).
+  - `/login`: Área restrita do sistema para franqueados e operadores.
 - **Gerenciamento de Estado**: React Context API + TanStack Query v5.83.0
 - **UI Components**: Shadcn/ui com Radix UI primitives
 - **Estilização**: Tailwind CSS com design system customizado
