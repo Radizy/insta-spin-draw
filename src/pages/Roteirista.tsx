@@ -3,17 +3,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUnit } from '@/contexts/UnitContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Layout, BackButton } from '@/components/Layout';
- import {
-   fetchEntregadores,
-   updateEntregador,
-   sendWhatsAppMessage,
-   createHistoricoEntrega,
-   shouldShowInQueue,
-   Entregador,
-   TipoBag,
-   sendDispatchWebhook,
-   resetDaily,
- } from '@/lib/api';
+import {
+  fetchEntregadores,
+  updateEntregador,
+  sendWhatsAppMessage,
+  createHistoricoEntrega,
+  shouldShowInQueue,
+  Entregador,
+  TipoBag,
+  sendDispatchWebhook,
+  resetDaily,
+} from '@/lib/api';
 import { toast } from 'sonner';
 import { Users, Loader2, Phone, GripVertical, SkipForward, UserMinus, LogOut, ArrowRight, MessageSquare } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
@@ -65,7 +65,7 @@ export default function Roteirista() {
   const [hasBebida, setHasBebida] = useState(false);
   const [skipReason, setSkipReason] = useState('');
   const [isSending, setIsSending] = useState(false);
-  
+
   // Novos estados para as ações adicionais
   const [callMotoboyOpen, setCallMotoboyOpen] = useState(false);
   const [returnToQueueOpen, setReturnToQueueOpen] = useState(false);
@@ -93,9 +93,9 @@ export default function Roteirista() {
   const bagOptions = franquiaBagTipos.length
     ? franquiaBagTipos.map((b) => ({ id: b.id, label: b.nome, value: b.id }))
     : [
-        { id: 'normal', label: 'BAG Normal', value: 'BAG Normal' },
-        { id: 'metro', label: 'BAG Metro', value: 'BAG Metro' },
-      ];
+      { id: 'normal', label: 'BAG Normal', value: 'BAG Normal' },
+      { id: 'metro', label: 'BAG Metro', value: 'BAG Metro' },
+    ];
 
   // selectedUnit é usado apenas na renderização condicional mais abaixo para evitar erros de hooks
 
@@ -108,18 +108,18 @@ export default function Roteirista() {
     enabled: !!selectedUnit,
   });
 
-   // Mutation for updating status
-   const updateMutation = useMutation({
-     mutationFn: ({ id, data }: { id: string; data: Partial<Entregador> }) =>
-       updateEntregador(id, data),
-     onSuccess: () => {
-       queryClient.invalidateQueries({ queryKey: ['entregadores'] });
-     },
-     onError: () => {
-       toast.error('Erro ao atualizar status');
-     },
-   });
- 
+  // Mutation for updating status
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<Entregador> }) =>
+      updateEntregador(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['entregadores'] });
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar status');
+    },
+  });
+
 
   // Filter by status and shift/workdays for display, liberando quem fez check-in recente
   const hasRecentCheckin = (entregador: Entregador) => {
@@ -141,17 +141,17 @@ export default function Roteirista() {
   useEffect(() => {
     const checkAndTransition = async () => {
       const now = new Date().getTime();
-      
+
       for (const entregador of calledQueue) {
         const updatedAt = new Date(entregador.updated_at).getTime();
         const secondsPassed = (now - updatedAt) / 1000;
-        
+
         // Only fallback after 60 seconds (TV handles it at ~15s)
         if (secondsPassed >= 60) {
           try {
             await updateMutation.mutateAsync({
               id: entregador.id,
-              data: { 
+              data: {
                 status: 'entregando',
                 hora_saida: new Date().toISOString(),
               },
@@ -164,7 +164,7 @@ export default function Roteirista() {
     };
 
     const interval = setInterval(checkAndTransition, 5000);
-    
+
     return () => clearInterval(interval);
   }, [calledQueue, updateMutation]);
 
@@ -184,7 +184,25 @@ export default function Roteirista() {
       return { count: count ?? 0 };
     },
   });
- 
+
+  // Configurações da franquia para checar módulos ativos
+  const { data: franquiaConfig } = useQuery<{ config_pagamento: any | null }>({
+    queryKey: ['franquia-config-roteirista', user?.franquiaId],
+    queryFn: async () => {
+      if (!user?.franquiaId) return { config_pagamento: null };
+      const { data, error } = await supabase
+        .from('franquias')
+        .select('config_pagamento')
+        .eq('id', user.franquiaId)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as any) || { config_pagamento: null };
+    },
+    enabled: !!user?.franquiaId,
+  });
+
+  const isWhatsappAtivo = (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes('whatsapp');
+
   // Próximo da fila
   const nextInQueue = availableQueue[0] || null;
   const secondInQueue = availableQueue[1] || null;
@@ -206,18 +224,18 @@ export default function Roteirista() {
   // Handler para "Não Apareceu" - move para 1ª posição
   const handleNotAppeared = async () => {
     if (!calledEntregador) return;
-    
+
     try {
       // Mover para 1ª posição (timestamp mais antigo)
       const earliestTimestamp = new Date(0).toISOString();
       await updateMutation.mutateAsync({
         id: calledEntregador.id,
-        data: { 
+        data: {
           status: 'disponivel',
           fila_posicao: earliestTimestamp,
         },
       });
-      
+
       toast.info(`${calledEntregador.nome} foi movido para a 1ª posição da fila`);
       setNotAppearedOpen(false);
       setCalledEntregador(null);
@@ -228,9 +246,9 @@ export default function Roteirista() {
 
   const handleConfirmCall = async () => {
     if (!selectedEntregador) return;
-    
+
     setIsSending(true);
-    
+
     try {
       // Marcar localmente que esta chamada tem bebida (para TV e indicadores visuais)
       if (hasBebida) {
@@ -241,7 +259,7 @@ export default function Roteirista() {
       // Update status to "chamado" and set tipo_bag
       await updateMutation.mutateAsync({
         id: selectedEntregador.id,
-        data: { 
+        data: {
           status: 'chamado',
           tipo_bag: tipoBag,
         },
@@ -273,38 +291,40 @@ export default function Roteirista() {
       const bagMessage = bagName
         ? `🎒 Pegue a ${bagName.toUpperCase()}`
         : '🎒 Pegue a sua BAG';
-      
-      const bebidaMessage = hasBebida 
-        ? '\n\n*⚠️ ATENÇÃO, NO SEUS PEDIDOS POSSUI BEBIDA*' 
+
+      const bebidaMessage = hasBebida
+        ? '\n\n*⚠️ ATENÇÃO, NO SEUS PEDIDOS POSSUI BEBIDA*'
         : '';
-      
-      const message = deliveryCount === 1 
+
+      const message = deliveryCount === 1
         ? `🍕 Sua vez na unidade ${selectedUnit}! Você tem 1 entrega. ${bagMessage}. Vá ao balcão.${bebidaMessage}`
         : `🍕 Sua vez na unidade ${selectedUnit}! Você tem ${deliveryCount} entregas. ${bagMessage}. Vá ao balcão.${bebidaMessage}`;
-      
-      await sendWhatsAppMessage(selectedEntregador.telefone, message, {
-        franquiaId: user?.franquiaId ?? null,
-        unidadeId: null,
-      });
+
+      if (isWhatsappAtivo) {
+        await sendWhatsAppMessage(selectedEntregador.telefone, message, {
+          franquiaId: user?.franquiaId ?? null,
+          unidadeId: null,
+        });
+      }
 
       toast.success(`${selectedEntregador.nome} foi chamado com ${deliveryCount} entrega(s)!`);
       setCallDialogOpen(false);
-      
+
       // Mostrar modal "Não Apareceu" por 5 segundos
       setCalledEntregador(selectedEntregador);
       setNotAppearedOpen(true);
 
       // Enviar mensagem para o segundo da fila após 5 segundos
-      if (secondInQueue) {
+      if (secondInQueue && isWhatsappAtivo) {
         setTimeout(async () => {
-           try {
-             const alertMessage = `⚠️ Atenção ${secondInQueue.nome}! Você é o próximo da fila na unidade ${selectedUnit}. Fique alerta!`;
-             await sendWhatsAppMessage(secondInQueue.telefone, alertMessage, {
-               franquiaId: user?.franquiaId ?? null,
-               unidadeId: null,
-             });
-             toast.info(`Alerta enviado para ${secondInQueue.nome}`);
-           } catch (error) {
+          try {
+            const alertMessage = `⚠️ Atenção ${secondInQueue.nome}! Você é o próximo da fila na unidade ${selectedUnit}. Fique alerta!`;
+            await sendWhatsAppMessage(secondInQueue.telefone, alertMessage, {
+              franquiaId: user?.franquiaId ?? null,
+              unidadeId: null,
+            });
+            toast.info(`Alerta enviado para ${secondInQueue.nome}`);
+          } catch (error) {
             console.error('Erro ao enviar alerta para segundo da fila:', error);
           }
         }, 5000);
@@ -323,7 +343,7 @@ export default function Roteirista() {
     try {
       await updateMutation.mutateAsync({
         id: entregador.id,
-        data: { 
+        data: {
           status: 'entregando',
           hora_saida: new Date().toISOString(),
         },
@@ -337,17 +357,21 @@ export default function Roteirista() {
   // 2. Chamar Motoboy (com motivo obrigatório + WhatsApp, não remove da fila)
   const handleCallMotoboy = async (motivo: string) => {
     if (!actionEntregador) return;
-    
+
     setIsSending(true);
     try {
       const message = `🔔 *CHAMADA ESPECIAL*\n\nOlá ${actionEntregador.nome}!\n\nMotivo: ${motivo}\n\nPor favor, compareça ao balcão da unidade ${selectedUnit}.`;
-      
-      await sendWhatsAppMessage(actionEntregador.telefone, message, {
-        franquiaId: user?.franquiaId ?? null,
-        unidadeId: null,
-      });
 
-      toast.success(`Mensagem enviada para ${actionEntregador.nome}`);
+      if (isWhatsappAtivo) {
+        await sendWhatsAppMessage(actionEntregador.telefone, message, {
+          franquiaId: user?.franquiaId ?? null,
+          unidadeId: null,
+        });
+        toast.success(`Mensagem enviada para ${actionEntregador.nome}`);
+      } else {
+        toast.success(`Motoboy chamado visualmente (WhatsApp desativado no plano)`);
+      }
+
       setCallMotoboyOpen(false);
       setActionEntregador(null);
     } catch (error) {
@@ -360,18 +384,18 @@ export default function Roteirista() {
   // 3. Voltar para fila (de "Em Entrega" para "Disponível")
   const handleReturnToQueue = async () => {
     if (!actionEntregador) return;
-    
+
     setIsSending(true);
     try {
       await updateMutation.mutateAsync({
         id: actionEntregador.id,
-        data: { 
+        data: {
           status: 'disponivel',
           hora_saida: null,
           fila_posicao: new Date().toISOString(),
         },
       });
-      
+
       toast.success(`${actionEntregador.nome} retornou para a fila`);
       setReturnToQueueOpen(false);
       setActionEntregador(null);
@@ -393,11 +417,11 @@ export default function Roteirista() {
       // Move para o fim da fila atualizando fila_posicao
       await updateMutation.mutateAsync({
         id: selectedEntregador.id,
-        data: { 
+        data: {
           fila_posicao: new Date().toISOString(),
         },
       });
-      
+
       toast.success(`${selectedEntregador.nome} foi para o fim da fila. Motivo: ${skipReason}`);
       setSkipDialogOpen(false);
       setSkipReason('');
@@ -412,11 +436,11 @@ export default function Roteirista() {
     try {
       await updateMutation.mutateAsync({
         id: entregador.id,
-        data: { 
+        data: {
           ativo: false,
         },
       });
-      
+
       toast.success(`${entregador.nome} foi removido da fila`);
     } catch (error) {
       toast.error('Erro ao remover da fila');
@@ -472,20 +496,20 @@ export default function Roteirista() {
       </div>
 
       {/* Botão Grande CHAMAR O PRÓXIMO */}
-       <div className="mb-4">
-         <Button
-           onClick={openCallDialog}
-           disabled={!nextInQueue || isLoading}
-           className="w-full h-24 text-2xl font-bold font-mono bg-accent hover:bg-accent/90 text-accent-foreground gap-4"
-         >
-           <Phone className="w-8 h-8" />
-           {nextInQueue ? (
-             <>CHAMAR: {nextInQueue.nome.toUpperCase()}</>
-           ) : (
-             <>NENHUM NA FILA</>
-           )}
-         </Button>
-       </div>
+      <div className="mb-4">
+        <Button
+          onClick={openCallDialog}
+          disabled={!nextInQueue || isLoading}
+          className="w-full h-24 text-2xl font-bold font-mono bg-accent hover:bg-accent/90 text-accent-foreground gap-4"
+        >
+          <Phone className="w-8 h-8" />
+          {nextInQueue ? (
+            <>CHAMAR: {nextInQueue.nome.toUpperCase()}</>
+          ) : (
+            <>NENHUM NA FILA</>
+          )}
+        </Button>
+      </div>
 
       {/* Stats Row + TV preview (ao vivo) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -557,9 +581,8 @@ export default function Roteirista() {
                             <div
                               ref={provided.innerRef}
                               {...provided.draggableProps}
-                              className={`flex flex-col sm:flex-row sm:items-center gap-4 bg-card border border-border rounded-xl p-4 transition-shadow ${
-                                snapshot.isDragging ? 'shadow-lg ring-2 ring-primary' : ''
-                              }`}
+                              className={`flex flex-col sm:flex-row sm:items-center gap-4 bg-card border border-border rounded-xl p-4 transition-shadow ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary' : ''
+                                }`}
                             >
                               <div
                                 {...provided.dragHandleProps}
@@ -584,41 +607,41 @@ export default function Roteirista() {
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
-                                     <DropdownMenuItem
-                                       onClick={() => handleMoveToDelivering(entregador)}
-                                       className="gap-2"
-                                     >
-                                       <ArrowRight className="w-4 h-4" />
-                                       Mover para Em Entrega
-                                     </DropdownMenuItem>
-                                     <DropdownMenuItem
-                                       onClick={() => {
-                                         setActionEntregador(entregador);
-                                         setCallMotoboyOpen(true);
-                                       }}
-                                       className="gap-2"
-                                     >
-                                       <MessageSquare className="w-4 h-4" />
-                                       Chamar Motoboy
-                                     </DropdownMenuItem>
-                                     <DropdownMenuItem
-                                       onClick={() => {
-                                         setSelectedEntregador(entregador);
-                                         setSkipReason('');
-                                         setSkipDialogOpen(true);
-                                       }}
-                                       className="gap-2"
-                                     >
-                                       <SkipForward className="w-4 h-4" />
-                                       Pular a vez
-                                     </DropdownMenuItem>
-                                     <DropdownMenuItem
-                                       onClick={() => handleRemoveFromQueue(entregador)}
-                                       className="gap-2 text-destructive"
-                                     >
-                                       <UserMinus className="w-4 h-4" />
-                                       Remover da fila
-                                     </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => handleMoveToDelivering(entregador)}
+                                      className="gap-2"
+                                    >
+                                      <ArrowRight className="w-4 h-4" />
+                                      Mover para Em Entrega
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setActionEntregador(entregador);
+                                        setCallMotoboyOpen(true);
+                                      }}
+                                      className="gap-2"
+                                    >
+                                      <MessageSquare className="w-4 h-4" />
+                                      Chamar Motoboy
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setSelectedEntregador(entregador);
+                                        setSkipReason('');
+                                        setSkipDialogOpen(true);
+                                      }}
+                                      className="gap-2"
+                                    >
+                                      <SkipForward className="w-4 h-4" />
+                                      Pular a vez
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => handleRemoveFromQueue(entregador)}
+                                      className="gap-2 text-destructive"
+                                    >
+                                      <UserMinus className="w-4 h-4" />
+                                      Remover da fila
+                                    </DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </div>
@@ -717,7 +740,7 @@ export default function Roteirista() {
           <DialogHeader>
             <DialogTitle className="font-mono text-2xl">Chamar Entregador</DialogTitle>
           </DialogHeader>
-          
+
           {selectedEntregador && (
             <div className="space-y-4 py-4">
               <div className="bg-accent/20 border-2 border-accent rounded-lg p-6 text-center">
@@ -725,7 +748,7 @@ export default function Roteirista() {
                 <p className="text-3xl font-bold font-mono text-accent">{selectedEntregador.nome}</p>
                 <p className="text-sm text-muted-foreground mt-1">{selectedEntregador.telefone}</p>
               </div>
-              
+
               <div className="space-y-2">
                 <Label className="text-lg">Quantas entregas?</Label>
                 <div className="grid grid-cols-5 gap-2">
@@ -778,11 +801,10 @@ export default function Roteirista() {
                   <button
                     type="button"
                     onClick={() => setHasBebida(false)}
-                    className={`p-4 border-2 rounded-lg transition-colors ${
-                      !hasBebida 
-                        ? 'border-primary bg-primary/10' 
+                    className={`p-4 border-2 rounded-lg transition-colors ${!hasBebida
+                        ? 'border-primary bg-primary/10'
                         : 'border-border hover:border-primary/50'
-                    }`}
+                      }`}
                   >
                     <div className="text-center">
                       <span className="text-2xl">❌</span>
@@ -792,11 +814,10 @@ export default function Roteirista() {
                   <button
                     type="button"
                     onClick={() => setHasBebida(true)}
-                    className={`p-4 border-2 rounded-lg transition-colors ${
-                      hasBebida 
-                        ? 'border-orange-500 bg-orange-500/10' 
+                    className={`p-4 border-2 rounded-lg transition-colors ${hasBebida
+                        ? 'border-orange-500 bg-orange-500/10'
                         : 'border-border hover:border-orange-500/50'
-                    }`}
+                      }`}
                   >
                     <div className="text-center">
                       <span className="text-2xl">🥤</span>
@@ -807,7 +828,7 @@ export default function Roteirista() {
               </div>
             </div>
           )}
-          
+
           <DialogFooter className="gap-3">
             <Button
               variant="outline"
@@ -837,14 +858,14 @@ export default function Roteirista() {
           <DialogHeader>
             <DialogTitle className="font-mono text-xl">Pular a Vez</DialogTitle>
           </DialogHeader>
-          
+
           {selectedEntregador && (
             <div className="space-y-4 py-4">
               <div className="bg-secondary rounded-lg p-4 text-center">
                 <p className="text-sm text-muted-foreground mb-1">Motoboy</p>
                 <p className="text-xl font-bold font-mono">{selectedEntregador.nome}</p>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="skipReason">Motivo para pular a vez</Label>
                 <Textarea
@@ -857,7 +878,7 @@ export default function Roteirista() {
               </div>
             </div>
           )}
-          
+
           <DialogFooter className="gap-3">
             <Button
               variant="outline"

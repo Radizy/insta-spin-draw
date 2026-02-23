@@ -106,7 +106,16 @@ export function PlanosModulosSection() {
 
   // ── Mutations ──
   const upsertModuloMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (payloads?: any[]) => {
+      if (payloads) {
+        // Inserção em lote para os módulos padrão
+        for (const payload of payloads) {
+          const { error } = await supabase.from('modulos').upsert(payload, { onConflict: 'codigo' });
+          if (error) throw error;
+        }
+        return;
+      }
+
       const nome = moduloForm.nome.trim();
       const codigo = moduloForm.codigo.trim();
       if (!nome || !codigo) throw new Error('Nome e código são obrigatórios');
@@ -129,6 +138,16 @@ export function PlanosModulosSection() {
     },
     onError: (err: any) => toast.error(err.message || 'Erro ao salvar módulo'),
   });
+
+  const handleSeedModules = () => {
+    toast.info('Inserindo módulos padrão...');
+    upsertModuloMutation.mutate([
+      { codigo: 'whatsapp', nome: 'WhatsApp Avançado', descricao: 'Envio de mensagens automáticas e configurações da Evolution API', preco_mensal: 0, ativo: true },
+      { codigo: 'tv_avancada', nome: 'TV Premium', descricao: 'Animações e customizações exclusivas na tela da TV', preco_mensal: 0, ativo: true },
+      { codigo: 'planilha', nome: 'Integração Planilha', descricao: 'Webhook e sincronização com Google Sheets no Histórico', preco_mensal: 0, ativo: true },
+      { codigo: 'fila_pagamento', nome: 'Fila de Pagamento', descricao: 'Acesso à página de gestão de fila de senhas para pagamento', preco_mensal: 0, ativo: true }
+    ]);
+  };
 
   const toggleModuloMutation = useMutation({
     mutationFn: async (modulo: ModuloRow) => {
@@ -212,9 +231,15 @@ export function PlanosModulosSection() {
             </h3>
             <p className="text-sm text-muted-foreground">Cadastre funcionalidades que podem ser ativadas/desativadas por franquia</p>
           </div>
-          <Button size="sm" onClick={() => { resetModuloForm(); setModuloDialogOpen(true); }}>
-            <Plus className="w-4 h-4 mr-1" /> Novo Módulo
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" onClick={handleSeedModules} disabled={upsertModuloMutation.isPending}>
+              {upsertModuloMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Package className="w-4 h-4 mr-1" />}
+              Carregar Módulos Padrão
+            </Button>
+            <Button size="sm" onClick={() => { resetModuloForm(); setModuloDialogOpen(true); }}>
+              <Plus className="w-4 h-4 mr-1" /> Novo Módulo
+            </Button>
+          </div>
         </div>
 
         {loadingModulos ? (
@@ -335,7 +360,7 @@ export function PlanosModulosSection() {
           <DialogHeader>
             <DialogTitle>{moduloForm.id ? 'Editar Módulo' : 'Novo Módulo'}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={(e) => { e.preventDefault(); upsertModuloMutation.mutate(); }} className="space-y-4">
+          <form onSubmit={(e) => { e.preventDefault(); upsertModuloMutation.mutate(undefined); }} className="space-y-4">
             <div className="space-y-2">
               <Label>Nome</Label>
               <Input value={moduloForm.nome} onChange={(e) => setModuloForm({ ...moduloForm, nome: e.target.value })} placeholder="Ex: WhatsApp avançado" />
@@ -409,9 +434,8 @@ export function PlanosModulosSection() {
                     <button
                       key={m.id}
                       type="button"
-                      className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                        checked ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border hover:bg-muted'
-                      }`}
+                      className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${checked ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border hover:bg-muted'
+                        }`}
                       onClick={() => {
                         setPacoteForm((prev) => ({
                           ...prev,

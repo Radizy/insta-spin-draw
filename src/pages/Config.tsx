@@ -141,11 +141,15 @@ export default function Config() {
     enabled: !!user?.franquiaId,
   });
 
-  // Check if configurar_chamadas_tv module is active
+  // Check if tv_avancada module is active
   useEffect(() => {
     if (!user?.unidadeId) return;
-    isModuloAtivo(user.unidadeId, 'configurar_chamadas_tv').then(setTvCallModuleActive);
+    isModuloAtivo(user.unidadeId, 'tv_avancada').then(setTvCallModuleActive);
   }, [user?.unidadeId]);
+
+  const isModuloAtivoLocal = (modulo: string) => {
+    return (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes(modulo);
+  };
 
   // Buscar bags da franquia
   const { data: franquiaBagTipos = [] } = useQuery<{
@@ -174,15 +178,15 @@ export default function Config() {
     queryKey: ['generated-audios', user?.franquiaId],
     queryFn: async () => {
       if (!user?.franquiaId) return { bags: [], bebida: false };
-      
+
       const { data: files } = await supabase.storage
         .from('motoboy_voices')
         .list(`${user.franquiaId}/bags`);
-      
+
       const { data: bebidaFile } = await supabase.storage
         .from('motoboy_voices')
         .list(user.franquiaId, { search: 'bebida.mp3' });
-      
+
       return {
         bags: files || [],
         bebida: (bebidaFile && bebidaFile.length > 0) || false,
@@ -322,11 +326,11 @@ export default function Config() {
 
   const handleToggleAtivo = (entregador: Entregador) => {
     const updateData: Partial<Entregador> = { ativo: !entregador.ativo };
-    
+
     if (!entregador.ativo) {
       updateData.fila_posicao = new Date().toISOString();
     }
-    
+
     updateMutation.mutate({
       id: entregador.id,
       data: updateData,
@@ -719,9 +723,11 @@ export default function Config() {
           <TabsTrigger value="modulos" className="whitespace-nowrap text-xs sm:text-sm px-3 py-1.5">
             Módulos
           </TabsTrigger>
-          <TabsTrigger value="webhook" className="whitespace-nowrap text-xs sm:text-sm px-3 py-1.5">
-            Integrações &amp; WhatsApp
-          </TabsTrigger>
+          {isModuloAtivoLocal('whatsapp') && (
+            <TabsTrigger value="webhook" className="whitespace-nowrap text-xs sm:text-sm px-3 py-1.5">
+              Integrações &amp; WhatsApp
+            </TabsTrigger>
+          )}
           {user?.role === 'admin_franquia' && (
             <TabsTrigger value="financeiro" className="whitespace-nowrap text-xs sm:text-sm px-3 py-1.5">
               Financeiro
@@ -825,7 +831,7 @@ export default function Config() {
                         // Match filename to bag by name
                         const matchBag = franquiaBagTipos.find(
                           (b) => file.name.toLowerCase().includes(b.nome.toLowerCase()) ||
-                                 file.name.replace('.mp3', '') === b.id
+                            file.name.replace('.mp3', '') === b.id
                         );
                         const bagId = matchBag?.id || file.name.replace('.mp3', '');
                         const path = `${user.franquiaId}/bags/${bagId}.mp3`;
@@ -1300,7 +1306,7 @@ export default function Config() {
                             const { data } = await supabase.storage
                               .from('motoboy_voices')
                               .download(editingEntregador.tts_voice_path!);
-                            
+
                             if (data) {
                               const audioUrl = URL.createObjectURL(data);
                               const audio = new Audio(audioUrl);
@@ -1324,7 +1330,7 @@ export default function Config() {
                             const { data } = await supabase.storage
                               .from('motoboy_voices')
                               .download(editingEntregador.tts_voice_path!);
-                            
+
                             if (data) {
                               const url = URL.createObjectURL(data);
                               const a = document.createElement('a');

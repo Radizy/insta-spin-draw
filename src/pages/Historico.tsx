@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUnit } from '@/contexts/UnitContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Layout, BackButton } from '@/components/Layout';
 import {
   fetchEntregadores,
@@ -88,9 +90,10 @@ function doPost(e) {
 
 export default function Historico() {
   const { selectedUnit } = useUnit();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [scriptDialogOpen, setScriptDialogOpen] = useState(false);
-  const [webhookUrl, setWebhookUrl] = useState(() => 
+  const [webhookUrl, setWebhookUrl] = useState(() =>
     localStorage.getItem('sheets_webhook_url') || ''
   );
   const [isSyncing, setIsSyncing] = useState(false);
@@ -104,7 +107,7 @@ export default function Historico() {
   const getExpedientePeriod = () => {
     const now = new Date();
     const currentHour = now.getHours();
-    
+
     let dataInicio: Date;
     let dataFim: Date;
 
@@ -113,15 +116,15 @@ export default function Historico() {
       dataInicio = new Date(now);
       dataInicio.setDate(dataInicio.getDate() - 1);
       dataInicio.setHours(HORARIO_EXPEDIENTE.inicio, 0, 0, 0);
-      
+
       dataFim = new Date(now);
       dataFim.setHours(HORARIO_EXPEDIENTE.fim, 0, 0, 0);
-    } 
+    }
     // Se estamos após as 17:00, o expediente começou hoje
     else if (currentHour >= HORARIO_EXPEDIENTE.inicio) {
       dataInicio = new Date(now);
       dataInicio.setHours(HORARIO_EXPEDIENTE.inicio, 0, 0, 0);
-      
+
       dataFim = new Date(now);
       dataFim.setDate(dataFim.getDate() + 1);
       dataFim.setHours(HORARIO_EXPEDIENTE.fim, 0, 0, 0);
@@ -131,7 +134,7 @@ export default function Historico() {
       dataInicio = new Date(now);
       dataInicio.setDate(dataInicio.getDate() - 1);
       dataInicio.setHours(HORARIO_EXPEDIENTE.inicio, 0, 0, 0);
-      
+
       dataFim = new Date(now);
       dataFim.setHours(HORARIO_EXPEDIENTE.fim, 0, 0, 0);
     }
@@ -140,6 +143,24 @@ export default function Historico() {
   };
 
   const { dataInicio, dataFim } = getExpedientePeriod();
+
+  // Configurações da franquia para checar módulos ativos
+  const { data: franquiaConfig } = useQuery<{ config_pagamento: any | null }>({
+    queryKey: ['franquia-config-historico', user?.franquiaId],
+    queryFn: async () => {
+      if (!user?.franquiaId) return { config_pagamento: null };
+      const { data, error } = await supabase
+        .from('franquias')
+        .select('config_pagamento')
+        .eq('id', user.franquiaId)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as any) || { config_pagamento: null };
+    },
+    enabled: !!user?.franquiaId,
+  });
+
+  const isPlanilhaAtivo = (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes('planilha');
 
   // Query for fetching entregadores
   const { data: entregadores = [] } = useQuery({
@@ -302,14 +323,18 @@ export default function Historico() {
               Limpar Ontem
             </Button>
           )}
-          <Button variant="outline" onClick={() => setScriptDialogOpen(true)} className="gap-2">
-            <FileSpreadsheet className="w-4 h-4" />
-            Config Planilha
-          </Button>
-          <Button variant="outline" onClick={handleSyncToSheets} disabled={isSyncing} className="gap-2">
-            {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
-            Sincronizar
-          </Button>
+          {isPlanilhaAtivo && (
+            <>
+              <Button variant="outline" onClick={() => setScriptDialogOpen(true)} className="gap-2">
+                <FileSpreadsheet className="w-4 h-4" />
+                Config Planilha
+              </Button>
+              <Button variant="outline" onClick={handleSyncToSheets} disabled={isSyncing} className="gap-2">
+                {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
+                Sincronizar
+              </Button>
+            </>
+          )}
           <Button onClick={handleExportExcel} className="gap-2">
             <Download className="w-4 h-4" />
             Exportar Excel
@@ -395,11 +420,10 @@ export default function Historico() {
                   </TableCell>
                   <TableCell className="text-right">
                     <span
-                      className={`inline-flex items-center justify-center w-10 h-10 rounded-full font-bold font-mono ${
-                        entregador.entregas > 0
+                      className={`inline-flex items-center justify-center w-10 h-10 rounded-full font-bold font-mono ${entregador.entregas > 0
                           ? 'bg-primary text-primary-foreground'
                           : 'bg-secondary text-muted-foreground'
-                      }`}
+                        }`}
                     >
                       {entregador.entregas}
                     </span>
@@ -473,7 +497,7 @@ export default function Historico() {
             </div>
 
             <p className="text-sm text-muted-foreground">
-              A planilha criará automaticamente uma aba para cada dia com o formato: 
+              A planilha criará automaticamente uma aba para cada dia com o formato:
               <span className="font-mono font-semibold"> {selectedUnit}-DD/MM</span>
             </p>
           </div>

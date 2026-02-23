@@ -2,12 +2,12 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUnit } from '@/contexts/UnitContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { 
-  fetchEntregadores, 
+import {
+  fetchEntregadores,
   fetchHistoricoEntregas,
   fetchSystemConfig,
   fetchGlobalConfig,
-  updateEntregador, 
+  updateEntregador,
   shouldShowInQueue,
   Entregador,
   HORARIO_EXPEDIENTE,
@@ -150,7 +150,7 @@ export default function TV() {
   const getExpedientePeriod = () => {
     const now = new Date();
     const currentHour = now.getHours();
-    
+
     let dataInicio: Date;
     let dataFim: Date;
 
@@ -159,14 +159,14 @@ export default function TV() {
       dataInicio = new Date(now);
       dataInicio.setDate(dataInicio.getDate() - 1);
       dataInicio.setHours(HORARIO_EXPEDIENTE.inicio, 0, 0, 0);
-      
+
       dataFim = new Date(now);
       dataFim.setHours(3, 0, 0, 0);
     } else if (currentHour >= HORARIO_EXPEDIENTE.inicio) {
       // Após 17:00 - expediente de hoje
       dataInicio = new Date(now);
       dataInicio.setHours(HORARIO_EXPEDIENTE.inicio, 0, 0, 0);
-      
+
       dataFim = new Date(now);
       dataFim.setDate(dataFim.getDate() + 1);
       dataFim.setHours(3, 0, 0, 0);
@@ -174,7 +174,7 @@ export default function TV() {
       // Entre 03:00 e 17:00 - não há expediente ativo
       dataInicio = new Date(now);
       dataInicio.setHours(HORARIO_EXPEDIENTE.inicio, 0, 0, 0);
-      
+
       dataFim = new Date(now);
       dataFim.setDate(dataFim.getDate() + 1);
       dataFim.setHours(3, 0, 0, 0);
@@ -317,9 +317,9 @@ export default function TV() {
     const checkCacheClean = () => {
       const now = Date.now();
       const oneHour = 60 * 60 * 1000;
-      
+
       if (now - lastCacheClean.current >= oneHour) {
-        queryClient.invalidateQueries({ 
+        queryClient.invalidateQueries({
           queryKey: ['entregadores'],
           refetchType: 'active'
         });
@@ -574,20 +574,20 @@ export default function TV() {
                 : false;
             const hasBebida = hasBebidaFromDb || hasBebidaFromStorage;
             processedCallsRef.current.add(newData.id);
-            
+
             const now = Date.now();
             const timeSinceLastCall = now - lastCallTime.current;
             const delay = Math.max(0, 5000 - timeSinceLastCall);
-            
+
             setTimeout(() => {
               lastCallTime.current = Date.now();
               setDisplayingCalled({ entregador: newData, hasBebida });
               handleCallAnnouncement(newData, hasBebida);
-              
+
               setTimeout(() => {
                 updateMutation.mutate({
                   id: newData.id,
-                  data: { 
+                  data: {
                     status: 'entregando',
                     hora_saida: new Date().toISOString(),
                   },
@@ -608,13 +608,13 @@ export default function TV() {
   // Processar chamados existentes (fallback)
   useEffect(() => {
     const MIN_DELAY_MS = 5000;
-    
+
     calledEntregadores.forEach((entregador) => {
       if (!processedCallsRef.current.has(entregador.id)) {
         const now = Date.now();
         const timeSinceLastCall = now - lastCallTime.current;
         const delay = Math.max(0, MIN_DELAY_MS - timeSinceLastCall);
-        
+
         // Tenta recuperar informação de bebida do localStorage (setada na tela de Roteirista)
         const hasBebidaFromStorage =
           typeof window !== 'undefined'
@@ -622,16 +622,16 @@ export default function TV() {
             : false;
 
         processedCallsRef.current.add(entregador.id);
-        
+
         setTimeout(() => {
           lastCallTime.current = Date.now();
           setDisplayingCalled({ entregador, hasBebida: hasBebidaFromStorage });
           handleCallAnnouncement(entregador, hasBebidaFromStorage);
-          
+
           setTimeout(() => {
             updateMutation.mutate({
               id: entregador.id,
-              data: { 
+              data: {
                 status: 'entregando',
                 hora_saida: new Date().toISOString(),
               },
@@ -697,23 +697,26 @@ export default function TV() {
     try {
       await updateMutation.mutateAsync({
         id: entregador.id,
-        data: { 
+        data: {
           status: 'disponivel',
           fila_posicao: new Date().toISOString(),
           hora_saida: null,
         },
       });
-      
+
       // Calcular nova posição estimada (fila atual + ele voltando)
       const newPosition = availableQueue.length + 1;
-      
+
       // Mensagem de feedback para o motoboy via WhatsApp
-      const whatsappMessage = `Retorno confirmado! Você está na posição ${newPosition} da fila. Valeu pelo trampo! Logo mais tem nova rota para você.`;
-      await sendWhatsAppMessage(entregador.telefone, whatsappMessage, {
-        franquiaId: user.franquiaId ?? null,
-        unidadeId: null,
-      });
-      
+      const isWhatsappAtivo = (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes('whatsapp');
+      if (isWhatsappAtivo) {
+        const whatsappMessage = `Retorno confirmado! Você está na posição ${newPosition} da fila. Valeu pelo trampo! Logo mais tem nova rota para você.`;
+        await sendWhatsAppMessage(entregador.telefone, whatsappMessage, {
+          franquiaId: user.franquiaId ?? null,
+          unidadeId: null,
+        });
+      }
+
       refetch();
       refetchHistorico();
       toast.success(
@@ -729,7 +732,7 @@ export default function TV() {
     try {
       await updateMutation.mutateAsync({
         id: entregador.id,
-        data: { 
+        data: {
           ativo: true,
           status: 'disponivel',
           fila_posicao: new Date().toISOString(),
@@ -769,56 +772,56 @@ export default function TV() {
       <audio ref={audioRef} preload="auto" />
 
       {/* Animação Premium de Chamada (entrega ou pagamento) */}
-       <TVCallAnimation
-         show={!!displayingCalled || !!displayingPagamento}
-         tipo={displayingPagamento ? 'PAGAMENTO' : 'ENTREGA'}
-         nomeMotoboy={
-           displayingPagamento?.entregador_nome ||
-           displayingCalled?.entregador.nome ||
-           ''
-         }
-         bagNome={
-           displayingPagamento
-             ? undefined
-             : (() => {
-                 const bagId = displayingCalled?.entregador.tipo_bag;
-                 if (!bagId) return undefined;
-                 return (
-                   franquiaBagTipos.find((b) => b.id === bagId)?.nome || bagId
-                 );
-               })()
-         }
-         callPhrase={
-           displayingPagamento && displayingPagamento.entregador_nome
-             ? buildTvTexts(
-                 displayingPagamento.entregador_nome,
-                 undefined,
-                 displayingPagamento.numero_senha,
-               ).pagamentoText
-             : (!displayingPagamento && displayingCalled
-                 ? buildTvTexts(
-                     displayingCalled.entregador.nome,
-                     (() => {
-                       const bagId = displayingCalled.entregador.tipo_bag;
-                       if (!bagId) return undefined;
-                       return franquiaBagTipos.find((b) => b.id === bagId)?.nome || bagId;
-                     })(),
-                   ).chamadaText
-                 : undefined)
-         }
-         bagPhrase={
-           !displayingPagamento && displayingCalled
-             ? buildTvTexts(displayingCalled.entregador.nome, (() => {
-                 const bagId = displayingCalled.entregador.tipo_bag;
-                 if (!bagId) return undefined;
-                 return franquiaBagTipos.find((b) => b.id === bagId)?.nome || bagId;
-               })()).bagText
-             : undefined
-         }
-         hasBebida={displayingCalled?.hasBebida || false}
-         bebidaPhrase="🍹 Tem Bebida nas Comandas"
-         onComplete={displayingPagamento ? handlePagamentoAnimationComplete : handleAnimationComplete}
-       />
+      <TVCallAnimation
+        show={!!displayingCalled || !!displayingPagamento}
+        tipo={displayingPagamento ? 'PAGAMENTO' : 'ENTREGA'}
+        nomeMotoboy={
+          displayingPagamento?.entregador_nome ||
+          displayingCalled?.entregador.nome ||
+          ''
+        }
+        bagNome={
+          displayingPagamento
+            ? undefined
+            : (() => {
+              const bagId = displayingCalled?.entregador.tipo_bag;
+              if (!bagId) return undefined;
+              return (
+                franquiaBagTipos.find((b) => b.id === bagId)?.nome || bagId
+              );
+            })()
+        }
+        callPhrase={
+          displayingPagamento && displayingPagamento.entregador_nome
+            ? buildTvTexts(
+              displayingPagamento.entregador_nome,
+              undefined,
+              displayingPagamento.numero_senha,
+            ).pagamentoText
+            : (!displayingPagamento && displayingCalled
+              ? buildTvTexts(
+                displayingCalled.entregador.nome,
+                (() => {
+                  const bagId = displayingCalled.entregador.tipo_bag;
+                  if (!bagId) return undefined;
+                  return franquiaBagTipos.find((b) => b.id === bagId)?.nome || bagId;
+                })(),
+              ).chamadaText
+              : undefined)
+        }
+        bagPhrase={
+          !displayingPagamento && displayingCalled
+            ? buildTvTexts(displayingCalled.entregador.nome, (() => {
+              const bagId = displayingCalled.entregador.tipo_bag;
+              if (!bagId) return undefined;
+              return franquiaBagTipos.find((b) => b.id === bagId)?.nome || bagId;
+            })()).bagText
+            : undefined
+        }
+        hasBebida={displayingCalled?.hasBebida || false}
+        bebidaPhrase="🍹 Tem Bebida nas Comandas"
+        onComplete={displayingPagamento ? handlePagamentoAnimationComplete : handleAnimationComplete}
+      />
 
       {/* Header - Logo sem link + faixa Top 5 */}
       <header className="flex items-center justify-between px-8 py-4 border-b border-border bg-card/50 overflow-hidden relative">
@@ -839,7 +842,7 @@ export default function TV() {
           <div className="flex-1 mx-8 hidden md:block">
             <div className="relative h-12 overflow-hidden rounded-full bg-secondary/70 border border-border">
               <div className="absolute inset-0 flex items-center gap-6 px-6">
-              <span className="flex items-center gap-2 text-xs font-mono text-muted-foreground uppercase tracking-wide whitespace-nowrap">
+                <span className="flex items-center gap-2 text-xs font-mono text-muted-foreground uppercase tracking-wide whitespace-nowrap">
                   <Trophy className="w-4 h-4 text-yellow-500" />
                   Os 3 que mais tiveram saídas
                 </span>

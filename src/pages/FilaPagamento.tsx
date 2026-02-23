@@ -4,22 +4,22 @@ import { useUnit } from '@/contexts/UnitContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Layout, BackButton } from '@/components/Layout';
 import {
-   gerarSenhaPagamento,
-   fetchSenhasPagamento,
-   atenderSenhaPagamento,
-   chamarSenhaPagamento,
-   SenhaPagamento,
-   fetchEntregadores,
-   shouldShowInQueue,
-   Entregador,
-   Unidade,
-   updateEntregador,
-   resetDaily,
- } from '@/lib/api';
- import { toast } from 'sonner';
- import { Ticket, Check, Loader2, Tv, ArrowDownCircle, ArrowRightLeft, RotateCcw, Phone } from 'lucide-react';
- import { Button } from '@/components/ui/button';
- import { supabase } from '@/integrations/supabase/client';
+  gerarSenhaPagamento,
+  fetchSenhasPagamento,
+  atenderSenhaPagamento,
+  chamarSenhaPagamento,
+  SenhaPagamento,
+  fetchEntregadores,
+  shouldShowInQueue,
+  Entregador,
+  Unidade,
+  updateEntregador,
+  resetDaily,
+} from '@/lib/api';
+import { toast } from 'sonner';
+import { Ticket, Check, Loader2, Tv, ArrowDownCircle, ArrowRightLeft, RotateCcw, Phone } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
 import { TvPaymentPreview } from '@/components/TvPaymentPreview';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +33,24 @@ export default function FilaPagamento() {
   const { selectedUnit } = useUnit();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  // Configurações da franquia para checar módulos ativos
+  const { data: franquiaConfig } = useQuery<{ config_pagamento: any | null }>({
+    queryKey: ['franquia-config-pagamento', user?.franquiaId],
+    queryFn: async () => {
+      if (!user?.franquiaId) return { config_pagamento: null };
+      const { data, error } = await supabase
+        .from('franquias')
+        .select('config_pagamento')
+        .eq('id', user.franquiaId)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as any) || { config_pagamento: null };
+    },
+    enabled: !!user?.franquiaId,
+  });
+
+  const isFilaPagamentoAtivo = (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes('fila_pagamento');
 
   // Motoboys da unidade atual
   const { data: entregadores = [] } = useQuery<Entregador[]>({
@@ -184,37 +202,37 @@ export default function FilaPagamento() {
   });
 
   // Voltar motoboy EM_ENTREGA para a fila: gerar nova senha no fim
-   const voltarParaFilaMutation = useMutation({
-     mutationFn: async (senha: SenhaPagamento) => {
-       await supabase
-         .from('senhas_pagamento')
-         .update({ status: 'expirado' })
-         .eq('id', senha.id);
- 
-       if (senha.entregador_id) {
-         const entregador = entregadoresById.get(senha.entregador_id);
-         if (entregador) {
-           await updateEntregador(entregador.id, { status: 'disponivel' });
-         }
- 
-         await gerarSenhaPagamento(
-           senha.unidade_id,
-           senha.franquia_id,
-           senha.entregador_id,
-           senha.entregador_nome || undefined,
-         );
-       }
-     },
-     onSuccess: () => {
-       queryClient.invalidateQueries({ queryKey: ['senhas-pagamento'] });
-       queryClient.invalidateQueries({ queryKey: ['entregadores-pagamento'] });
-       toast.success('Motoboy voltou para a fila com nova senha no final');
-     },
-     onError: () => {
-       toast.error('Erro ao voltar motoboy para a fila');
-     },
-   });
- 
+  const voltarParaFilaMutation = useMutation({
+    mutationFn: async (senha: SenhaPagamento) => {
+      await supabase
+        .from('senhas_pagamento')
+        .update({ status: 'expirado' })
+        .eq('id', senha.id);
+
+      if (senha.entregador_id) {
+        const entregador = entregadoresById.get(senha.entregador_id);
+        if (entregador) {
+          await updateEntregador(entregador.id, { status: 'disponivel' });
+        }
+
+        await gerarSenhaPagamento(
+          senha.unidade_id,
+          senha.franquia_id,
+          senha.entregador_id,
+          senha.entregador_nome || undefined,
+        );
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['senhas-pagamento'] });
+      queryClient.invalidateQueries({ queryKey: ['entregadores-pagamento'] });
+      toast.success('Motoboy voltou para a fila com nova senha no final');
+    },
+    onError: () => {
+      toast.error('Erro ao voltar motoboy para a fila');
+    },
+  });
+
   const resetDailyMutation = useMutation({
     mutationFn: () => resetDaily(selectedUnit),
     onSuccess: () => {
@@ -222,10 +240,10 @@ export default function FilaPagamento() {
       queryClient.invalidateQueries({ queryKey: ['entregadores-pagamento'] });
       toast.success('Reset diário executado para esta unidade: motoboys desativados e histórico limpo.');
     },
-     onError: () => {
-       toast.error('Erro ao executar reset diário. Tente novamente.');
-     },
-   });
+    onError: () => {
+      toast.error('Erro ao executar reset diário. Tente novamente.');
+    },
+  });
 
   // Liberar senhas (motoboys NA_UNIDADE sem senha ainda)
   const handleLiberarSenhas = async () => {
@@ -318,13 +336,29 @@ export default function FilaPagamento() {
     );
   }
 
-   const loadingAcoes =
-     atenderMutation.isPending ||
-     chamarMutation.isPending ||
-     marcarAusenteMutation.isPending ||
-     enviarParaEntregaMutation.isPending ||
-     voltarParaFilaMutation.isPending ||
-     resetDailyMutation.isPending;
+  if (franquiaConfig && !isFilaPagamentoAtivo) {
+    return (
+      <Layout>
+        <BackButton />
+        <div className="flex flex-col items-center justify-center p-8 mt-10 text-center bg-card border border-border rounded-lg shadow-sm">
+          <Ticket className="w-16 h-16 text-muted-foreground mb-4 opacity-50" />
+          <h2 className="text-2xl font-bold font-mono mb-2">Módulo Restrito</h2>
+          <p className="text-muted-foreground max-w-md">
+            Você não possui o módulo de <strong>Fila de Pagamentos</strong> contratado.
+            Entre em contato com o administrador da franquia para habilitar esta funcionalidade.
+          </p>
+        </div>
+      </Layout>
+    );
+  }
+
+  const loadingAcoes =
+    atenderMutation.isPending ||
+    chamarMutation.isPending ||
+    marcarAusenteMutation.isPending ||
+    enviarParaEntregaMutation.isPending ||
+    voltarParaFilaMutation.isPending ||
+    resetDailyMutation.isPending;
 
   const senhaAtualEntregador = senhaAtual?.entregador_id
     ? entregadoresById.get(senhaAtual.entregador_id)
@@ -340,55 +374,55 @@ export default function FilaPagamento() {
     <Layout>
       <BackButton />
 
-       {/* TOPO: ações principais */}
-       <div className="mb-6 space-y-4">
-         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-           <div className="flex flex-wrap gap-3">
-             <Button
-               onClick={handleLiberarSenhas}
-               disabled={loadingAcoes || !motoboysSemSenha.length}
-               className="gap-2"
-             >
-               <ArrowDownCircle className="w-4 h-4" />
-               Liberar senhas (motoboys na unidade)
-             </Button>
- 
-             <Button
-               variant="secondary"
-               onClick={handleChamarProximaSenha}
-               disabled={loadingAcoes || !filaOrdenada.length}
-               className="gap-2"
-             >
-               <Ticket className="w-4 h-4" />
-               Chamar próxima senha
-             </Button>
- 
-             <Button
-               variant="outline"
-               onClick={() => resetDailyMutation.mutate()}
-               disabled={loadingAcoes || resetDailyMutation.isPending}
-               className="gap-2"
-             >
-               <RotateCcw className="w-4 h-4" />
-               Reset diário (motoboys e histórico)
-             </Button>
-           </div>
- 
-           <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-             <div>
-               <span className="block">Motoboys na unidade</span>
-               <span className="font-mono text-lg">{motoboysNaUnidade.length}</span>
-             </div>
-             <div>
-               <span className="block">Na fila de pagamento</span>
-               <span className="font-mono text-lg">{filaOrdenada.length}</span>
-             </div>
-             <div>
-               <span className="block">Pagos hoje</span>
-               <span className="font-mono text-lg">{senhasPagas.length}</span>
-             </div>
-           </div>
-         </div>
+      {/* TOPO: ações principais */}
+      <div className="mb-6 space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div className="flex flex-wrap gap-3">
+            <Button
+              onClick={handleLiberarSenhas}
+              disabled={loadingAcoes || !motoboysSemSenha.length}
+              className="gap-2"
+            >
+              <ArrowDownCircle className="w-4 h-4" />
+              Liberar senhas (motoboys na unidade)
+            </Button>
+
+            <Button
+              variant="secondary"
+              onClick={handleChamarProximaSenha}
+              disabled={loadingAcoes || !filaOrdenada.length}
+              className="gap-2"
+            >
+              <Ticket className="w-4 h-4" />
+              Chamar próxima senha
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => resetDailyMutation.mutate()}
+              disabled={loadingAcoes || resetDailyMutation.isPending}
+              className="gap-2"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Reset diário (motoboys e histórico)
+            </Button>
+          </div>
+
+          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+            <div>
+              <span className="block">Motoboys na unidade</span>
+              <span className="font-mono text-lg">{motoboysNaUnidade.length}</span>
+            </div>
+            <div>
+              <span className="block">Na fila de pagamento</span>
+              <span className="font-mono text-lg">{filaOrdenada.length}</span>
+            </div>
+            <div>
+              <span className="block">Pagos hoje</span>
+              <span className="font-mono text-lg">{senhasPagas.length}</span>
+            </div>
+          </div>
+        </div>
 
         {/* BLOCO CENTRAL: Senha atual + TV */}
         <div className="grid grid-cols-1 lg:grid-cols-[2fr,1fr] gap-4">
@@ -513,9 +547,8 @@ export default function FilaPagamento() {
                   return (
                     <div
                       key={senha.id}
-                      className={`flex items-center justify-between rounded-lg border px-4 py-3 text-sm ${
-                        emEntrega ? 'opacity-60' : ''
-                      } ${isAtual ? 'border-primary bg-primary/5' : 'bg-card border-border'}`}
+                      className={`flex items-center justify-between rounded-lg border px-4 py-3 text-sm ${emEntrega ? 'opacity-60' : ''
+                        } ${isAtual ? 'border-primary bg-primary/5' : 'bg-card border-border'}`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <span className="font-mono font-semibold text-lg text-amber-500">
@@ -546,7 +579,7 @@ export default function FilaPagamento() {
                             Chamar
                           </Button>
                         )}
-                        
+
                         {emEntrega && senha.status === 'aguardando' && (
                           <Button
                             size="sm"
@@ -593,9 +626,9 @@ export default function FilaPagamento() {
                         Horário:{' '}
                         {senha.atendido_em
                           ? new Date(senha.atendido_em).toLocaleTimeString('pt-BR', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })
                           : '--:--'}
                       </p>
                       <p className="text-xs text-muted-foreground">

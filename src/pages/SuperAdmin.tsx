@@ -247,7 +247,7 @@ export default function SuperAdmin() {
   const totalLojas = unidades.length;
   const totalFranquias = franquias.length;
   const totalUsuarios = users.length;
-  
+
   const filteredFranquias = franquias.filter((f) => {
     if (!searchFranquia.trim()) return true;
     const term = searchFranquia.toLowerCase();
@@ -498,13 +498,13 @@ export default function SuperAdmin() {
         config_pagamento: {
           whatsapp:
             franquiaForm.evolution_url &&
-            franquiaForm.evolution_api_key &&
-            franquiaForm.evolution_instance
+              franquiaForm.evolution_api_key &&
+              franquiaForm.evolution_instance
               ? {
-                  url: franquiaForm.evolution_url,
-                  api_key: franquiaForm.evolution_api_key,
-                  instance: franquiaForm.evolution_instance,
-                }
+                url: franquiaForm.evolution_url,
+                api_key: franquiaForm.evolution_api_key,
+                instance: franquiaForm.evolution_instance,
+              }
               : null,
           plano_id: franquiaForm.plano_id || null,
           modulos_ativos: franquiaForm.modulos_ativos,
@@ -918,17 +918,17 @@ export default function SuperAdmin() {
           </div>
         </header>
 
-          <Tabs defaultValue="geral" className="space-y-6">
-            <TabsList className="w-full flex flex-wrap gap-2 overflow-x-auto rounded-lg bg-muted/40 p-1 border border-border sm:w-auto">
-              <TabsTrigger value="geral">Geral</TabsTrigger>
-              <TabsTrigger value="franquias">Franquias</TabsTrigger>
-              <TabsTrigger value="lojas">Lojas</TabsTrigger>
-              <TabsTrigger value="usuarios">Usuários</TabsTrigger>
-              <TabsTrigger value="planos">Planos</TabsTrigger>
-              <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
-              <TabsTrigger value="config">Config</TabsTrigger>
-              <TabsTrigger value="dados">Dados</TabsTrigger>
-            </TabsList>
+        <Tabs defaultValue="geral" className="space-y-6">
+          <TabsList className="w-full flex flex-wrap gap-2 overflow-x-auto rounded-lg bg-muted/40 p-1 border border-border sm:w-auto">
+            <TabsTrigger value="geral">Geral</TabsTrigger>
+            <TabsTrigger value="franquias">Franquias</TabsTrigger>
+            <TabsTrigger value="lojas">Lojas</TabsTrigger>
+            <TabsTrigger value="usuarios">Usuários</TabsTrigger>
+            <TabsTrigger value="planos">Planos</TabsTrigger>
+            <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
+            <TabsTrigger value="config">Config</TabsTrigger>
+            <TabsTrigger value="dados">Dados</TabsTrigger>
+          </TabsList>
 
           {/* Aba Geral */}
           <TabsContent value="geral" className="space-y-6">
@@ -1455,344 +1455,382 @@ export default function SuperAdmin() {
             </DialogTitle>
           </DialogHeader>
 
-          <Tabs defaultValue="dados">
-            <TabsList className="mb-4">
-              <TabsTrigger value="dados">Dados da franquia</TabsTrigger>
-              <TabsTrigger value="integracoes">Integrações</TabsTrigger>
-              <TabsTrigger value="lojas" disabled={!editingFranquia}>
-                Lojas da franquia
-              </TabsTrigger>
-              <TabsTrigger value="bags" disabled={!editingFranquia}>
-                Tipos de BAG
-              </TabsTrigger>
-            </TabsList>
+          <form onSubmit={handleFranquiaSubmit} className="space-y-4">
+            <Tabs defaultValue="dados">
+              <TabsList className="mb-4">
+                <TabsTrigger value="dados">Dados da franquia</TabsTrigger>
+                <TabsTrigger value="modulos">Módulos</TabsTrigger>
+                <TabsTrigger value="integracoes">Integrações</TabsTrigger>
+                <TabsTrigger value="lojas" disabled={!editingFranquia}>
+                  Lojas da franquia
+                </TabsTrigger>
+                <TabsTrigger value="bags" disabled={!editingFranquia}>
+                  Tipos de BAG
+                </TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="dados">
-              <form onSubmit={handleFranquiaSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Nome da franquia</Label>
-                  <Input
-                    value={franquiaForm.nome_franquia}
-                    onChange={(e) => setFranquiaForm({ ...franquiaForm, nome_franquia: e.target.value })}
-                    placeholder="Ex: Dom Fiorentino"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>CPF/CNPJ da franquia</Label>
-                  <Input
-                    value={franquiaForm.cpf_cnpj}
-                    onChange={(e) => setFranquiaForm({ ...franquiaForm, cpf_cnpj: e.target.value })}
-                    placeholder="Somente números"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Slug</Label>
-                  <Input
-                    value={franquiaForm.slug}
-                    onChange={(e) => setFranquiaForm({ ...franquiaForm, slug: e.target.value })}
-                    placeholder="dom-fiorentino"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+              <TabsContent value="dados">
+                <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Limite de lojas</Label>
+                    <Label>Nome da franquia</Label>
                     <Input
-                      type="number"
-                      min={1}
-                      value={franquiaForm.plano_limite_lojas}
+                      value={franquiaForm.nome_franquia}
+                      onChange={(e) => setFranquiaForm({ ...franquiaForm, nome_franquia: e.target.value })}
+                      placeholder="Ex: Dom Fiorentino"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>CPF/CNPJ da franquia</Label>
+                    <Input
+                      value={franquiaForm.cpf_cnpj}
+                      onChange={(e) => setFranquiaForm({ ...franquiaForm, cpf_cnpj: e.target.value })}
+                      placeholder="Somente números"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Slug</Label>
+                    <Input
+                      value={franquiaForm.slug}
+                      onChange={(e) => setFranquiaForm({ ...franquiaForm, slug: e.target.value })}
+                      placeholder="dom-fiorentino"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Limite de lojas</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={franquiaForm.plano_limite_lojas}
+                        onChange={(e) =>
+                          setFranquiaForm({
+                            ...franquiaForm,
+                            plano_limite_lojas: Number(e.target.value) || 1,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Status pagamento</Label>
+                      <Select
+                        value={franquiaForm.status_pagamento}
+                        onValueChange={(v) => setFranquiaForm({ ...franquiaForm, status_pagamento: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ativo">Ativo</SelectItem>
+                          <SelectItem value="inadimplente">Inadimplente</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Data de vencimento</Label>
+                    <Input
+                      type="date"
+                      value={franquiaForm.data_vencimento}
                       onChange={(e) =>
                         setFranquiaForm({
                           ...franquiaForm,
-                          plano_limite_lojas: Number(e.target.value) || 1,
+                          data_vencimento: e.target.value,
                         })
                       }
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Status pagamento</Label>
-                    <Select
-                      value={franquiaForm.status_pagamento}
-                      onValueChange={(v) => setFranquiaForm({ ...franquiaForm, status_pagamento: v })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ativo">Ativo</SelectItem>
-                        <SelectItem value="inadimplente">Inadimplente</SelectItem>
-                      </SelectContent>
-                    </Select>
+
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div className="space-y-2">
+                      <Label>Plano do cliente</Label>
+                      <Select
+                        value={franquiaForm.plano_id}
+                        onValueChange={(v) =>
+                          setFranquiaForm({
+                            ...franquiaForm,
+                            plano_id: v === '__none__' ? '' : v,
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um plano (opcional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Sem plano vinculado</SelectItem>
+                          {planos.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.nome} ({p.tipo})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label>Data de vencimento</Label>
-                  <Input
-                    type="date"
-                    value={franquiaForm.data_vencimento}
-                    onChange={(e) =>
-                      setFranquiaForm({
-                        ...franquiaForm,
-                        data_vencimento: e.target.value,
-                      })
-                    }
-                  />
-                </div>
+                  {editingFranquia && (
+                    <div className="mt-6 space-y-2 border-t border-border/60 pt-4">
+                      <Label className="text-xs font-mono uppercase tracking-wide text-muted-foreground">
+                        Descontos
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Gerencie descontos recorrentes ou apenas para a fatura atual desta franquia.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setDescontoContext('recorrente');
+                            setDescontoForm({ tipo: 'percentual', valor: '' });
+                            setIsDescontoDialogOpen(true);
+                          }}
+                        >
+                          Criar desconto recorrente
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setDescontoContext('pontual');
+                            setDescontoForm({ tipo: 'percentual', valor: '' });
+                            setIsDescontoDialogOpen(true);
+                          }}
+                        >
+                          Desconto nesta fatura
+                        </Button>
+                      </div>
 
-                <div className="grid grid-cols-2 gap-4 mt-4">
+                      {editingFranquia.desconto_tipo &&
+                        editingFranquia.desconto_tipo !== 'nenhum' && (
+                          <div className="mt-3 flex items-center justify-between rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs">
+                            <div className="space-y-1">
+                              <p className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
+                                Desconto atual
+                              </p>
+                              <p>
+                                {editingFranquia.desconto_tipo === 'percentual'
+                                  ? `${Number(editingFranquia.desconto_percentual || 0).toFixed(2)}%`
+                                  : `R$ ${Number(editingFranquia.desconto_valor || 0).toFixed(2)}`}{' '}
+                                {editingFranquia.desconto_recorrente
+                                  ? '• recorrente'
+                                  : '• apenas próxima fatura'}
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="text-xs"
+                              disabled={clearDescontoFranquiaMutation.isPending}
+                              onClick={() => clearDescontoFranquiaMutation.mutate()}
+                            >
+                              Remover desconto
+                            </Button>
+                          </div>
+                        )}
+                    </div>
+                  )}
+
                   <div className="space-y-2">
-                    <Label>Plano do cliente</Label>
+                    <Label>Responsáveis (admins da franquia)</Label>
                     <Select
-                      value={franquiaForm.plano_id}
+                      value={franquiaForm.admin_user_ids[0] || ''}
                       onValueChange={(v) =>
                         setFranquiaForm({
                           ...franquiaForm,
-                          plano_id: v === '__none__' ? '' : v,
+                          admin_user_ids: v ? [v] : [],
                         })
                       }
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecione um plano (opcional)" />
+                        <SelectValue placeholder="Selecione o usuário admin principal" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__none__">Sem plano vinculado</SelectItem>
-                        {planos.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.nome} ({p.tipo})
-                          </SelectItem>
-                        ))}
+                        {users
+                          .filter((u) => !u.franquia_id || u.franquia_id === editingFranquia?.id)
+                          .map((u) => (
+                            <SelectItem key={u.id} value={u.id}>
+                              {u.username} ({u.role})
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Este usuário será o admin da franquia e terá acesso multi-loja.
+                    </p>
                   </div>
+
+                </div>
+              </TabsContent>
+
+              <TabsContent value="modulos" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {modulosGlobais.map((modulo) => {
+                    const isActive = franquiaForm.modulos_ativos.includes(modulo.codigo);
+                    return (
+                      <div
+                        key={modulo.id}
+                        className="flex items-center justify-between p-4 border rounded-lg shadow-sm"
+                      >
+                        <div>
+                          <p className="font-semibold text-sm">{modulo.nome}</p>
+                          <p className="text-xs text-muted-foreground">{modulo.codigo}</p>
+                        </div>
+                        <Switch
+                          checked={isActive}
+                          onCheckedChange={(checked) => {
+                            const novosModulos = checked
+                              ? [...franquiaForm.modulos_ativos, modulo.codigo]
+                              : franquiaForm.modulos_ativos.filter((c) => c !== modulo.codigo);
+                            setFranquiaForm({ ...franquiaForm, modulos_ativos: novosModulos });
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
 
-                {editingFranquia && (
-                  <div className="mt-6 space-y-2 border-t border-border/60 pt-4">
-                    <Label className="text-xs font-mono uppercase tracking-wide text-muted-foreground">
-                      Descontos
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      Gerencie descontos recorrentes ou apenas para a fatura atual desta franquia.
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setDescontoContext('recorrente');
-                          setDescontoForm({ tipo: 'percentual', valor: '' });
-                          setIsDescontoDialogOpen(true);
-                        }}
-                      >
-                        Criar desconto recorrente
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setDescontoContext('pontual');
-                          setDescontoForm({ tipo: 'percentual', valor: '' });
-                          setIsDescontoDialogOpen(true);
-                        }}
-                      >
-                        Desconto nesta fatura
-                      </Button>
-                    </div>
-
-                    {editingFranquia.desconto_tipo &&
-                      editingFranquia.desconto_tipo !== 'nenhum' && (
-                        <div className="mt-3 flex items-center justify-between rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs">
-                          <div className="space-y-1">
-                            <p className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
-                              Desconto atual
-                            </p>
-                            <p>
-                              {editingFranquia.desconto_tipo === 'percentual'
-                                ? `${Number(editingFranquia.desconto_percentual || 0).toFixed(2)}%`
-                                : `R$ ${Number(editingFranquia.desconto_valor || 0).toFixed(2)}`}{' '}
-                              {editingFranquia.desconto_recorrente
-                                ? '• recorrente'
-                                : '• apenas próxima fatura'}
-                            </p>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="text-xs"
-                            disabled={clearDescontoFranquiaMutation.isPending}
-                            onClick={() => clearDescontoFranquiaMutation.mutate()}
-                          >
-                            Remover desconto
-                          </Button>
-                        </div>
-                      )}
+                {modulosGlobais.length === 0 && (
+                  <div className="text-center p-4 text-sm text-muted-foreground">
+                    Nenhum módulo global encontrado no banco de dados. (Você pode cadastrá-los na tabela `modulos`)
                   </div>
                 )}
+              </TabsContent>
+
+              <TabsContent value="integracoes" className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Instância Evolution (opcional)</Label>
+                  <Input
+                    value={franquiaForm.evolution_instance}
+                    onChange={(e) =>
+                      setFranquiaForm({ ...franquiaForm, evolution_instance: e.target.value })
+                    }
+                    placeholder="Identificador da instância Evolution"
+                  />
+                </div>
 
                 <div className="space-y-2">
-                  <Label>Responsáveis (admins da franquia)</Label>
-                  <Select
-                    value={franquiaForm.admin_user_ids[0] || ''}
-                    onValueChange={(v) =>
-                      setFranquiaForm({
-                        ...franquiaForm,
-                        admin_user_ids: v ? [v] : [],
-                      })
+                  <Label>URL da Evolution (WhatsApp)</Label>
+                  <Input
+                    value={franquiaForm.evolution_url}
+                    onChange={(e) => setFranquiaForm({ ...franquiaForm, evolution_url: e.target.value })}
+                    placeholder="https://evolution-api.com"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>API Key da Evolution (WhatsApp)</Label>
+                  <Input
+                    type="password"
+                    value={franquiaForm.evolution_api_key}
+                    onChange={(e) =>
+                      setFranquiaForm({ ...franquiaForm, evolution_api_key: e.target.value })
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o usuário admin principal" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {users
-                        .filter((u) => !u.franquia_id || u.franquia_id === editingFranquia?.id)
-                        .map((u) => (
-                          <SelectItem key={u.id} value={u.id}>
-                            {u.username} ({u.role})
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Este usuário será o admin da franquia e terá acesso multi-loja.
+                    placeholder="Chave da API da Evolution"
+                  />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="lojas" className="space-y-4">
+                {!editingFranquia ? (
+                  <p className="text-sm text-muted-foreground">
+                    Salve a franquia primeiro para gerenciar as lojas.
                   </p>
-                </div>
-
-                <div className="flex gap-3 pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => setIsFranquiaDialogOpen(false)}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="flex-1"
-                    disabled={upsertFranquiaMutation.isPending}
-                  >
-                    {upsertFranquiaMutation.isPending && (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    )}
-                    Salvar
-                  </Button>
-                </div>
-              </form>
-            </TabsContent>
-
-            <TabsContent value="integracoes" className="space-y-4">
-              <div className="space-y-2">
-                <Label>Instância Evolution (opcional)</Label>
-                <Input
-                  value={franquiaForm.evolution_instance}
-                  onChange={(e) =>
-                    setFranquiaForm({ ...franquiaForm, evolution_instance: e.target.value })
-                  }
-                  placeholder="Identificador da instância Evolution"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>URL da Evolution (WhatsApp)</Label>
-                <Input
-                  value={franquiaForm.evolution_url}
-                  onChange={(e) => setFranquiaForm({ ...franquiaForm, evolution_url: e.target.value })}
-                  placeholder="https://evolution-api.com"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>API Key da Evolution (WhatsApp)</Label>
-                <Input
-                  type="password"
-                  value={franquiaForm.evolution_api_key}
-                  onChange={(e) =>
-                    setFranquiaForm({ ...franquiaForm, evolution_api_key: e.target.value })
-                  }
-                  placeholder="Chave da API da Evolution"
-                />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="lojas" className="space-y-4">
-              {!editingFranquia ? (
-                <p className="text-sm text-muted-foreground">
-                  Salve a franquia primeiro para gerenciar as lojas.
-                </p>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-mono font-semibold">Lojas da franquia</h3>
-                    <Button
-                      size="sm"
-                      className="gap-2"
-                      onClick={() => openNewLojaForFranquia(editingFranquia.id)}
-                    >
-                      <Plus className="w-4 h-4" /> Nova loja
-                    </Button>
-                  </div>
-
-                  {unidades.filter((u) => u.franquia_id === editingFranquia.id).length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Nenhuma loja vinculada ainda.</p>
-                  ) : (
-                    <div className="overflow-x-auto border border-border rounded-lg">
-                      <table className="w-full text-sm">
-                        <thead className="bg-muted/50">
-                          <tr>
-                            <th className="px-4 py-2 text-left font-medium">Loja</th>
-                            <th className="px-4 py-2 text-left font-medium">Usuário responsável</th>
-                            <th className="px-4 py-2 text-right font-medium">Ações</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {unidades
-                            .filter((u) => u.franquia_id === editingFranquia.id)
-                            .map((u) => {
-                              const responsibleUser = users.find((usr) => usr.unidade_id === u.id);
-                              return (
-                                <tr key={u.id} className="border-t border-border/60">
-                                  <td className="px-4 py-2">{u.nome_loja}</td>
-                                  <td className="px-4 py-2">
-                                    {responsibleUser ? responsibleUser.username : 'Nenhum'}
-                                  </td>
-                                  <td className="px-4 py-2 text-right space-x-2">
-                                    <Button
-                                      size="icon"
-                                      variant="outline"
-                                      onClick={() => openEditLojaDialog(u)}
-                                      title="Editar loja"
-                                    >
-                                      <Pencil className="w-4 h-4" />
-                                    </Button>
-                                    <Button
-                                      size="icon"
-                                      variant="outline"
-                                      className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                                      onClick={() => deleteLoja(u)}
-                                      title="Excluir loja"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                        </tbody>
-                      </table>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-mono font-semibold">Lojas da franquia</h3>
+                      <Button
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => openNewLojaForFranquia(editingFranquia.id)}
+                      >
+                        <Plus className="w-4 h-4" /> Nova loja
+                      </Button>
                     </div>
-                  )}
-                </>
-              )}
-            </TabsContent>
 
-            <TabsContent value="bags" className="space-y-4">
-              {!editingFranquia ? null : <FranquiaBagsSection franquiaId={editingFranquia.id} />}
-            </TabsContent>
-          </Tabs>
+                    {unidades.filter((u) => u.franquia_id === editingFranquia.id).length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Nenhuma loja vinculada ainda.</p>
+                    ) : (
+                      <div className="overflow-x-auto border border-border rounded-lg">
+                        <table className="w-full text-sm">
+                          <thead className="bg-muted/50">
+                            <tr>
+                              <th className="px-4 py-2 text-left font-medium">Loja</th>
+                              <th className="px-4 py-2 text-left font-medium">Usuário responsável</th>
+                              <th className="px-4 py-2 text-right font-medium">Ações</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {unidades
+                              .filter((u) => u.franquia_id === editingFranquia.id)
+                              .map((u) => {
+                                const responsibleUser = users.find((usr) => usr.unidade_id === u.id);
+                                return (
+                                  <tr key={u.id} className="border-t border-border/60">
+                                    <td className="px-4 py-2">{u.nome_loja}</td>
+                                    <td className="px-4 py-2">
+                                      {responsibleUser ? responsibleUser.username : 'Nenhum'}
+                                    </td>
+                                    <td className="px-4 py-2 text-right space-x-2">
+                                      <Button
+                                        size="icon"
+                                        variant="outline"
+                                        onClick={() => openEditLojaDialog(u)}
+                                        title="Editar loja"
+                                      >
+                                        <Pencil className="w-4 h-4" />
+                                      </Button>
+                                      <Button
+                                        size="icon"
+                                        variant="outline"
+                                        className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                                        onClick={() => deleteLoja(u)}
+                                        title="Excluir loja"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
+                )}
+              </TabsContent>
+
+              <TabsContent value="bags" className="space-y-4">
+                {!editingFranquia ? null : <FranquiaBagsSection franquiaId={editingFranquia.id} />}
+              </TabsContent>
+            </Tabs>
+
+            <div className="flex gap-3 pt-4 mt-2 border-t border-border">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={() => setIsFranquiaDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1"
+                disabled={upsertFranquiaMutation.isPending}
+              >
+                {upsertFranquiaMutation.isPending && (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                )}
+                Salvar
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
 

@@ -10,6 +10,15 @@
 - **Operador**: Acesso às telas operacionais (Roteirista, TV, Fila de Pagamento)
 - **Motoboy**: Portal dedicado para check-in e visualização de status
 
+### Gestão de Módulos (Toggles)
+O sistema conta com restrição de funcionalidades por pacote comercial baseada em módulos.
+Os 4 módulos primordiais são:
+1. **WhatsApp Avançado (`whatsapp`)**: Controla abas de configuração da Evolution API e envio de disparo de mensagens do motoboy de retorno e chamado automático.
+2. **TV Premium (`tv_avancada`)**: Destrava customizações exclusivas como upload de fundo e sons da TV de chamada.
+3. **Integração Planilha (`planilha`)**: Habilita o webhook do Google Sheets no painel de Histórico.
+4. **Fila de Pagamento (`fila_pagamento`)**: Libera o uso da tela `/fila-pagamento` para o gerenciamento de senhas.
+Esses módulos podem ser geridos livremente pelo painel Super Admin na visualização e edição de uma franquia.
+
 ---
 
 ## 🏗️ ARQUITETURA E TECNOLOGIAS
