@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUnit } from '@/contexts/UnitContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,7 +17,9 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ModulosConfig } from '@/components/ModulosConfig';
+import { FranquiaPlanoManager } from '@/components/FranquiaPlanoManager';
 import { FranquiaFinanceiroPanel } from '@/components/FranquiaFinanceiroPanel';
+import { isModuloAtivo } from '@/lib/api';
 import {
   Select,
   SelectContent,
@@ -96,6 +98,7 @@ export default function Config() {
   const [showAudioPreview, setShowAudioPreview] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [tvCallConfigOpen, setTvCallConfigOpen] = useState(false);
+  const [tvCallModuleActive, setTvCallModuleActive] = useState(false);
   const [formData, setFormData] = useState({
     nome: '',
     telefone: '',
@@ -137,6 +140,12 @@ export default function Config() {
     },
     enabled: !!user?.franquiaId,
   });
+
+  // Check if configurar_chamadas_tv module is active
+  useEffect(() => {
+    if (!user?.unidadeId) return;
+    isModuloAtivo(user.unidadeId, 'configurar_chamadas_tv').then(setTvCallModuleActive);
+  }, [user?.unidadeId]);
 
   // Buscar bags da franquia
   const { data: franquiaBagTipos = [] } = useQuery<{
@@ -1047,24 +1056,29 @@ export default function Config() {
 
         <TabsContent value="modulos">
           <div className="space-y-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-semibold">Configurações do Módulo TV</h3>
-                <p className="text-sm text-muted-foreground">Personalize as chamadas exibidas na tela da TV</p>
+            {/* Gerenciador de Plano (admin_franquia) */}
+            {user?.role === 'admin_franquia' && <FranquiaPlanoManager />}
+
+            {/* TV Config - gated behind configurar_chamadas_tv module */}
+            {tvCallModuleActive && (
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold">Configurações do Módulo TV</h3>
+                  <p className="text-sm text-muted-foreground">Personalize as chamadas exibidas na tela da TV</p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => setTvCallConfigOpen(true)}
+                  className="gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <rect x="2" y="7" width="20" height="10" rx="2" strokeWidth="2" />
+                    <path d="M17 17v3M7 17v3M12 13h.01" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                  Configurar Chamadas da TV
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                onClick={() => setTvCallConfigOpen(true)}
-                className="gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <rect x="2" y="7" width="20" height="10" rx="2" strokeWidth="2" />
-                  <path d="M17 17v3M7 17v3M12 13h.01" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-                Configurar Chamadas da TV
-              </Button>
-            </div>
-            {/* Apenas visual: módulos ativos da franquia, incluindo Extra de Animação na TV */}
+            )}
             <ModulosConfig />
           </div>
         </TabsContent>
