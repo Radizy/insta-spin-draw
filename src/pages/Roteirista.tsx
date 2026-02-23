@@ -135,7 +135,9 @@ export default function Roteirista() {
   const calledQueue = entregadores.filter((e) => e.status === 'chamado');
   const deliveringQueue = entregadores.filter((e) => e.status === 'entregando');
 
-  // Auto-transition from "chamado" to "entregando" after 3 seconds
+  // Fallback: auto-transition from "chamado" to "entregando" after 60 seconds
+  // The TV page is the primary handler (transitions after 15s animation).
+  // This fallback ensures motoboys don't get stuck if TV is not open.
   useEffect(() => {
     const checkAndTransition = async () => {
       const now = new Date().getTime();
@@ -144,8 +146,8 @@ export default function Roteirista() {
         const updatedAt = new Date(entregador.updated_at).getTime();
         const secondsPassed = (now - updatedAt) / 1000;
         
-        // If more than 3 seconds have passed, move to "entregando"
-        if (secondsPassed >= 3) {
+        // Only fallback after 60 seconds (TV handles it at ~15s)
+        if (secondsPassed >= 60) {
           try {
             await updateMutation.mutateAsync({
               id: entregador.id,
@@ -155,14 +157,13 @@ export default function Roteirista() {
               },
             });
           } catch (error) {
-            console.error('Erro ao auto-transicionar motoboy:', error);
+            console.error('Erro ao auto-transicionar motoboy (fallback):', error);
           }
         }
       }
     };
 
-    // Check every second
-    const interval = setInterval(checkAndTransition, 1000);
+    const interval = setInterval(checkAndTransition, 5000);
     
     return () => clearInterval(interval);
   }, [calledQueue, updateMutation]);
