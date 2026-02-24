@@ -565,36 +565,45 @@ export default function TV() {
         },
         (payload) => {
           const newData = payload.new as Entregador & { has_bebida?: boolean };
+
+          // Apenas processa se for chamado e ainda não exibido na sessão atual
           if (newData.status === 'chamado' && !processedCallsRef.current.has(newData.id)) {
-            // Verifica flag de bebida vinda do banco ou do localStorage (setada na tela de Roteirista)
             const hasBebidaFromDb = (newData as any).has_bebida ?? false;
             const hasBebidaFromStorage =
               typeof window !== 'undefined'
                 ? localStorage.getItem(`bebida_${newData.id}`) === 'true'
                 : false;
             const hasBebida = hasBebidaFromDb || hasBebidaFromStorage;
+
             processedCallsRef.current.add(newData.id);
 
-            const now = Date.now();
-            const timeSinceLastCall = now - lastCallTime.current;
-            const delay = Math.max(0, 5000 - timeSinceLastCall);
+            // Reseta state de pagamento caso estava em exibição para evitar overlay
+            setDisplayingPagamento(null);
 
+            // Inicia exibição
+            setDisplayingCalled({ entregador: newData, hasBebida });
+
+            // Dispara áudio (execução paralela, não trava a tela)
+            handleCallAnnouncement(newData, hasBebida).catch(err => console.error(err));
+
+            // Transição automática após 15s para Entregando
             setTimeout(() => {
-              lastCallTime.current = Date.now();
-              setDisplayingCalled({ entregador: newData, hasBebida });
-              handleCallAnnouncement(newData, hasBebida);
+              // Somente remove da tela se ainda for ELE o moto a estar sendo exibido
+              setDisplayingCalled((prev) => {
+                if (prev?.entregador.id === newData.id) {
+                  return null;
+                }
+                return prev;
+              });
 
-              setTimeout(() => {
-                updateMutation.mutate({
-                  id: newData.id,
-                  data: {
-                    status: 'entregando',
-                    hora_saida: new Date().toISOString(),
-                  },
-                });
-                setDisplayingCalled(null);
-              }, DISPLAY_TIME_MS);
-            }, delay);
+              updateMutation.mutate({
+                id: newData.id,
+                data: {
+                  status: 'entregando',
+                  hora_saida: new Date().toISOString(),
+                },
+              });
+            }, DISPLAY_TIME_MS);
           }
         }
       )
@@ -607,14 +616,9 @@ export default function TV() {
 
   // Processar chamados existentes (fallback)
   useEffect(() => {
-    const MIN_DELAY_MS = 5000;
-
     calledEntregadores.forEach((entregador) => {
+      // Usar a Ref local para garantir que a tela processe cada moto apenas 1 vez por chamada.
       if (!processedCallsRef.current.has(entregador.id)) {
-        const now = Date.now();
-        const timeSinceLastCall = now - lastCallTime.current;
-        const delay = Math.max(0, MIN_DELAY_MS - timeSinceLastCall);
-
         // Tenta recuperar informação de bebida do localStorage (setada na tela de Roteirista)
         const hasBebidaFromStorage =
           typeof window !== 'undefined'
@@ -623,22 +627,29 @@ export default function TV() {
 
         processedCallsRef.current.add(entregador.id);
 
-        setTimeout(() => {
-          lastCallTime.current = Date.now();
-          setDisplayingCalled({ entregador, hasBebida: hasBebidaFromStorage });
-          handleCallAnnouncement(entregador, hasBebidaFromStorage);
+        setDisplayingPagamento(null);
+        setDisplayingCalled({ entregador, hasBebida: hasBebidaFromStorage });
 
-          setTimeout(() => {
-            updateMutation.mutate({
-              id: entregador.id,
-              data: {
-                status: 'entregando',
-                hora_saida: new Date().toISOString(),
-              },
-            });
-            setDisplayingCalled(null);
-          }, DISPLAY_TIME_MS);
-        }, delay);
+        // Chama o audio paralelamente
+        handleCallAnnouncement(entregador, hasBebidaFromStorage).catch(err => console.error(err));
+
+        setTimeout(() => {
+          // Só remove da tela se ainda for o MESMO motoboy em destaque
+          setDisplayingCalled((prev) => {
+            if (prev?.entregador.id === entregador.id) {
+              return null;
+            }
+            return prev;
+          });
+
+          updateMutation.mutate({
+            id: entregador.id,
+            data: {
+              status: 'entregando',
+              hora_saida: new Date().toISOString(),
+            },
+          });
+        }, DISPLAY_TIME_MS);
       }
     });
 
