@@ -62,6 +62,9 @@ export default function Index() {
             <button onClick={() => scrollToSection('como-funciona')} className="text-sm font-medium hover:text-primary transition-colors">Como Funciona</button>
             <button onClick={() => scrollToSection('modulos')} className="text-sm font-medium hover:text-primary transition-colors">Módulos</button>
             <button onClick={() => scrollToSection('contato')} className="text-sm font-medium hover:text-primary transition-colors">Contato</button>
+            <Link to="/meu-lugar" className="text-sm font-medium hover:text-primary transition-colors text-emerald-500">
+              Sou Motoboy
+            </Link>
           </div>
 
           <div className="hidden md:flex items-center gap-4">
@@ -86,6 +89,7 @@ export default function Index() {
             <button onClick={() => scrollToSection('como-funciona')} className="text-left text-lg font-medium py-2 border-b border-border/50">Como Funciona</button>
             <button onClick={() => scrollToSection('modulos')} className="text-left text-lg font-medium py-2 border-b border-border/50">Módulos</button>
             <button onClick={() => scrollToSection('contato')} className="text-left text-lg font-medium py-2 border-b border-border/50">Contato</button>
+            <Link to="/meu-lugar" className="text-left text-lg font-medium py-2 border-b border-border/50 text-emerald-500">Sou Motoboy</Link>
             <div className="flex flex-col gap-2 pt-2">
               <Button variant="outline" className="w-full justify-center" onClick={() => navigate('/login')}>
                 Fazer Login

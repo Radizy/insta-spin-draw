@@ -10,7 +10,17 @@ CREATE TABLE public.push_subscriptions (
 
 ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Entregadores podem ver e gerenciar suas próprias inscrições push"
+CREATE POLICY "Permitir inserção de inscrições push"
     ON public.push_subscriptions
-    FOR ALL
-    USING (auth.uid() = entregador_id);
+    FOR INSERT
+    WITH CHECK (true);
+
+CREATE POLICY "Permitir atualização de inscrições push"
+    ON public.push_subscriptions
+    FOR UPDATE
+    USING (true);
+
+CREATE POLICY "Permitir leitura de inscrições push"
+    ON public.push_subscriptions
+    FOR SELECT
+    USING (true);
