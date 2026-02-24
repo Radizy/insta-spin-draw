@@ -1438,10 +1438,10 @@ Boa viagem! 🏍️
 / (Index)
   ├── /login (Login Administrativo)
   ├── /register (Cadastro de Franquias)
-  ├── /meu-lugar (Portal Motoboys)
-  │
-  ├── [Protegido - Operacional]
-  ├── /roteirista (Gestão de Fila)
+  - `/meu-lugar`: Portal "Sou Motoboy" para check-in por senha pessoal com **exigência obrigatória de GPS**
+  
+  - `[Protegido - Operacional]`
+  - `/roteirista`: Gestão da Fila e Mapa de Motoboys em Tempo Real
   ├── /tv (Tela de Chamadas)
   ├── /fila-pagamento (Sistema de Senhas)
   ├── /historico (Consulta de Entregas)
@@ -1665,6 +1665,11 @@ ORDER BY valor_final DESC;
 ---
 
 ## 📝 CHANGELOG
+
+### v1.1.0 (2026-02-23)
+- ✅ **Mapa de Entregadores:** Implementado painel Mapa no Roteirista para visualização em tempo real.
+- ✅ **Obrigatoriedade GPS:** Adicionada permissão silenciosa de GPS à página `/meu-lugar` para motoboys operacionais. Se descer sem habilitar, ele toma Erro 503.
+- ✅ **WhatsApp em Lote:** Controles granulares por motoboy e Botão "Desligar/Ligar Todos" migrados da listagem para a Caixa do Módulo de Automações (`Config.tsx`). Esses só carregam na UI se o `whatsapp` estiver ativo para a respectiva loja logada.
 
 ### v1.0.0 (2026-01-02)
 - ✅ Sistema de descontos recorrentes implementado
