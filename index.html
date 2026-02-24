@@ -8,6 +8,15 @@
     <meta name="author" content="FilaLab" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#000000" />
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js');
+        });
+      }
+    </script>
 
     <meta property="og:title" content="FilaLab - Sistema de Gestão de Entregas" />
     <meta property="og:description" content="Sistema profissional de gestão de entregadores com controle de fila, rotação e chamada em tempo real." />

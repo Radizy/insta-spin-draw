@@ -91,7 +91,7 @@ export function isWithinShift(turnoInicio: string, turnoFim: string): boolean {
 
   const [inicioHour, inicioMinute] = turnoInicio.split(':').map(Number);
   const [fimHour, fimMinute] = turnoFim.split(':').map(Number);
-  
+
   const inicioTime = inicioHour * 60 + inicioMinute;
   const fimTime = fimHour * 60 + fimMinute;
 
@@ -99,7 +99,7 @@ export function isWithinShift(turnoInicio: string, turnoFim: string): boolean {
   if (fimTime < inicioTime) {
     return currentTime >= inicioTime || currentTime <= fimTime;
   }
-  
+
   // Turno normal (ex: 08:00 às 17:00)
   return currentTime >= inicioTime && currentTime <= fimTime;
 }
@@ -108,7 +108,7 @@ export function isWithinShift(turnoInicio: string, turnoFim: string): boolean {
 export function isWorkDay(diasTrabalho: DiasTrabalho): boolean {
   const now = new Date();
   const dayOfWeek = now.getDay(); // 0 = domingo, 1 = segunda, etc.
-  
+
   const dayMap: Record<number, keyof DiasTrabalho> = {
     0: 'dom',
     1: 'seg',
@@ -118,31 +118,31 @@ export function isWorkDay(diasTrabalho: DiasTrabalho): boolean {
     5: 'sex',
     6: 'sab',
   };
-  
+
   return diasTrabalho[dayMap[dayOfWeek]] ?? true;
 }
 
 // Verifica se o entregador deve aparecer na fila
 export function shouldShowInQueue(entregador: Entregador): boolean {
   if (!entregador.ativo) return false;
-  
+
   // Verificar dias de trabalho
   const diasTrabalho = entregador.dias_trabalho || {
     dom: true, seg: true, ter: true, qua: true, qui: true, sex: true, sab: true
   };
-  
+
   if (!isWorkDay(diasTrabalho)) return false;
-  
+
   // Verificar turno
-  const turnoInicio = entregador.usar_turno_padrao !== false 
-    ? TURNO_PADRAO.inicio 
+  const turnoInicio = entregador.usar_turno_padrao !== false
+    ? TURNO_PADRAO.inicio
     : (entregador.turno_inicio || TURNO_PADRAO.inicio);
-  const turnoFim = entregador.usar_turno_padrao !== false 
-    ? TURNO_PADRAO.fim 
+  const turnoFim = entregador.usar_turno_padrao !== false
+    ? TURNO_PADRAO.fim
     : (entregador.turno_fim || TURNO_PADRAO.fim);
-  
+
   if (!isWithinShift(turnoInicio, turnoFim)) return false;
-  
+
   return true;
 }
 
@@ -214,7 +214,7 @@ export async function updateEntregador(
   data: Partial<Entregador>
 ): Promise<Entregador> {
   const updateData: Record<string, unknown> = {};
-  
+
   // Copy all properties except dias_trabalho
   Object.entries(data).forEach(([key, value]) => {
     if (key !== 'dias_trabalho') {
@@ -226,7 +226,7 @@ export async function updateEntregador(
   if (data.dias_trabalho !== undefined) {
     updateData.dias_trabalho = data.dias_trabalho;
   }
-  
+
   const { data: result, error } = await supabase
     .from('entregadores')
     .update(updateData)
@@ -432,8 +432,8 @@ export function subscribeToEntregadores(
   };
 }
 
-// Buscar posição do motoboy na fila (busca global por telefone)
 export async function getMotoboyPosition(telefone: string): Promise<{
+  id: string | null;
   position: number | null;
   nome: string | null;
   status: Status | null;
@@ -444,7 +444,7 @@ export async function getMotoboyPosition(telefone: string): Promise<{
   const entregador = entregadores.find(e => e.telefone === telefone);
 
   if (!entregador) {
-    return { position: null, nome: null, status: null };
+    return { id: null, position: null, nome: null, status: null };
   }
 
   // Fila da unidade específica do motoboy
@@ -453,12 +453,13 @@ export async function getMotoboyPosition(telefone: string): Promise<{
     .filter(e => shouldShowInQueue(e) && e.status === 'disponivel');
 
   if (entregador.status !== 'disponivel') {
-    return { position: null, nome: entregador.nome, status: entregador.status };
+    return { id: entregador.id, position: null, nome: entregador.nome, status: entregador.status };
   }
 
   const position = activeQueue.findIndex(e => e.id === entregador.id) + 1;
 
   return {
+    id: entregador.id,
     position: position > 0 ? position : null,
     nome: entregador.nome,
     status: entregador.status,
@@ -593,9 +594,9 @@ export async function isModuloAtivo(unidadeId: string, moduloCodigo: string): Pr
     .eq('modulo_codigo', moduloCodigo)
     .eq('ativo', true)
     .maybeSingle();
-  
+
   if (error || !data) return false;
-  
+
   // Verificar se expirou
   if (data.data_expiracao) {
     const expiracao = new Date(data.data_expiracao);
@@ -603,13 +604,13 @@ export async function isModuloAtivo(unidadeId: string, moduloCodigo: string): Pr
       return false;
     }
   }
-  
+
   return true;
 }
 
 export async function ativarModulo(unidadeId: string, moduloCodigo: string, diasTrial?: number) {
   const dataExpiracao = diasTrial ? new Date(Date.now() + diasTrial * 24 * 60 * 60 * 1000).toISOString() : null;
-  
+
   const { error } = await supabase
     .from('unidade_modulos')
     .upsert({
@@ -618,7 +619,7 @@ export async function ativarModulo(unidadeId: string, moduloCodigo: string, dias
       ativo: true,
       data_expiracao: dataExpiracao,
     });
-  
+
   if (error) throw error;
 }
 
@@ -628,7 +629,7 @@ export async function desativarModulo(unidadeId: string, moduloCodigo: string) {
     .update({ ativo: false })
     .eq('unidade_id', unidadeId)
     .eq('modulo_codigo', moduloCodigo);
-  
+
   if (error) throw error;
 }
 
@@ -658,7 +659,7 @@ export async function gerarSenhaPagamento(
   // Buscar última senha do dia para gerar número sequencial
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
-  
+
   const { data: senhasHoje, error: errorBusca } = await supabase
     .from('senhas_pagamento')
     .select('numero_senha')
@@ -666,18 +667,18 @@ export async function gerarSenhaPagamento(
     .gte('created_at', hoje.toISOString())
     .order('created_at', { ascending: false })
     .limit(1);
-  
+
   if (errorBusca) throw errorBusca;
-  
+
   let proximoNumero = 1;
   if (senhasHoje && senhasHoje.length > 0) {
     const ultimaSenha = senhasHoje[0].numero_senha;
     const numero = parseInt(ultimaSenha.replace('P', ''));
     proximoNumero = numero + 1;
   }
-  
+
   const numeroSenha = `P${proximoNumero.toString().padStart(3, '0')}`;
-  
+
   const { data, error } = await supabase
     .from('senhas_pagamento')
     .insert({
@@ -690,7 +691,7 @@ export async function gerarSenhaPagamento(
     })
     .select()
     .single();
-  
+
   if (error) throw error;
 
   const senha = data as SenhaPagamento;
@@ -772,7 +773,7 @@ export async function fetchSenhasPagamento(unidadeId: string): Promise<SenhaPaga
     .eq('unidade_id', unidadeId)
     .gt('expira_em', new Date().toISOString())
     .order('created_at', { ascending: true });
-  
+
   if (error) throw error;
   return (data || []) as SenhaPagamento[];
 }
@@ -874,7 +875,7 @@ export async function atenderSenhaPagamento(senhaId: string) {
       atendido_em: new Date().toISOString(),
     })
     .eq('id', senhaId);
-  
+
   if (error) throw error;
 }
 

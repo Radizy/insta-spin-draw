@@ -9,6 +9,11 @@ import { Settings, Users, Tv, UserCheck, Pizza, ArrowLeft, LogOut, Ticket, Histo
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { UnitSwitcher } from './UnitSwitcher';
+import { MessageSquare } from 'lucide-react';
+
+const whatsappNumber = "5511954545985";
+const whatsappMessage = encodeURIComponent("Olá! Gostaria de suporte no sistema FilaLab.");
+const whatsappLink = `https://wa.me/${whatsappNumber}?text=${whatsappMessage}`;
 
 interface LayoutProps {
   children: ReactNode;
@@ -58,13 +63,13 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
     navigate('/');
     toast.success('Logout realizado com sucesso');
   };
- 
+
   if (!showHeader) {
     return <>{children}</>;
   }
- 
+
   const isAdminRoute = location.pathname === '/admin';
- 
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
@@ -76,9 +81,9 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
               </div>
               <span className="font-mono font-bold text-lg">FilaLab</span>
             </Link>
- 
+
           </div>
- 
+
           {selectedUnit && !isAdminRoute && (
             <div className="flex items-center gap-4">
               <nav className="flex items-center gap-1">
@@ -103,10 +108,10 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
                   );
                 })}
               </nav>
-              
+
               {/* Seletor de unidade multiloja */}
               <UnitSwitcher />
-              
+
               {!hideLogout && (
                 <>
                   <span className="text-border">|</span>
@@ -123,8 +128,20 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
           )}
         </div>
       </header>
- 
+
       <main className="container py-8 animate-fade-in">{children}</main>
+
+      {/* Floating WhatsApp Button */}
+      <a
+        href={whatsappLink}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-6 right-6 w-14 h-14 bg-green-500 hover:bg-green-600 text-white rounded-full shadow-xl flex items-center justify-center z-50 transition-transform hover:scale-110 animate-bounce"
+        style={{ animationDuration: '3s' }}
+        title="Suporte via WhatsApp"
+      >
+        <MessageSquare className="w-7 h-7" />
+      </a>
     </div>
   );
 }

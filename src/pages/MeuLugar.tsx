@@ -12,7 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
+import { InstallPWAButton } from '@/components/InstallPWAButton';
+import { PushNotificationToggle } from '@/components/PushNotificationToggle';
 
 export default function MeuLugar() {
   const [telefone, setTelefone] = useState('');
@@ -192,10 +193,18 @@ export default function MeuLugar() {
             Atualização automática a cada 10 segundos
           </p>
         )}
+
+        {/* Notificações e PWA */}
+        {positionData && (positionData as any).id && (
+          <div className="mt-8">
+            <PushNotificationToggle entregadorId={(positionData as any).id} />
+          </div>
+        )}
       </div>
 
-      {/* PWA Install Prompt */}
-      <PWAInstallPrompt />
+      <div className="container py-4 max-w-md mx-auto">
+        <InstallPWAButton />
+      </div>
     </div>
   );
 }

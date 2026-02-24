@@ -24,7 +24,7 @@ export default function Index() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // TODO: Edite o número do WhatsApp e mensagem padrão aqui
-  const whatsappNumber = "5511999999999";
+  const whatsappNumber = "5511954545985";
   const whatsappMessage = encodeURIComponent("Olá! Gostaria de saber mais sobre o sistema FilaLab.");
   const whatsappLink = `https://wa.me/${whatsappNumber}?text=${whatsappMessage}`;
 
@@ -68,7 +68,7 @@ export default function Index() {
             <Button variant="ghost" className="font-medium" onClick={() => navigate('/login')}>
               Fazer Login
             </Button>
-            <Button className="font-medium rounded-full px-6" onClick={() => window.open(whatsappLink, '_blank')}>
+            <Button className="font-medium rounded-full px-6" onClick={() => window.location.href = 'https://filalab.com.br/register'}>
               Assinar Agora
             </Button>
           </div>
@@ -90,7 +90,7 @@ export default function Index() {
               <Button variant="outline" className="w-full justify-center" onClick={() => navigate('/login')}>
                 Fazer Login
               </Button>
-              <Button className="w-full justify-center" onClick={() => window.open(whatsappLink, '_blank')}>
+              <Button className="w-full justify-center" onClick={() => window.location.href = 'https://filalab.com.br/register'}>
                 Assinar Agora
               </Button>
             </div>
@@ -266,7 +266,7 @@ export default function Index() {
               <h4 className="font-semibold">Contato</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-center gap-2">
-                  <Phone className="w-4 h-4" /> (11) 99999-9999
+                  <Phone className="w-4 h-4" /> (11) 95454-5985
                 </li>
                 <li className="flex items-center gap-2">
                   <Mail className="w-4 h-4" /> contato@filalab.com.br
