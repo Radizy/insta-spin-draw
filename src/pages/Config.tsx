@@ -54,8 +54,8 @@ import {
   DiasTrabalho,
   TURNO_PADRAO,
 } from '@/lib/api';
+import { Trash2, AlertCircle, Volume2, Plus, Clock, Save, Edit, RefreshCw, LogOut, Download, Mic, Upload, Users, Loader2, Filter, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
-import { Plus, Users, Loader2, LogOut, Filter, RotateCcw } from 'lucide-react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 
 const DIAS_SEMANA = [
@@ -621,37 +621,35 @@ export default function Config() {
     }
 
     const confirmClear = window.confirm(
-      'Tem certeza que deseja remover todos os áudios gerados desta franquia? Isso não pode ser desfeito.',
+      'Tem certeza que deseja remover as vozes apenas dos motoboys DESTA unidade? Isso não pode ser desfeito.',
     );
 
     if (!confirmClear) return;
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/clear-motoboy-voices`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({ franquiaId: user.franquiaId }),
-        },
-      );
-
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error('Erro ao limpar vozes da franquia:', errText);
-        toast.error('Erro ao limpar as vozes. Tente novamente.');
+      const entregadoresComVoz = entregadores.filter((e) => e.tts_voice_path);
+      if (entregadoresComVoz.length === 0) {
+        toast.info('Nenhum motoboy da unidade atual possui voz salva.');
         return;
       }
 
-      // Garantir que o campo tts_voice_path seja limpo também pelo frontend
+      const filesToRemove = entregadoresComVoz.map((e) => e.tts_voice_path!);
+      const { error: deleteStorageError } = await supabase.storage
+        .from('motoboy_voices')
+        .remove(filesToRemove);
+
+      if (deleteStorageError) {
+        console.error('Erro ao limpar storage:', deleteStorageError);
+        toast.error('Ocorreu um erro ao excluir os arquivos do storage.');
+        return;
+      }
+
+      // Remover do Banco de Dados
+      const ids = entregadoresComVoz.map((e) => e.id);
       const { error: updateError } = await supabase
         .from('entregadores')
         .update({ tts_voice_path: null })
-        .like('tts_voice_path', `${user.franquiaId}/%`);
+        .in('id', ids);
 
       if (updateError) {
         console.error('Erro ao limpar tts_voice_path via frontend:', updateError);
@@ -659,10 +657,62 @@ export default function Config() {
 
       await queryClient.invalidateQueries({ queryKey: ['entregadores'] });
       refetchAudios();
-      toast.success('Todas as vozes dos motoboys desta franquia foram removidas.');
+      toast.success('Todas as vozes da unidade atual foram removidas.');
     } catch (error) {
-      console.error('Erro inesperado ao limpar vozes:', error);
+      console.error('Erro inesperado ao limpar vozes da unidade:', error);
       toast.error('Erro inesperado ao limpar as vozes.');
+    }
+  };
+
+  const hiddenBagAudioRef = useRef<HTMLInputElement | null>(null);
+  const handleImportBagsAudios = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0 || !user?.franquiaId) return;
+
+    let sucesso = 0;
+    let falhas = 0;
+
+    toast.info('Iniciando importação de áudios de bags...');
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.type !== 'audio/mpeg' && !file.name.endsWith('.mp3')) {
+        falhas++;
+        continue;
+      }
+
+      // Procura uma BAG com o nome igual ao nome do arquivo (sem o .mp3)
+      const fileNameWithoutExt = file.name.replace(/\.mp3$/i, '').trim().toLowerCase();
+      const bagCorrespondente = franquiaBagTipos.find(
+        (b) => b.nome.trim().toLowerCase() === fileNameWithoutExt
+      );
+
+      if (!bagCorrespondente) {
+        console.warn(`BAG não encontrada para o arquivo: ${file.name}`);
+        falhas++;
+        continue;
+      }
+
+      const filePath = `${user.franquiaId}/bags/${bagCorrespondente.id}.mp3`;
+      const { error } = await supabase.storage
+        .from('motoboy_voices')
+        .upload(filePath, file, { cacheControl: '3600', upsert: true });
+
+      if (error) {
+        console.error(`Erro ao subir ${file.name}:`, error);
+        falhas++;
+      } else {
+        sucesso++;
+      }
+    }
+
+    if (hiddenBagAudioRef.current) hiddenBagAudioRef.current.value = '';
+
+    refetchAudios();
+    if (sucesso > 0) {
+      toast.success(`Foram importados ${sucesso} áudios de bags com sucesso! ${falhas ? `Falha em ${falhas}.` : ''}`);
+    } else {
+      toast.error(`Nenhum áudio foi correspondido com as bags criadas (verifique o nome do arquivo). Arquivos ignorados: ${falhas}.`);
     }
   };
 
@@ -800,61 +850,6 @@ export default function Config() {
                 </Button>
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={handleClearAllVoices}
-                  disabled={isGeneratingAllVoices}
-                  className="gap-2 text-xs sm:text-sm"
-                >
-                  Limpar vozes
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleClearBagAudios}
-                  disabled={isGeneratingAllVoices}
-                  className="gap-2 text-xs sm:text-sm"
-                >
-                  Limpar áudios bags
-                </Button>
-                {/* Importar áudio de bag */}
-                <div className="relative">
-                  <input
-                    type="file"
-                    accept="audio/mpeg,audio/mp3"
-                    multiple
-                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                    onChange={async (e) => {
-                      const files = e.target.files;
-                      if (!files || !user?.franquiaId) return;
-                      let ok = 0;
-                      for (const file of Array.from(files)) {
-                        // Match filename to bag by name
-                        const matchBag = franquiaBagTipos.find(
-                          (b) => file.name.toLowerCase().includes(b.nome.toLowerCase()) ||
-                            file.name.replace('.mp3', '') === b.id
-                        );
-                        const bagId = matchBag?.id || file.name.replace('.mp3', '');
-                        const path = `${user.franquiaId}/bags/${bagId}.mp3`;
-                        const { error } = await supabase.storage
-                          .from('motoboy_voices')
-                          .upload(path, file, { upsert: true, contentType: 'audio/mpeg' });
-                        if (!error) ok++;
-                      }
-                      refetchAudios();
-                      toast.success(`${ok} áudios de bag importados!`);
-                      e.target.value = '';
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="gap-2 text-xs sm:text-sm pointer-events-none"
-                  >
-                    Importar Áudios Bags
-                  </Button>
-                </div>
-                <Button
-                  type="button"
                   variant="destructive"
                   onClick={() => setResetDialogOpen(true)}
                   className="gap-2 text-xs sm:text-sm"
@@ -874,6 +869,42 @@ export default function Config() {
                     Cancelar
                   </Button>
                 ) : null)}
+
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={handleClearAllVoices}
+                  title="Apagar todos os áudios desta unidade local"
+                  disabled={isGeneratingAllVoices}
+                >
+                  Limpar vozes
+                </Button>
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={handleClearBagAudios}
+                  title="Apagar todos os áudios de bolsas desta franquia"
+                  disabled={isGeneratingAllVoices}
+                >
+                  Limpar áudios bags
+                </Button>
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => hiddenBagAudioRef.current?.click()}
+                  title="Importar arquivos MP3 com o mesmo nome das bolsas"
+                  disabled={isGeneratingAllVoices}
+                >
+                  <Upload className="w-4 h-4" /> Importar Áudios Bags
+                </Button>
+                <input
+                  type="file"
+                  accept="audio/mpeg,.mp3"
+                  multiple
+                  ref={hiddenBagAudioRef}
+                  className="hidden"
+                  onChange={handleImportBagsAudios}
+                />
               </div>
               {isGeneratingAllVoices && voicesProgress && (
                 <div className="flex items-center gap-2 w-full max-w-xs md:max-w-sm ml-auto">
