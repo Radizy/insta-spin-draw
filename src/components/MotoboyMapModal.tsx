@@ -46,9 +46,13 @@ export function MotoboyMapModal({ open, onOpenChange, entregadores }: MotoboyMap
 
             if (active.length > 0) {
                 // Calcular o centro geográfico a partir da média dos pontos ativos para câmera inicial
-                const avgLat = active.reduce((sum, e) => sum + (e.lat || 0), 0) / active.length;
-                const avgLng = active.reduce((sum, e) => sum + (e.lng || 0), 0) / active.length;
-                setCenter([avgLat, avgLng]);
+                // Supabase retorna NUMERIC como string, então precisamos de Number()
+                const avgLat = active.reduce((sum, e) => sum + (Number(e.lat) || 0), 0) / active.length;
+                const avgLng = active.reduce((sum, e) => sum + (Number(e.lng) || 0), 0) / active.length;
+
+                if (!isNaN(avgLat) && !isNaN(avgLng)) {
+                    setCenter([avgLat, avgLng]);
+                }
             }
         }
     }, [open, entregadores]);
@@ -72,19 +76,25 @@ export function MotoboyMapModal({ open, onOpenChange, entregadores }: MotoboyMap
                                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                             />
-                            {activeMotoboys.map((e) => (
-                                <Marker
-                                    key={e.id}
-                                    position={[e.lat!, e.lng!]}
-                                    icon={createCustomIcon(e.status)}
-                                >
-                                    <Popup className="font-mono text-sm">
-                                        <strong>{e.nome}</strong><br />
-                                        Status: {e.status}<br />
-                                        {e.status === 'disponivel' && e.fila_posicao ? `Fila: #${e.fila_posicao}` : ''}
-                                    </Popup>
-                                </Marker>
-                            ))}
+                            {activeMotoboys.map((e) => {
+                                const latNum = Number(e.lat);
+                                const lngNum = Number(e.lng);
+                                if (isNaN(latNum) || isNaN(lngNum)) return null;
+
+                                return (
+                                    <Marker
+                                        key={e.id}
+                                        position={[latNum, lngNum]}
+                                        icon={createCustomIcon(e.status)}
+                                    >
+                                        <Popup className="font-mono text-sm">
+                                            <strong>{e.nome}</strong><br />
+                                            Status: {e.status}<br />
+                                            {e.status === 'disponivel' && e.fila_posicao ? `Fila: #${e.fila_posicao}` : ''}
+                                        </Popup>
+                                    </Marker>
+                                );
+                            })}
                         </MapContainer>
                     )}
                 </div>
