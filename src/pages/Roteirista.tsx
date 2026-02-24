@@ -15,7 +15,7 @@ import {
   resetDaily,
 } from '@/lib/api';
 import { toast } from 'sonner';
-import { Users, Loader2, Phone, GripVertical, SkipForward, UserMinus, LogOut, ArrowRight, MessageSquare } from 'lucide-react';
+import { Users, Loader2, Phone, GripVertical, SkipForward, UserMinus, LogOut, ArrowRight, MessageSquare, Map } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import {
   Dialog,
@@ -42,6 +42,7 @@ import { ReturnToQueueModal } from '@/components/ReturnToQueueModal';
 import { DeliveryTimer } from '@/components/DeliveryTimer';
 import { supabase } from '@/integrations/supabase/client';
 import { TvPaymentPreview } from '@/components/TvPaymentPreview';
+import { MotoboyMapModal } from '@/components/MotoboyMapModal';
 
 export default function Roteirista() {
   const { selectedUnit, setSelectedUnit } = useUnit();
@@ -66,10 +67,10 @@ export default function Roteirista() {
   const [skipReason, setSkipReason] = useState('');
   const [isSending, setIsSending] = useState(false);
 
-  // Novos estados para as ações adicionais
   const [callMotoboyOpen, setCallMotoboyOpen] = useState(false);
   const [returnToQueueOpen, setReturnToQueueOpen] = useState(false);
   const [actionEntregador, setActionEntregador] = useState<Entregador | null>(null);
+  const [mapModalOpen, setMapModalOpen] = useState(false);
 
   // Tipos de BAG configurados para a franquia da unidade atual
   const { data: franquiaBagTipos = [], isLoading: isLoadingBags } = useQuery<{ id: string; nome: string; descricao: string | null; ativo: boolean; franquia_id: string }[]>({
@@ -484,15 +485,26 @@ export default function Roteirista() {
     <Layout>
       <BackButton />
 
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold font-mono mb-2">Roteirista</h1>
-        <p className="text-muted-foreground">
-          Controle da fila de entregas •{' '}
-          <span className="font-semibold text-foreground">{selectedUnit}</span>
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Saídas aproximadas hoje: <span className="font-mono font-semibold">{saidasHoje?.count ?? 0}</span>
-        </p>
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold font-mono mb-2">Roteirista</h1>
+          <p className="text-muted-foreground">
+            Controle da fila de entregas •{' '}
+            <span className="font-semibold text-foreground">{selectedUnit}</span>
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Saídas aproximadas hoje: <span className="font-mono font-semibold">{saidasHoje?.count ?? 0}</span>
+          </p>
+        </div>
+
+        <Button
+          variant="outline"
+          className="gap-2 shrink-0 md:h-12 border-primary/50 hover:bg-primary/10 transition-colors"
+          onClick={() => setMapModalOpen(true)}
+        >
+          <Map className="w-5 h-5 text-primary" />
+          Mapa dos Entregadores
+        </Button>
       </div>
 
       {/* Botão Grande CHAMAR O PRÓXIMO */}
@@ -802,8 +814,8 @@ export default function Roteirista() {
                     type="button"
                     onClick={() => setHasBebida(false)}
                     className={`p-4 border-2 rounded-lg transition-colors ${!hasBebida
-                        ? 'border-primary bg-primary/10'
-                        : 'border-border hover:border-primary/50'
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border hover:border-primary/50'
                       }`}
                   >
                     <div className="text-center">
@@ -815,8 +827,8 @@ export default function Roteirista() {
                     type="button"
                     onClick={() => setHasBebida(true)}
                     className={`p-4 border-2 rounded-lg transition-colors ${hasBebida
-                        ? 'border-orange-500 bg-orange-500/10'
-                        : 'border-border hover:border-orange-500/50'
+                      ? 'border-orange-500 bg-orange-500/10'
+                      : 'border-border hover:border-orange-500/50'
                       }`}
                   >
                     <div className="text-center">
@@ -928,6 +940,13 @@ export default function Roteirista() {
         entregador={actionEntregador}
         onConfirm={handleReturnToQueue}
         isLoading={isSending}
+      />
+
+      {/* Modal de Mapa */}
+      <MotoboyMapModal
+        open={mapModalOpen}
+        onOpenChange={setMapModalOpen}
+        entregadores={entregadores}
       />
     </Layout>
   );

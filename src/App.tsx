@@ -18,7 +18,6 @@ import NotFound from "./pages/NotFound";
 import SuperAdmin from "./pages/SuperAdmin";
 import FilaPagamento from "./pages/FilaPagamento";
 
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

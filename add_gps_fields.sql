@@ -1,0 +1,5 @@
+-- Script para adicionar campos de GPS
+ALTER TABLE public.entregadores
+ADD COLUMN IF NOT EXISTS lat NUMERIC,
+ADD COLUMN IF NOT EXISTS lng NUMERIC,
+ADD COLUMN IF NOT EXISTS last_location_time TIMESTAMP WITH TIME ZONE;

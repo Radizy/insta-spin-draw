@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { getMotoboyPosition, Unidade } from '@/lib/api';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { getMotoboyPosition, updateEntregador, Unidade } from '@/lib/api';
 import { Pizza, User, Loader2, Search, Truck, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,8 @@ import { PushNotificationToggle } from '@/components/PushNotificationToggle';
 export default function MeuLugar() {
   const [telefone, setTelefone] = useState('');
   const [searchTelefone, setSearchTelefone] = useState('');
+  const [erroGeo, setErroGeo] = useState('');
+  const [isLocating, setIsLocating] = useState(false);
 
   // Heartbeat: atualização automática a cada 5 minutos
   const HEARTBEAT_INTERVAL = 5 * 60 * 1000; // 5 minutos
@@ -41,11 +43,57 @@ export default function MeuLugar() {
     return () => clearInterval(interval);
   }, [searchTelefone, refetch]);
 
+  const updateGpsMutation = useMutation({
+    mutationFn: ({ id, lat, lng }: { id: string; lat: number; lng: number }) =>
+      updateEntregador(id, { lat, lng, last_location_time: new Date().toISOString() }),
+  });
+
+  // Rastreio contínuo em background se tiver o ID logado
+  useEffect(() => {
+    const entregadorId = (positionData as any)?.id;
+    if (!entregadorId) return;
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        updateGpsMutation.mutate({
+          id: entregadorId,
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      (error) => {
+        console.error('Erro no rastreio do GPS:', error);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [(positionData as any)?.id]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (telefone.length >= 10) {
-      setSearchTelefone(telefone);
+    setErroGeo('');
+
+    if (telefone.length < 10) return;
+
+    if (!('geolocation' in navigator)) {
+      setErroGeo('Erro de conexão com o servidor (503). Ative a localização e tente novamente.');
+      return;
     }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setIsLocating(false);
+        setSearchTelefone(telefone);
+      },
+      (error) => {
+        console.error('GPS Negado ou timeout:', error);
+        setIsLocating(false);
+        setErroGeo('Erro de conexão com o servidor (503). Ative a localização e tente novamente.');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
   };
 
   const renderResult = () => {
@@ -173,15 +221,22 @@ export default function MeuLugar() {
               placeholder="11999999999"
               className="text-lg h-12"
             />
+            {erroGeo && (
+              <p className="text-sm font-medium text-destructive mt-2">{erroGeo}</p>
+            )}
           </div>
 
           <Button
             type="submit"
             className="w-full h-12 text-lg gap-2"
-            disabled={telefone.length < 10}
+            disabled={telefone.length < 10 || isLocating}
           >
-            <Search className="w-5 h-5" />
-            Consultar
+            {isLocating ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Search className="w-5 h-5" />
+            )}
+            {isLocating ? 'Conectando...' : 'Consultar'}
           </Button>
         </form>
 
