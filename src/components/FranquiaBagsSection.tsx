@@ -197,19 +197,19 @@ export const FranquiaBagsSection: React.FC<FranquiaBagsSectionProps> = ({ franqu
           <CardTitle className="text-sm font-mono">Tipos de BAG da franquia</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              upsertBagMutation.mutate();
-            }}
-            className="grid gap-4 md:grid-cols-3 items-end"
-          >
+          <div className="grid gap-4 md:grid-cols-3 items-end">
             <div className="space-y-2">
               <Label>Nome do tipo</Label>
               <Input
                 placeholder="Ex: BAG Normal, BAG Metro"
                 value={bagForm.nome}
                 onChange={(e) => setBagForm({ ...bagForm, nome: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (bagForm.nome.trim()) upsertBagMutation.mutate();
+                  }
+                }}
               />
             </div>
             <div className="space-y-2 md:col-span-2">
@@ -218,12 +218,23 @@ export const FranquiaBagsSection: React.FC<FranquiaBagsSectionProps> = ({ franqu
                 placeholder="Descrição interna para identificação"
                 value={bagForm.descricao}
                 onChange={(e) => setBagForm({ ...bagForm, descricao: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (bagForm.nome.trim()) upsertBagMutation.mutate();
+                  }
+                }}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={upsertBagMutation.isPending}>
+            <Button
+              type="button"
+              className="w-full"
+              disabled={upsertBagMutation.isPending || !bagForm.nome.trim()}
+              onClick={() => upsertBagMutation.mutate()}
+            >
               {bagForm.id ? 'Atualizar tipo' : 'Adicionar tipo'}
             </Button>
-          </form>
+          </div>
 
           {/* Input oculto de upload */}
           <input
