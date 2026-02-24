@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { MessageSquare, Plus, Save, Trash2 } from 'lucide-react';
+import { MessageSquare, Plus, Save, Trash2, MessageCircle, MessageCircleOff } from 'lucide-react';
 
 interface WhatsAppTemplate {
   id: string;
@@ -116,6 +116,27 @@ export function WhatsAppTemplates() {
     },
   });
 
+  // Mutation para ativar/desativar WhatsApp em lote
+  const updateBulkWhatsappMutation = useMutation({
+    mutationFn: async ({ status }: { status: boolean }) => {
+      if (!selectedUnit) return;
+
+      const { error } = await supabase
+        .from('entregadores')
+        .update({ whatsapp_ativo: status })
+        .eq('unidade', selectedUnit);
+
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['entregadores'] });
+      toast.success(variables.status ? 'WhatsApp ativado para todos (unidade)!' : 'WhatsApp desativado para todos (unidade)!');
+    },
+    onError: () => {
+      toast.error('Erro ao processar ativação em lote do WhatsApp');
+    },
+  });
+
   const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -158,20 +179,49 @@ export function WhatsAppTemplates() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <MessageSquare className="w-5 h-5" />
-          Templates WhatsApp
-        </CardTitle>
-        <CardDescription>
-          Configure mensagens personalizadas para diferentes situações nesta loja.
-          Use <code>{'{{nome}}'}</code>, <code>{'{{bag}}'}</code>, <code>{'{{mensagem}}'}</code>,
-          <code>{'{{senha}}'}</code> como variáveis.{' '}
-          {unidadeInfoLabel && (
-            <span className="block text-xs text-muted-foreground mt-1">
-              Loja selecionada: <strong>{unidadeInfoLabel}</strong>
-            </span>
-          )}
-        </CardDescription>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <MessageSquare className="w-5 h-5" />
+              Templates WhatsApp
+            </CardTitle>
+            <CardDescription className="mt-1.5">
+              Configure mensagens personalizadas para diferentes situações nesta loja.
+              Use <code>{'{{nome}}'}</code>, <code>{'{{bag}}'}</code>, <code>{'{{mensagem}}'}</code>,
+              <code>{'{{senha}}'}</code> como variáveis.{' '}
+              {unidadeInfoLabel && (
+                <span className="block text-xs text-muted-foreground mt-1">
+                  Loja selecionada: <strong>{unidadeInfoLabel}</strong>
+                </span>
+              )}
+            </CardDescription>
+          </div>
+
+          <div className="flex bg-card border border-border rounded-md overflow-hidden shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => updateBulkWhatsappMutation.mutate({ status: true })}
+              disabled={updateBulkWhatsappMutation.isPending}
+              className="h-10 px-3 rounded-none border-r border-border hover:bg-green-500/10 hover:text-green-500"
+              title="Ativar WhatsApp para todos nesta unidade"
+            >
+              <MessageCircle className="w-4 h-4 mr-1 text-green-500" />
+              <span className="hidden sm:inline">Todos On</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => updateBulkWhatsappMutation.mutate({ status: false })}
+              disabled={updateBulkWhatsappMutation.isPending}
+              className="h-10 px-3 rounded-none hover:bg-red-500/10 hover:text-red-500"
+              title="Desativar WhatsApp para todos nesta unidade"
+            >
+              <MessageCircleOff className="w-4 h-4 mr-1 text-red-500" />
+              <span className="hidden sm:inline">Todos Off</span>
+            </Button>
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
         {isLoading ? (

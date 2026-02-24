@@ -1123,7 +1123,7 @@ export default function Config() {
         <TabsContent value="webhook">
           <div className="space-y-6">
             <WebhookConfig />
-            <WhatsAppTemplates />
+            {isModuloAtivoLocal('whatsapp') && <WhatsAppTemplates />}
           </div>
         </TabsContent>
 
@@ -1259,7 +1259,7 @@ export default function Config() {
             </div>
 
             {/* WhatsApp toggle por motoboy */}
-            {editingEntregador && (
+            {editingEntregador && isModuloAtivoLocal('whatsapp') && (
               <div className="flex items-center justify-between border border-border rounded-lg p-4">
                 <div>
                   <Label>Mensagens WhatsApp</Label>

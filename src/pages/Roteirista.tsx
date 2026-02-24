@@ -121,29 +121,6 @@ export default function Roteirista() {
     },
   });
 
-  // Mutation for bulk updating whatsapp status
-  const updateBulkWhatsappMutation = useMutation({
-    mutationFn: async ({ status }: { status: boolean }) => {
-      // Pega todos os IDs da unidade selecionada
-      const ids = entregadores.map(e => e.id);
-      if (ids.length === 0) return;
-
-      const { error } = await supabase
-        .from('entregadores')
-        .update({ whatsapp_ativo: status })
-        .in('id', ids);
-
-      if (error) throw error;
-    },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['entregadores'] });
-      toast.success(variables.status ? 'WhatsApp ativado para todos da unidade!' : 'WhatsApp desativado para todos da unidade!');
-    },
-    onError: () => {
-      toast.error('Erro ao processar ativação em lote do WhatsApp');
-    },
-  });
-
 
   // Filter by status and shift/workdays for display, liberando quem fez check-in recente
   const hasRecentCheckin = (entregador: Entregador) => {
@@ -521,34 +498,6 @@ export default function Roteirista() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Apenas mostra controles de WhatsApp se o módulo FilaLab Webhook estiver ativo na Franquia */}
-          {isWhatsappAtivo && (
-            <div className="flex bg-card border border-border rounded-md overflow-hidden mr-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => updateBulkWhatsappMutation.mutate({ status: true })}
-                disabled={updateBulkWhatsappMutation.isPending || isLoading}
-                className="h-10 px-3 rounded-none border-r border-border hover:bg-green-500/10 hover:text-green-500"
-                title="Ativar WhatsApp para todos nesta unidade"
-              >
-                <MessageCircle className="w-4 h-4 mr-1 text-green-500" />
-                <span className="hidden sm:inline">Todos On</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => updateBulkWhatsappMutation.mutate({ status: false })}
-                disabled={updateBulkWhatsappMutation.isPending || isLoading}
-                className="h-10 px-3 rounded-none hover:bg-red-500/10 hover:text-red-500"
-                title="Desativar WhatsApp para todos nesta unidade"
-              >
-                <MessageCircleOff className="w-4 h-4 mr-1 text-red-500" />
-                <span className="hidden sm:inline">Todos Off</span>
-              </Button>
-            </div>
-          )}
-
           <Button
             variant="outline"
             className="gap-2 shrink-0 md:h-12 border-primary/50 hover:bg-primary/10 transition-colors"
