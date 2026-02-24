@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTTS } from '@/hooks/useTTS';
+import { TvPlaylistManager } from '@/components/TvPlaylistManager';
 
 interface Modulo {
   id: string;
@@ -255,6 +256,11 @@ export function ModulosConfig() {
           <TvTtsConfigSection franquiaId={user.franquiaId} initialConfig={tvTtsConfig} />
         )}
 
+        {/* TV Screensaver Playlist */}
+        {user?.franquiaId && selectedUnit && user?.unidadeId && (
+          <TvPlaylistManager franquiaId={user.franquiaId} unidadeId={user.unidadeId} />
+        )}
+
         {/* Integração Planilha (Google Sheets) */}
         {modulosAtivos.includes('integracao_planilha') && selectedUnit && (
           <div className="border-t border-border pt-6 space-y-4">
@@ -290,12 +296,12 @@ export function ModulosConfig() {
 
                     const upsertError = data
                       ? (await supabase
-                          .from('system_config')
-                          .update({ webhook_url: webhookUrl })
-                          .eq('id', data.id)).error
+                        .from('system_config')
+                        .update({ webhook_url: webhookUrl })
+                        .eq('id', data.id)).error
                       : (await supabase
-                          .from('system_config')
-                          .insert({ unidade: selectedUnit, webhook_url: webhookUrl } as any)).error;
+                        .from('system_config')
+                        .insert({ unidade: selectedUnit, webhook_url: webhookUrl } as any)).error;
 
                     if (upsertError) {
                       toast.error('Erro ao salvar webhook');
@@ -606,7 +612,7 @@ function TvTtsConfigSection({ franquiaId, initialConfig }: TvTtsConfigSectionPro
         <span className="text-sm font-semibold">Voz e som da chamada (TV)</span>
       </div>
       <p className="text-xs text-muted-foreground">
-        🆓 Sistema 100% gratuito usando Web Speech API (única opção sem API key). 
+        🆓 Sistema 100% gratuito usando Web Speech API (única opção sem API key).
         As vozes Google Cloud, Amazon Polly, Azure, etc. todas requerem pagamento e API keys.
         O toque inicial (tipo iFood/99) é fixo e não consome créditos.
       </p>

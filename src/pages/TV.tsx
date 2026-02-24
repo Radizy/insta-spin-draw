@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { useTTS } from '@/hooks/useTTS';
 import { CheckinModal } from '@/components/CheckinModal';
 import { TVCallAnimation } from '@/components/TVCallAnimation';
+import { WeatherSlide } from '@/components/WeatherSlide';
 import { supabase } from '@/integrations/supabase/client';
 
 const DEFAULT_CALL_AUDIO_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
@@ -137,7 +138,178 @@ export default function TV() {
     queryFn: () => fetchGlobalConfig('system_name'),
   });
 
-  const displayName = systemConfig?.nome_loja || systemName || 'FilaLab';
+  const displayName = systemName || 'FilaLab';
+  const storeName = systemConfig?.nome_loja || selectedUnit;
+
+  // Buscar cidade do clima
+  const { data: unidadeData } = useQuery({
+    queryKey: ['unidade-cidade-clima', user?.unidadeId],
+    queryFn: async () => {
+      if (!user?.unidadeId) return null;
+      const { data, error } = await supabase
+        .from('unidades')
+        .select('cidade_clima')
+        .eq('id', user.unidadeId)
+        .maybeSingle();
+      if (error) {
+        console.error('Erro ao buscar unidade:', error);
+        return null;
+      }
+      return data;
+    },
+    enabled: !!selectedUnit,
+  });
+
+  // Buscar Playlist da TV da Unidade
+  const { data: tvPlaylist = [] } = useQuery({
+    queryKey: ['tv-playlist', user?.unidadeId],
+    queryFn: async () => {
+      if (!user?.unidadeId) return [];
+      const { data, error } = await supabase
+        .from('tv_playlist')
+        .select('*')
+        .eq('unidade_id', user.unidadeId)
+        .eq('ativo', true)
+        .order('ordem', { ascending: true });
+      if (error) {
+        console.error('Erro ao listar playlist:', error);
+        return [];
+      }
+      return data;
+    },
+    enabled: !!user?.unidadeId,
+    refetchInterval: 30000, // Atualiza a playlist a cada 30s
+  });
+
+  // Estado de inatividade (Screensaver)
+  const [isIdle, setIsIdle] = useState(false);
+  const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    const handleActivity = () => {
+      setIsIdle(false);
+      if (idleTimeoutRef.current) clearTimeout(idleTimeoutRef.current);
+      idleTimeoutRef.current = setTimeout(() => setIsIdle(true), 15000); // 15s ocioso entra screensaver
+    };
+
+    window.addEventListener('mousemove', handleActivity);
+    window.addEventListener('keydown', handleActivity);
+    window.addEventListener('touchstart', handleActivity);
+    window.addEventListener('click', handleActivity);
+
+    handleActivity();
+
+    return () => {
+      window.removeEventListener('mousemove', handleActivity);
+      window.removeEventListener('keydown', handleActivity);
+      window.removeEventListener('touchstart', handleActivity);
+      window.removeEventListener('click', handleActivity);
+      if (idleTimeoutRef.current) clearTimeout(idleTimeoutRef.current);
+    };
+  }, []);
+
+  // Lógica de Rotação da Playlist
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+
+  useEffect(() => {
+    // Só pausa no mouse se não tiver rolagem de video longo. Mas a especificação é Chamada > Mouse > Playlist.
+    // Assim que der isIdle e não tiver Chamadas na tela, roda a Playlist.
+    if (!isIdle || tvPlaylist.length === 0 || displayingCalled || displayingPagamento) {
+      return;
+    }
+
+    const currentSlide = tvPlaylist[currentSlideIndex];
+    if (!currentSlide) {
+      setCurrentSlideIndex(0);
+      return;
+    }
+
+    const durationMs = (currentSlide.duracao || 15) * 1000;
+
+    const timer = setTimeout(() => {
+      setCurrentSlideIndex((prev) => (prev + 1) % tvPlaylist.length);
+    }, durationMs);
+
+    return () => clearTimeout(timer);
+  }, [isIdle, tvPlaylist, currentSlideIndex, displayingCalled, displayingPagamento]);
+
+  const renderPlaylistSlide = (isActive: boolean) => {
+    if (tvPlaylist.length === 0) return null;
+    const slide = tvPlaylist[currentSlideIndex];
+    if (!slide) return null;
+
+    const getVideoId = (url: string) => {
+      const match = url.match(/(?:youtu\.be\/|youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtube\.com\/v\/)([^&?]+)/);
+      return match ? match[1] : '';
+    };
+
+    const getPlaylistId = (url: string) => {
+      const match = url.match(/[?&]list=([^&]+)/);
+      return match ? match[1] : '';
+    };
+
+    switch (slide.tipo) {
+      case 'clima':
+        return <WeatherSlide cidadeInput={unidadeData?.cidade_clima} />;
+      case 'imagem':
+        return <img src={slide.url || ''} alt="Slide" className="w-full h-full object-cover" />;
+      case 'video':
+        return (
+          <video
+            src={slide.url || ''}
+            loop
+            className="w-full h-full object-cover"
+            ref={(el) => {
+              if (el) {
+                el.volume = (slide.volume || 0) / 100;
+                el.muted = !slide.volume || !isActive;
+                if (isActive) {
+                  el.play().catch(() => { });
+                } else {
+                  el.pause();
+                }
+              }
+            }}
+          />
+        );
+      case 'youtube': {
+        const urlStr = slide.url || '';
+        const videoId = getVideoId(urlStr);
+        const playlistId = getPlaylistId(urlStr);
+
+        let embedUrl = `https://www.youtube.com/embed/`;
+        if (playlistId) {
+          embedUrl += `${videoId || 'videoseries'}?list=${playlistId}&`;
+        } else {
+          embedUrl += `${videoId}?playlist=${videoId}&`;
+        }
+
+        embedUrl += `autoplay=1&mute=1&controls=0&loop=1&enablejsapi=1&origin=${window.location.origin}`;
+
+        return (
+          <iframe
+            key={slide.id}
+            src={embedUrl}
+            className="w-full h-full border-0 pointer-events-none"
+            allow="autoplay; encrypted-media"
+            ref={(el) => {
+              if (el && el.contentWindow) {
+                el.contentWindow.postMessage(JSON.stringify({ event: 'command', func: isActive ? 'playVideo' : 'pauseVideo' }), '*');
+                if (!isActive || !slide.volume) {
+                  el.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'mute' }), '*');
+                } else {
+                  el.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'unMute' }), '*');
+                  el.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [slide.volume || 100] }), '*');
+                }
+              }
+            }}
+          />
+        );
+      }
+      default:
+        return null;
+    }
+  };
 
   // Query for fetching entregadores - atualiza a cada 10 segundos
   const { data: entregadores = [], refetch } = useQuery({
@@ -834,17 +1006,27 @@ export default function TV() {
         onComplete={displayingPagamento ? handlePagamentoAnimationComplete : handleAnimationComplete}
       />
 
+      {/* Screensaver Ocioso */}
+      {tvPlaylist.length > 0 && (
+        <div
+          className={`fixed inset-0 z-40 bg-black transition-opacity duration-1000 ${isIdle && !displayingCalled && !displayingPagamento
+              ? 'opacity-100 pointer-events-auto'
+              : 'opacity-0 pointer-events-none'
+            }`}
+        >
+          {renderPlaylistSlide(isIdle && !displayingCalled && !displayingPagamento)}
+        </div>
+      )}
+
       {/* Header - Logo sem link + faixa Top 5 */}
       <header className="flex items-center justify-between px-8 py-4 border-b border-border bg-card/50 overflow-hidden relative">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
-            <Pizza className="w-6 h-6 text-primary-foreground" />
-          </div>
-          <div>
-            <span className="font-mono font-bold text-xl">{displayName}</span>
-            <span className="ml-3 px-3 py-1 rounded-full bg-secondary text-sm font-medium">
-              {selectedUnit}
+          <div className="flex items-center">
+            <span className="font-mono font-bold text-xl flex items-center gap-2">
+              🍕 {displayName}
             </span>
+            <span className="mx-3 text-border text-2xl font-light">|</span>
+            <span className="font-medium text-lg text-muted-foreground mr-3">{storeName}</span>
           </div>
         </div>
 

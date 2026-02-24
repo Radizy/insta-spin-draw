@@ -140,6 +140,7 @@ CREATE TABLE unidades (
   nome_loja TEXT NOT NULL,
   config_whatsapp JSONB,
   config_sheets_url TEXT,
+  cidade_clima TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 ```
@@ -498,6 +499,37 @@ CREATE TABLE unidade_modulos (
 ```sql
 CREATE POLICY "Anyone can manage unidade_modulos" ON unidade_modulos FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Anyone can read unidade_modulos" ON unidade_modulos FOR SELECT USING (true);
+```
+
+---
+
+### TABELA: tv_playlist
+Armazena a fila de exibição (Screensaver) do módulo de TV Premium de cada unidade ociosa.
+
+**Estrutura:**
+```sql
+CREATE TABLE tv_playlist (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  unidade_id UUID NOT NULL REFERENCES unidades(id) ON DELETE CASCADE,
+  tipo TEXT NOT NULL, -- 'imagem', 'video', 'youtube', 'clima'
+  url TEXT,
+  duracao INTEGER NOT NULL DEFAULT 15,
+  volume INTEGER DEFAULT 0,
+  ordem INTEGER NOT NULL DEFAULT 0,
+  ativo BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+```
+
+**Funcionalidades:**
+- Suporta playlists e vídeos independentes de YouTube
+- Executa nativamente sem sobrecarregar servidor
+- Conta com controle de volume deslizante e tempo por mídia
+
+**RLS Policies:**
+```sql
+CREATE POLICY "tv_playlist_permissive_all" ON tv_playlist FOR ALL USING (true) WITH CHECK (true);
 ```
 
 ---
@@ -985,6 +1017,12 @@ CREATE POLICY "only_admins_can_modify_franquias"
   "eleven_voice_id": "opcional"
 }
 ```
+
+**Modo Ocioso (Screensaver & Widget Clima):**
+1. Se passar mais de 15 segundos sem atividade na tela e sem motoboys chamados, a TV entra em "Ociosismo".
+2. Aciona nativamente o `play` nas listas do banco de dados `tv_playlist`. (YouTube API e Tag Vídeo).
+3. Se houver Clima, puxará dados abertos da "OpenWeatherMap" buscando a temperatura e ícone da `cidade_clima` configurada na configuração da Unidade.
+4. Qualquer atividade muta e esconde o player pausando a Playlist com zero perda de continuidade e posição (bypass no DRM).
 
 ---
 
