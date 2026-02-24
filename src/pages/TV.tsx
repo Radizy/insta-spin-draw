@@ -720,10 +720,10 @@ export default function TV() {
 
       // Mensagem de feedback para o motoboy via WhatsApp
       const isWhatsappAtivo = (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes('whatsapp');
-      if (isWhatsappAtivo) {
+      if (isWhatsappAtivo && entregador.whatsapp_ativo !== false) {
         const whatsappMessage = `Retorno confirmado! Você está na posição ${newPosition} da fila. Valeu pelo trampo! Logo mais tem nova rota para você.`;
         await sendWhatsAppMessage(entregador.telefone, whatsappMessage, {
-          franquiaId: user.franquiaId ?? null,
+          franquiaId: user?.franquiaId ?? null,
           unidadeId: null,
         });
       }
