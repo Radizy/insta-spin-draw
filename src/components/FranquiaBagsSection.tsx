@@ -156,6 +156,7 @@ export const FranquiaBagsSection: React.FC<FranquiaBagsSectionProps> = ({ franqu
                       onCheckedChange={() => toggleAtivoMutation.mutate(bag)}
                     />
                     <Button
+                      type="button"
                       size="icon"
                       variant="outline"
                       onClick={() => startEdit(bag)}
@@ -164,6 +165,7 @@ export const FranquiaBagsSection: React.FC<FranquiaBagsSectionProps> = ({ franqu
                       <Pencil className="w-4 h-4" />
                     </Button>
                     <Button
+                      type="button"
                       size="icon"
                       variant="outline"
                       className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
