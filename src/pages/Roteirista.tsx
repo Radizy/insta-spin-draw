@@ -15,7 +15,7 @@ import {
   resetDaily,
 } from '@/lib/api';
 import { toast } from 'sonner';
-import { Users, Loader2, Phone, GripVertical, SkipForward, UserMinus, LogOut, ArrowRight, MessageSquare, Map } from 'lucide-react';
+import { Users, Loader2, Phone, GripVertical, SkipForward, UserMinus, LogOut, ArrowRight, MessageSquare, Map, MessageCircleOff, MessageCircle } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import {
   Dialog,
@@ -118,6 +118,29 @@ export default function Roteirista() {
     },
     onError: () => {
       toast.error('Erro ao atualizar status');
+    },
+  });
+
+  // Mutation for bulk updating whatsapp status
+  const updateBulkWhatsappMutation = useMutation({
+    mutationFn: async ({ status }: { status: boolean }) => {
+      // Pega todos os IDs da unidade selecionada
+      const ids = entregadores.map(e => e.id);
+      if (ids.length === 0) return;
+
+      const { error } = await supabase
+        .from('entregadores')
+        .update({ whatsapp_ativo: status })
+        .in('id', ids);
+
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['entregadores'] });
+      toast.success(variables.status ? 'WhatsApp ativado para todos da unidade!' : 'WhatsApp desativado para todos da unidade!');
+    },
+    onError: () => {
+      toast.error('Erro ao processar ativação em lote do WhatsApp');
     },
   });
 
@@ -301,7 +324,7 @@ export default function Roteirista() {
         ? `🍕 Sua vez na unidade ${selectedUnit}! Você tem 1 entrega. ${bagMessage}. Vá ao balcão.${bebidaMessage}`
         : `🍕 Sua vez na unidade ${selectedUnit}! Você tem ${deliveryCount} entregas. ${bagMessage}. Vá ao balcão.${bebidaMessage}`;
 
-      if (isWhatsappAtivo) {
+      if (isWhatsappAtivo && selectedEntregador.whatsapp_ativo !== false) {
         await sendWhatsAppMessage(selectedEntregador.telefone, message, {
           franquiaId: user?.franquiaId ?? null,
           unidadeId: null,
@@ -316,7 +339,7 @@ export default function Roteirista() {
       setNotAppearedOpen(true);
 
       // Enviar mensagem para o segundo da fila após 5 segundos
-      if (secondInQueue && isWhatsappAtivo) {
+      if (secondInQueue && isWhatsappAtivo && secondInQueue.whatsapp_ativo !== false) {
         setTimeout(async () => {
           try {
             const alertMessage = `⚠️ Atenção ${secondInQueue.nome}! Você é o próximo da fila na unidade ${selectedUnit}. Fique alerta!`;
@@ -363,14 +386,14 @@ export default function Roteirista() {
     try {
       const message = `🔔 *CHAMADA ESPECIAL*\n\nOlá ${actionEntregador.nome}!\n\nMotivo: ${motivo}\n\nPor favor, compareça ao balcão da unidade ${selectedUnit}.`;
 
-      if (isWhatsappAtivo) {
+      if (isWhatsappAtivo && actionEntregador.whatsapp_ativo !== false) {
         await sendWhatsAppMessage(actionEntregador.telefone, message, {
           franquiaId: user?.franquiaId ?? null,
           unidadeId: null,
         });
         toast.success(`Mensagem enviada para ${actionEntregador.nome}`);
       } else {
-        toast.success(`Motoboy chamado visualmente (WhatsApp desativado no plano)`);
+        toast.success(`Motoboy chamado visualmente (WhatsApp dele ou da franquia desativado)`);
       }
 
       setCallMotoboyOpen(false);
@@ -497,14 +520,44 @@ export default function Roteirista() {
           </p>
         </div>
 
-        <Button
-          variant="outline"
-          className="gap-2 shrink-0 md:h-12 border-primary/50 hover:bg-primary/10 transition-colors"
-          onClick={() => setMapModalOpen(true)}
-        >
-          <Map className="w-5 h-5 text-primary" />
-          Mapa dos Entregadores
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Apenas mostra controles de WhatsApp se o módulo FilaLab Webhook estiver ativo na Franquia */}
+          {isWhatsappAtivo && (
+            <div className="flex bg-card border border-border rounded-md overflow-hidden mr-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => updateBulkWhatsappMutation.mutate({ status: true })}
+                disabled={updateBulkWhatsappMutation.isPending || isLoading}
+                className="h-10 px-3 rounded-none border-r border-border hover:bg-green-500/10 hover:text-green-500"
+                title="Ativar WhatsApp para todos nesta unidade"
+              >
+                <MessageCircle className="w-4 h-4 mr-1 text-green-500" />
+                <span className="hidden sm:inline">Todos On</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => updateBulkWhatsappMutation.mutate({ status: false })}
+                disabled={updateBulkWhatsappMutation.isPending || isLoading}
+                className="h-10 px-3 rounded-none hover:bg-red-500/10 hover:text-red-500"
+                title="Desativar WhatsApp para todos nesta unidade"
+              >
+                <MessageCircleOff className="w-4 h-4 mr-1 text-red-500" />
+                <span className="hidden sm:inline">Todos Off</span>
+              </Button>
+            </div>
+          )}
+
+          <Button
+            variant="outline"
+            className="gap-2 shrink-0 md:h-12 border-primary/50 hover:bg-primary/10 transition-colors"
+            onClick={() => setMapModalOpen(true)}
+          >
+            <Map className="w-5 h-5 text-primary" />
+            Mapa
+          </Button>
+        </div>
       </div>
 
       {/* Botão Grande CHAMAR O PRÓXIMO */}
@@ -606,7 +659,17 @@ export default function Roteirista() {
                                 {index + 1}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-lg font-semibold truncate">{entregador.nome}</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-lg font-semibold truncate">{entregador.nome}</p>
+                                  {/* Indicador se o Whatsapp individual dele tá off/on */}
+                                  {isWhatsappAtivo && (
+                                    entregador.whatsapp_ativo === false ? (
+                                      <div title="Mensagens desativadas"><MessageCircleOff className="w-4 h-4 text-destructive shrink-0" /></div>
+                                    ) : (
+                                      <div title="Mensagens ativadas"><MessageCircle className="w-4 h-4 text-green-500 shrink-0" /></div>
+                                    )
+                                  )}
+                                </div>
                                 <p className="text-sm text-muted-foreground break-all">{entregador.telefone}</p>
                               </div>
                               <div className="flex items-center justify-between gap-3 w-full sm:w-auto">
@@ -691,9 +754,19 @@ export default function Roteirista() {
                       {entregador.nome.charAt(0)}
                     </div>
                     <div className="flex-1 min-w-0 space-y-1">
-                      <p className="text-lg font-semibold truncate flex items-center gap-2">
-                        {entregador.nome}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-lg font-semibold truncate">
+                          {entregador.nome}
+                        </p>
+                        {/* Indicador se o Whatsapp individual dele tá off/on */}
+                        {isWhatsappAtivo && (
+                          entregador.whatsapp_ativo === false ? (
+                            <div title="Mensagens desativadas"><MessageCircleOff className="w-4 h-4 text-destructive shrink-0" /></div>
+                          ) : (
+                            <div title="Mensagens ativadas"><MessageCircle className="w-4 h-4 text-green-500 shrink-0" /></div>
+                          )
+                        )}
+                      </div>
                       <p className="text-sm text-muted-foreground break-all">{entregador.telefone}</p>
                       {/* Indicador visual de bebida, baseado na flag temporária armazenada no localStorage */}
                       {typeof window !== 'undefined' &&
