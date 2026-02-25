@@ -138,6 +138,23 @@ export function TopRankWidget({ unidadeId }: TopRankWidgetProps) {
                 ) : (
                     top5.map((motoboy, index) => {
                         const visual = medals[index] || medals[4];
+
+                        const getCreativeSubtitle = () => {
+                            if (motoboy.fastestMin !== null) {
+                                if (index === 0) return `Lenda da Pista: cravou a rota em ${motoboy.fastestMin} mins`;
+                                if (index === 1) return `Cão de Caça: entregou rasgando em ${motoboy.fastestMin} mins`;
+                                if (index === 2) return `Velocista Nato: recorde de ${motoboy.fastestMin} mins hoje`;
+                                if (index === 3) return `Voando Baixo: finalizou em ${motoboy.fastestMin} minutos`;
+                                return `Piloto Fuga: cravou ${motoboy.fastestMin} minutos num pedido`;
+                            } else {
+                                if (index === 0) return `Máquina Imbatível nas ruas hoje`;
+                                if (index === 1) return `O Terror da concorrência na pista`;
+                                if (index === 2) return `Dominando o asfalto cravado nas entregas`;
+                                if (index === 3) return `Inimigo do tempo ocioso`;
+                                return `Trabalhando em ritmo de máquina`;
+                            }
+                        };
+
                         return (
                             <div
                                 key={motoboy.nome}
@@ -150,25 +167,19 @@ export function TopRankWidget({ unidadeId }: TopRankWidgetProps) {
                                     </div>
 
                                     <div className="flex flex-col">
-                                        <span className="text-3xl font-bold tracking-tight text-white">{motoboy.nome}</span>
-                                        {motoboy.fastestMin !== null && (
-                                            <span className="text-sm font-medium text-slate-400 flex items-center gap-1 mt-1">
-                                                <Zap className="w-4 h-4 text-emerald-400" />
-                                                Recorde: {motoboy.fastestMin} min / entrega
-                                            </span>
-                                        )}
+                                        <span className="text-3xl font-bold tracking-tight text-white mb-1.5">{motoboy.nome}</span>
+                                        <span className="text-sm font-medium text-slate-300 flex items-center gap-1.5 uppercase tracking-wide">
+                                            {motoboy.fastestMin !== null ? <Zap className="w-4 h-4 text-emerald-400" /> : <Star className="w-4 h-4 text-amber-400" />}
+                                            {getCreativeSubtitle()}
+                                        </span>
                                     </div>
                                 </div>
 
                                 <div className="flex items-center gap-8">
-                                    <div className="flex flex-col items-end border-r border-white/10 pr-8">
-                                        <span className="text-sm text-slate-400 uppercase font-bold tracking-wider mb-1">Entregas</span>
-                                        <span className="text-3xl font-mono font-black text-slate-300">{motoboy.entregas}</span>
-                                    </div>
                                     <div className="flex flex-col items-end">
                                         <span className="text-sm text-slate-400 uppercase font-bold tracking-wider mb-1">Saídas</span>
-                                        <div className="flex items-center gap-2">
-                                            <Target className={`w-6 h-6 ${visual.cor}`} />
+                                        <div className="flex items-center gap-3">
+                                            <Target className={`w-7 h-7 ${visual.cor}`} />
                                             <span className={`text-5xl font-mono font-black ${visual.cor}`}>{motoboy.saidas}</span>
                                         </div>
                                     </div>
