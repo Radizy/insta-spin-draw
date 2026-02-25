@@ -69,12 +69,12 @@ export function AnalyticsDashboard() {
     }, [periodo]);
 
     const { data: metrics, isLoading, isError } = useQuery({
-        queryKey: ['analytics_pro_metrics', user?.unidadeId, dateRange],
+        queryKey: ['analytics_pro_metrics', user?.unidade, dateRange],
         queryFn: async () => {
-            if (!user?.unidadeId) throw new Error('Unidade ID não encontrada');
+            if (!user?.unidade) throw new Error('Unidade não encontrada');
 
             const { data, error } = await supabase.rpc('get_analytics_pro_metrics', {
-                p_unidade_id: user.unidadeId,
+                p_unidade_nome: user.unidade,
                 p_data_inicio: dateRange.start,
                 p_data_fim: dateRange.end,
             });
@@ -86,7 +86,7 @@ export function AnalyticsDashboard() {
 
             return data as unknown as MetricResult;
         },
-        enabled: !!user?.unidadeId,
+        enabled: !!user?.unidade,
         staleTime: 5 * 60 * 1000, // 5 minutos de cache
     });
 
