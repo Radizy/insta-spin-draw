@@ -27,7 +27,7 @@ import {
     LineChart,
     Line,
 } from 'recharts';
-import { Package, Clock, TrendingUp, Trophy, Loader2 } from 'lucide-react';
+import { Package, Clock, TrendingUp, Trophy, Loader2, Info } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 
 type PeriodType = 'hoje' | '7d' | '30d' | 'all';
@@ -104,9 +104,15 @@ export function AnalyticsDashboard() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight">Estatísticas da Loja</h2>
-                    <p className="text-muted-foreground text-sm">
-                        Métricas de performance isoladas para <b>{user?.unidade}</b>
-                    </p>
+                    <div className="flex flex-col gap-1 mt-1">
+                        <p className="text-muted-foreground text-sm">
+                            Métricas de performance isoladas para <b>{user?.unidade}</b>
+                        </p>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-primary/10 text-primary w-fit px-2 py-0.5 rounded-md border border-primary/20">
+                            <Info className="w-3.5 h-3.5" />
+                            <span>Limpeza de banco sugerida: Segundas-feiras às 09:00</span>
+                        </div>
+                    </div>
                 </div>
 
                 <Select value={periodo} onValueChange={(v) => setPeriodo(v as PeriodType)}>
