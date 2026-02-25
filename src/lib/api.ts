@@ -418,6 +418,32 @@ export async function registrarRetornoEntrega(
   }
 }
 
+export async function atualizarSaidaEntrega(
+  entregador_id: string,
+  unidade: string
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('historico_entregas')
+    .select('id')
+    .eq('entregador_id', entregador_id)
+    .eq('unidade', unidade)
+    .is('hora_retorno', null)
+    .order('hora_saida', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Erro ao buscar entrega ativa para atualizar saída:', error);
+    return;
+  }
+
+  if (data) {
+    await updateHistoricoEntrega(data.id, {
+      hora_saida: new Date().toISOString()
+    });
+  }
+}
+
 export async function deleteOldHistorico(unidade: Unidade): Promise<void> {
   // Limpa histórico do dia anterior às 12:00
   const now = new Date();

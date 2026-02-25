@@ -14,6 +14,7 @@ import {
   sendDispatchWebhook,
   resetDaily,
   registrarRetornoEntrega,
+  atualizarSaidaEntrega,
 } from '@/lib/api';
 import { toast } from 'sonner';
 import { Users, Loader2, Phone, GripVertical, SkipForward, UserMinus, LogOut, ArrowRight, MessageSquare, Map, MessageCircleOff, MessageCircle } from 'lucide-react';
@@ -266,8 +267,13 @@ export default function Roteirista() {
           tipo_bag: tipoBag,
         },
       });
-      // O historico_entregas agora é criado apenas quando o Entregador vai de fato 
-      // para a aba "Em Entrega" (status: 'entregando'). Isso padroniza os gráficos do Analytics.
+      // Cria a Saída no ato da chamada para aparecer na TV imediatamente
+      await createHistoricoEntrega({
+        entregador_id: selectedEntregador.id,
+        unidade: selectedUnit,
+        tipo_bag: tipoBag,
+      });
+      queryClient.invalidateQueries({ queryKey: ['saidas-dia', selectedUnit] });
 
       // Disparar webhook de despacho (server-side)
       await sendDispatchWebhook({
@@ -343,12 +349,8 @@ export default function Roteirista() {
         },
       });
 
-      // Criar o historico oficial agora que ele realmente saiu pra rua (start do Analytics)
-      await createHistoricoEntrega({
-        entregador_id: entregador.id,
-        unidade: selectedUnit,
-        tipo_bag: entregador.tipo_bag || 'normal',
-      });
+      // Se a loja clicar em 'Em Entrega', atualiza o início do tempo contábil no Analytics
+      await atualizarSaidaEntrega(entregador.id, selectedUnit);
       queryClient.invalidateQueries({ queryKey: ['saidas-dia', selectedUnit] });
 
       toast.success(`${entregador.nome} movido para Em Entrega`);
