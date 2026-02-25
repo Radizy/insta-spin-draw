@@ -12,11 +12,13 @@
 
 ### Gestão de Módulos (Toggles)
 O sistema conta com restrição de funcionalidades por pacote comercial baseada em módulos.
-Os 4 módulos primordiais são:
-1. **WhatsApp Avançado (`whatsapp`)**: Controla abas de configuração da Evolution API e envio de disparo de mensagens do motoboy de retorno e chamado automático.
-2. **TV Premium (`tv_avancada`)**: Destrava customizações exclusivas como upload de fundo e sons da TV de chamada.
-3. **Integração Planilha (`planilha`)**: Habilita o webhook do Google Sheets no painel de Histórico.
-4. **Fila de Pagamento (`fila_pagamento`)**: Libera o uso da tela `/fila-pagamento` para o gerenciamento de senhas.
+Os 5 módulos principais são:
+1. **WhatsApp Avançado (`whatsapp`)**: Controla abas de configuração da Evolution API e envio de disparo de mensagens diretas do sistema para o entregador.
+2. **TV Premium (`tv_avancada`)**: Destrava customizações exclusivas como upload de fundo e customização de toques e vozes de AI da tela de TV de espera.
+3. **Integração Planilha (`planilha`)**: Habilita o webhook do Google Sheets no painel de Histórico permitindo exportação autônoma de dados.
+4. **Fila de Pagamento (`fila_pagamento`)**: Libera o uso da tela `/fila-pagamento` para o gerenciamento de senhas (cash-out financeiro dos motoqueiros).
+5. **Analytics Pro (`analytics_pro`)**: Habilita um dashboard avançado dentro da aba de histórico contendo Estatísticas, Recordes, Entregas/Hora e Gráficos Gerenciais.
+
 Esses módulos podem ser geridos livremente pelo painel Super Admin na visualização e edição de uma franquia.
 
 ---

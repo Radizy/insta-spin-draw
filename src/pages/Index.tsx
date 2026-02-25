@@ -15,13 +15,75 @@ import {
   Mail,
   ArrowRight,
   CheckCircle2,
-  Phone
+  Phone,
+  BarChart
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 
 export default function Index() {
   const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [selectedModule, setSelectedModule] = useState<any>(null);
+
+  const modulesData = [
+    {
+      id: 'whatsapp',
+      title: 'WhatsApp Avançado',
+      icon: MessageSquare,
+      color: 'text-green-500',
+      bgPrefix: 'bg-green-500/10',
+      borderPrefix: 'border-green-500/20',
+      shortDesc: 'Integração via Evolution API para avisos de rotas direto no celular do motoboy.',
+      longDesc: 'O módulo de WhatsApp Avançado transforma a comunicação da sua operação. Através da integração direta com a Evolution API, o FilaLab envia notificações automáticas para o celular do motoboy assim que o pedido é despachado ou quando a rota dele está pronta.\n\nBenefícios:\n• Fim da gritaria e confusão no balcão.\n• O entregador aguarda no conforto ou na moto até receber o aviso.\n• Histórico de mensagens para controle de despachos.'
+    },
+    {
+      id: 'tv',
+      title: 'TV Premium',
+      icon: MonitorPlay,
+      color: 'text-blue-500',
+      bgPrefix: 'bg-blue-500/10',
+      borderPrefix: 'border-blue-500/20',
+      shortDesc: 'Despacho com anúncios de voz sintéticos (TTS) exclusivos e alta personalização.',
+      longDesc: 'A TV Premium é o coração visual do FilaLab para a área de espera dos motoboys. Além de organizar a fila visualmente, ela utiliza inteligência artificial (ElevenLabs) para gerar vozes sintéticas realistas e ultra-humanas que chamam o entregador pelo nome.\n\nBenefícios:\n• Chamada de voz customizável (Text-to-Speech).\n• Mídia programática: insira imagens, vídeos ou previsão do tempo quando a TV estiver ociosa.\n• Top Rank: exibição do Top 5 motoboys do dia para incentivar a produtividade.'
+    },
+    {
+      id: 'sheets',
+      title: 'Google Sheets',
+      icon: FileSpreadsheet,
+      color: 'text-emerald-500',
+      bgPrefix: 'bg-emerald-500/10',
+      borderPrefix: 'border-emerald-500/20',
+      shortDesc: 'Sincronização em tempo real do relatório financeiro via Google Apps Script.',
+      longDesc: 'Nunca mais perca tempo fechando o caixa dos motoboys no papel. Com o módulo Google Sheets, o FilaLab sincroniza automaticamente todo o histórico de saídas e retornos de cada motoboy diretamente para uma planilha na nuvem.\n\nBenefícios:\n• Fechamento financeiro diário automatizado.\n• Criação automática de abas por dia e unidade.\n• Integração simples via Webhook (Google Apps Script) sem custo adicional.'
+    },
+    {
+      id: 'pagamento',
+      title: 'Fila de Pagamentos',
+      icon: Wallet,
+      color: 'text-amber-500',
+      bgPrefix: 'bg-amber-500/10',
+      borderPrefix: 'border-amber-500/20',
+      shortDesc: 'Gere senhas numéricas para estruturar o recebimento (cashout) no final do turno.',
+      longDesc: 'O módulo final para organizar o acerto financeiro (Cash-out). Quando o expediente acaba, os motoboys geram uma senha no celular ou na TV para receber o acerto. O operador chama a senha no painel secundário, garantindo organização extrema e segurança.\n\nBenefícios:\n• Fim das aglomerações e discussões no momento de pagar as diárias.\n• O motoboy pode acompanhar sua posição na fila pelo próprio celular ou na TV.\n• Sistema seguro com senhas de resgate controladas.'
+    },
+    {
+      id: 'analytics',
+      title: 'Analytics Pro',
+      icon: BarChart,
+      color: 'text-purple-500',
+      bgPrefix: 'bg-purple-500/10',
+      borderPrefix: 'border-purple-500/20',
+      shortDesc: 'Gráficos avançados, relatórios de tempo métrico e ranking de performance global.',
+      longDesc: 'Transforme os dados operacionais em crescimento estratégico. O Analytics Pro libera um poderoso dashboard que detalha minuciosamente o volume de saídas, tempos mortos, entregas por hora e uso de equipamentos (Bags).\n\nBenefícios:\n• Descubra o tempo médio exato da saída ao retorno.\n• Visão detalhada de performance filtrada em um painel responsivo.\n• Tenha a visão de dono para tomar decisões rápidas em noites de alto fluxo.'
+    }
+  ];
 
   // TODO: Edite o número do WhatsApp e mensagem padrão aqui
   const whatsappNumber = "5511954545985";
@@ -197,27 +259,23 @@ export default function Index() {
             </Button>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-card p-6 rounded-2xl border border-border hover:border-primary/50 transition-colors group">
-              <MessageSquare className="w-8 h-8 text-green-500 mb-4 group-hover:-translate-y-1 transition-transform" />
-              <h4 className="text-lg font-semibold mb-2">WhatsApp Avançado</h4>
-              <p className="text-sm text-muted-foreground">Disparo e integração via Evolution API para avisos de rotas direto no celular do motoboy.</p>
-            </div>
-            <div className="bg-card p-6 rounded-2xl border border-border hover:border-primary/50 transition-colors group">
-              <MonitorPlay className="w-8 h-8 text-blue-500 mb-4 group-hover:-translate-y-1 transition-transform" />
-              <h4 className="text-lg font-semibold mb-2">TV Premium</h4>
-              <p className="text-sm text-muted-foreground">Despacho com anúncios de voz sintéticos (Text-to-Speech) exclusivos e alta personalização.</p>
-            </div>
-            <div className="bg-card p-6 rounded-2xl border border-border hover:border-primary/50 transition-colors group">
-              <FileSpreadsheet className="w-8 h-8 text-emerald-500 mb-4 group-hover:-translate-y-1 transition-transform" />
-              <h4 className="text-lg font-semibold mb-2">Google Sheets</h4>
-              <p className="text-sm text-muted-foreground">Sincronização em tempo real de todo o relatório de pagamentos via Google Apps Script (Webhooks).</p>
-            </div>
-            <div className="bg-card p-6 rounded-2xl border border-border hover:border-primary/50 transition-colors group">
-              <Wallet className="w-8 h-8 text-amber-500 mb-4 group-hover:-translate-y-1 transition-transform" />
-              <h4 className="text-lg font-semibold mb-2">Fila de Pagamentos</h4>
-              <p className="text-sm text-muted-foreground">Gere senhas numéricas para fila de recebimento ao fim do expediente com preview em TV secundária.</p>
-            </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {modulesData.map((mod) => (
+              <div
+                key={mod.id}
+                onClick={() => setSelectedModule(mod)}
+                className="bg-card p-6 rounded-2xl border border-border hover:border-primary/50 transition-all cursor-pointer group hover:shadow-lg"
+              >
+                <div className={`w-14 h-14 rounded-xl flex items-center justify-center mb-5 ${mod.bgPrefix} ${mod.borderPrefix} border group-hover:-translate-y-1 transition-transform`}>
+                  <mod.icon className={`w-7 h-7 ${mod.color}`} />
+                </div>
+                <h4 className="text-xl font-bold mb-3">{mod.title}</h4>
+                <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{mod.shortDesc}</p>
+                <div className="flex items-center text-sm font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                  Saber mais <ArrowRight className="ml-1 w-4 h-4" />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -241,6 +299,33 @@ export default function Index() {
           </div>
         </div>
       </section>
+
+      {/* Modal / Dialog de Módulos */}
+      <Dialog open={!!selectedModule} onOpenChange={(open) => !open && setSelectedModule(null)}>
+        <DialogContent className="sm:max-w-lg border-primary/20 bg-background/95 backdrop-blur-md">
+          {selectedModule && (
+            <>
+              <DialogHeader>
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${selectedModule.bgPrefix} ${selectedModule.borderPrefix} border shadow-inner`}>
+                  <selectedModule.icon className={`w-8 h-8 ${selectedModule.color}`} />
+                </div>
+                <DialogTitle className="text-2xl font-bold">{selectedModule.title}</DialogTitle>
+                <DialogDescription className="text-base mt-2">
+                  Detalhes e vantagens deste módulo do FilaLab.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-2 text-foreground/90 whitespace-pre-line leading-relaxed text-sm md:text-base mb-2">
+                {selectedModule.longDesc}
+              </div>
+              <div className="flex justify-end pt-4 border-t border-border">
+                <Button onClick={() => window.open(whatsappLink, '_blank')} className="w-full sm:w-auto h-12 px-6">
+                  Quero este módulo <ArrowRight className="ml-2 w-4 h-4" />
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Footer */}
       <footer id="contato" className="border-t border-border bg-card/30 pt-16 pb-8">
