@@ -259,19 +259,22 @@ export default function Roteirista() {
         setTimeout(() => localStorage.removeItem(`bebida_${selectedEntregador.id}`), 20000);
       }
 
-      // Update status to "chamado" and set tipo_bag
+      // Resolver nome da BAG a partir do ID (para franquias com tipos cadastrados)
+      const bagName = franquiaBagTipos.find((b) => b.id === tipoBag)?.nome || tipoBag || '';
+
+      // Update status to "chamado" and set tipo_bag (salvando nominalmente)
       await updateMutation.mutateAsync({
         id: selectedEntregador.id,
         data: {
           status: 'chamado',
-          tipo_bag: tipoBag,
+          tipo_bag: bagName,
         },
       });
       // Cria a Saída no ato da chamada para aparecer na TV imediatamente
       await createHistoricoEntrega({
         entregador_id: selectedEntregador.id,
         unidade: selectedUnit,
-        tipo_bag: tipoBag,
+        tipo_bag: bagName,
       });
       queryClient.invalidateQueries({ queryKey: ['saidas-dia', selectedUnit] });
 
@@ -280,12 +283,9 @@ export default function Roteirista() {
         unidade: selectedUnit,
         entregador: selectedEntregador,
         quantidadeEntregas: deliveryCount,
-        bag: tipoBag,
+        bag: bagName,
         hasBebida: hasBebida,
       });
-
-      // Resolver nome da BAG a partir do ID (para franquias com tipos cadastrados)
-      const bagName = franquiaBagTipos.find((b) => b.id === tipoBag)?.nome || tipoBag || '';
 
       // Send WhatsApp message with delivery count and bag type
       const bagMessage = bagName
