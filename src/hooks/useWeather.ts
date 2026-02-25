@@ -25,12 +25,10 @@ export function useWeather(city: string | null | undefined) {
             setError(null);
 
             try {
-                // Ao invés de chamar a API da OpenWeather, busca o JSONB já servido pela Edge Function e CRON do Supabase
                 const { data, error: sbError } = await supabase
                     .from('unidades')
-                    .select('clima_cache')
+                    .select('clima_cache, clima_updated_at')
                     .ilike('cidade_clima', city)
-                    .not('clima_cache', 'is', null)
                     .limit(1)
                     .maybeSingle();
 
@@ -38,11 +36,37 @@ export function useWeather(city: string | null | undefined) {
                     throw new Error(sbError.message);
                 }
 
-                if (!data || !data.clima_cache) {
-                    throw new Error('Nenhum dado de clima cacheado encontrado para essa cidade ainda.');
-                }
+                let cachedData = data?.clima_cache as any;
+                let lastUpdated = data?.clima_updated_at ? new Date(data.clima_updated_at).getTime() : 0;
+                const now = new Date().getTime();
+                const twentyMinutes = 20 * 60 * 1000;
 
-                const cachedData = data.clima_cache as any;
+                // Verificando se precisamos forçar atualização (Sem cache, ou Cache mais velho que 20 minutos)
+                const needsUpdate = !cachedData || (now - lastUpdated > twentyMinutes);
+
+                if (needsUpdate) {
+                    console.log(`Clima desatualizado ou vazio para ${city}. Invocando Edge Function...`);
+                    // Dispara a Edge Function. Não damos await se já houver cache velho (pra não travar a tela).
+                    // Se estiver completamente vazio (primeira vez), damos await para ter o dado inicial.
+                    const syncPromise = supabase.functions.invoke('sync-weather-data');
+
+                    if (!cachedData) {
+                        await syncPromise;
+                        // Após a primeira sincronização profunda, re-busca a linha pra pegar o dado cacheado fresquinho
+                        const { data: newData } = await supabase
+                            .from('unidades')
+                            .select('clima_cache')
+                            .ilike('cidade_clima', city)
+                            .limit(1)
+                            .maybeSingle();
+
+                        if (newData?.clima_cache) {
+                            cachedData = newData.clima_cache;
+                        } else {
+                            throw new Error('Nenhum dado de clima cacheado encontrado para essa cidade ainda.');
+                        }
+                    }
+                }
 
                 setWeather({
                     temp: Math.round(cachedData.main.temp),

@@ -5,12 +5,23 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") as string;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") as string;
 const OPENWEATHER_API_KEY = Deno.env.get("OPENWEATHER_API_KEY") as string;
 
+// Define CORS Headers para permitir que o Frontend (Browser) invoque a API
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 // Inicializa o cliente Supabase contornando o RLS com Service Role
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
 
 serve(async (req) => {
+  // Trata o request de preflight (OPTIONS) exigido pelo Browser
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
   try {
     // 1. Verificar chaves de ambiente
     if (!OPENWEATHER_API_KEY) {
@@ -31,7 +42,7 @@ serve(async (req) => {
 
     if (!unidades || unidades.length === 0) {
       return new Response(JSON.stringify({ message: "Nenhuma cidade configurada" }), {
-        headers: { "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
     }
@@ -91,14 +102,14 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ message: "Sincronização concluída", results: updateResults }), {
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
 
   } catch (error) {
     console.error("Erro geral na função:", error);
     return new Response(JSON.stringify({ error: error.message }), {
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
     });
   }
