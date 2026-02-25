@@ -47,9 +47,8 @@ BEGIN
             COUNT(*) as total_entregas,
             COALESCE(AVG(EXTRACT(EPOCH FROM (h.hora_retorno - h.hora_saida))/60)::int, 0) as tempo_medio
         FROM historico_entregas h
-        JOIN entregadores e ON e.id = h.entregador_id
+        JOIN entregadores e ON e.id::text = h.entregador_id
         WHERE h.unidade = p_unidade_nome
-          AND h.hora_retorno IS NOT NULL
           AND h.hora_saida >= p_data_inicio 
           AND h.hora_saida <= p_data_fim
         GROUP BY e.nome
@@ -66,7 +65,6 @@ BEGIN
             COALESCE(AVG(EXTRACT(EPOCH FROM (hora_retorno - hora_saida))/60)::int, 0) as tempo_medio
         FROM historico_entregas
         WHERE unidade = p_unidade_nome
-          AND hora_retorno IS NOT NULL
           AND hora_saida >= p_data_inicio 
           AND hora_saida <= p_data_fim
         GROUP BY tipo_bag

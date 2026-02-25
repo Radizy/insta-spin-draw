@@ -45,23 +45,34 @@ export function AnalyticsDashboard() {
     const { user } = useAuth();
     const [periodo, setPeriodo] = useState<PeriodType>('7d');
 
-    // Calcula datas de início e fim baseadas no período selecionado
+    // Calcula datas de início e fim baseadas no período selecionado (Fuso 17:00 às 03:00)
     const dateRange = useMemo(() => {
-        const end = endOfDay(new Date());
-        let start = new Date();
+        const now = new Date();
+        const currentHour = now.getHours();
+
+        let start = new Date(now);
+        let end = new Date(now);
+
+        // Fixa os horários do turno padrão
+        if (currentHour < 3) {
+            start.setDate(start.getDate() - 1);
+            end.setHours(3, 0, 0, 0);
+        } else {
+            end.setDate(end.getDate() + 1);
+            end.setHours(3, 0, 0, 0);
+        }
+        start.setHours(17, 0, 0, 0);
 
         switch (periodo) {
-            case 'hoje':
-                start = startOfDay(new Date());
-                break;
+            // "hoje" já está computado na lógica do turno acima
             case '7d':
-                start = startOfDay(subDays(new Date(), 7));
+                start.setDate(start.getDate() - 6); // Hoje + 6 pra trás = 7 dias
                 break;
             case '30d':
-                start = startOfDay(subDays(new Date(), 30));
+                start.setDate(start.getDate() - 29);
                 break;
             case 'all':
-                start = new Date(2000, 0, 1); // Uma data bem antiga
+                start = new Date(2000, 0, 1);
                 break;
         }
 
