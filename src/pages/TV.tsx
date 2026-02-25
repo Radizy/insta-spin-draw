@@ -633,24 +633,36 @@ export default function TV() {
 
         for (const path of audios) {
           try {
-            const { data } = await supabase.storage.from('motoboy_voices').download(path);
-            if (data) {
+            if (path.startsWith('http')) {
               await new Promise<void>((resolve, reject) => {
-                const audioUrl = URL.createObjectURL(data);
-                const audio = new Audio(audioUrl);
+                const audio = new Audio(path);
                 audio.volume = volume;
-                audio.onended = () => {
-                  URL.revokeObjectURL(audioUrl);
-                  resolve();
-                };
-                audio.onerror = () => {
-                  URL.revokeObjectURL(audioUrl);
-                  reject();
-                };
+                audio.onended = () => resolve();
+                audio.onerror = () => reject();
                 audio.play().catch(reject);
               });
               playedAny = true;
               await new Promise((r) => setTimeout(r, 300));
+            } else {
+              const { data } = await supabase.storage.from('motoboy_voices').download(path);
+              if (data) {
+                await new Promise<void>((resolve, reject) => {
+                  const audioUrl = URL.createObjectURL(data);
+                  const audio = new Audio(audioUrl);
+                  audio.volume = volume;
+                  audio.onended = () => {
+                    URL.revokeObjectURL(audioUrl);
+                    resolve();
+                  };
+                  audio.onerror = () => {
+                    URL.revokeObjectURL(audioUrl);
+                    reject();
+                  };
+                  audio.play().catch(reject);
+                });
+                playedAny = true;
+                await new Promise((r) => setTimeout(r, 300));
+              }
             }
           } catch (e) {
             console.log('Áudio storage não disponível, usando TTS fallback:', path);

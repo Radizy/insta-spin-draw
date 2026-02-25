@@ -10,6 +10,7 @@ import { WebhookConfig } from '@/components/WebhookConfig';
 import { WhatsAppTemplates } from '@/components/WhatsAppTemplates';
 import { BulkMotoboyImport } from '@/components/BulkMotoboyImport';
 import { TVCallConfigModal } from '@/components/TVCallConfigModal';
+import { MediaGalleryModal } from '@/components/MediaGalleryModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -99,6 +100,7 @@ export default function Config() {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [tvCallConfigOpen, setTvCallConfigOpen] = useState(false);
   const [tvCallModuleActive, setTvCallModuleActive] = useState(false);
+  const [galleryOpenForEntregador, setGalleryOpenForEntregador] = useState(false);
   const [formData, setFormData] = useState({
     nome: '',
     telefone: '',
@@ -1280,16 +1282,31 @@ export default function Config() {
               </div>
             )}
 
-            {/* Importar áudio próprio do motoboy */}
+            {/* Importar áudio próprio do motoboy e Galeria */}
             {editingEntregador && (
               <div className="space-y-3 border border-border rounded-lg p-4 bg-secondary/40">
-                <Label>Importar áudio próprio</Label>
-                <p className="text-xs text-muted-foreground">
-                  Envie um arquivo MP3 personalizado para usar como chamada deste motoboy na TV.
-                </p>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <Label>Áudio Próprio / Galeria</Label>
+                    <p className="text-xs text-muted-foreground mt-1 text-balance">
+                      Envie um MP3 do seu computador ou reutilize um som da Galeria de Mídia.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 h-8"
+                    onClick={() => setGalleryOpenForEntregador(true)}
+                  >
+                    Mídias
+                  </Button>
+                </div>
+
                 <Input
                   type="file"
                   accept="audio/mpeg,audio/mp3"
+                  className="mt-2"
                   onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (!file || !user?.franquiaId || !editingEntregador) return;
@@ -1304,7 +1321,7 @@ export default function Config() {
                       queryClient.invalidateQueries({ queryKey: ['entregadores'] });
                       toast.success('Áudio importado com sucesso!');
                     } catch (err) {
-                      toast.error('Erro ao importar áudio');
+                      toast.error('Erro ao importar áudio via arquivo local.');
                     }
                   }}
                 />
@@ -1334,9 +1351,15 @@ export default function Config() {
                         className="h-6 px-2 text-xs"
                         onClick={async () => {
                           try {
+                            const path = editingEntregador.tts_voice_path!;
+                            if (path.startsWith('http')) {
+                              const audio = new Audio(path);
+                              await audio.play();
+                              return;
+                            }
                             const { data } = await supabase.storage
                               .from('motoboy_voices')
-                              .download(editingEntregador.tts_voice_path!);
+                              .download(path);
 
                             if (data) {
                               const audioUrl = URL.createObjectURL(data);
@@ -1358,9 +1381,15 @@ export default function Config() {
                         className="h-6 px-2 text-xs"
                         onClick={async () => {
                           try {
+                            const path = editingEntregador.tts_voice_path!;
+                            if (path.startsWith('http')) {
+                              window.open(path, '_blank');
+                              return;
+                            }
+
                             const { data } = await supabase.storage
                               .from('motoboy_voices')
-                              .download(editingEntregador.tts_voice_path!);
+                              .download(path);
 
                             if (data) {
                               const url = URL.createObjectURL(data);
@@ -1528,6 +1557,25 @@ export default function Config() {
         open={tvCallConfigOpen}
         onOpenChange={setTvCallConfigOpen}
       />
+
+      {user?.franquiaId && (
+        <MediaGalleryModal
+          open={galleryOpenForEntregador}
+          onOpenChange={setGalleryOpenForEntregador}
+          acceptedTypes={['audio']}
+          onSelect={async (url) => {
+            if (!editingEntregador) return;
+            try {
+              const updated = await updateEntregador(editingEntregador.id, { tts_voice_path: url });
+              setEditingEntregador(updated);
+              queryClient.invalidateQueries({ queryKey: ['entregadores'] });
+              toast.success('Áudio da galeria vinculado ao motoboy com sucesso!');
+            } catch (error) {
+              toast.error('Erro ao vincular áudio da galeria.');
+            }
+          }}
+        />
+      )}
     </Layout>
   );
 }
