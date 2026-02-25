@@ -1,4 +1,3 @@
-import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,13 +8,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+
 import {
     BarChart,
     Bar,
@@ -30,7 +23,10 @@ import {
 import { Package, Clock, TrendingUp, Trophy, Loader2, Info } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 
-type PeriodType = 'hoje' | '7d' | '30d' | 'all';
+interface AnalyticsDashboardProps {
+    dataInicio: Date;
+    dataFim: Date;
+}
 
 interface MetricResult {
     total_entregas: number;
@@ -41,53 +37,18 @@ interface MetricResult {
     entregas_por_dia: { dia: string; total: number }[];
 }
 
-export function AnalyticsDashboard() {
+export function AnalyticsDashboard({ dataInicio, dataFim }: AnalyticsDashboardProps) {
     const { user } = useAuth();
-    const [periodo, setPeriodo] = useState<PeriodType>('7d');
-
-    // Calcula datas de início e fim baseadas no período selecionado (Fuso 17:00 às 03:00)
-    const dateRange = useMemo(() => {
-        const now = new Date();
-        const currentHour = now.getHours();
-
-        let start = new Date(now);
-        let end = new Date(now);
-
-        // Fixa os horários do turno padrão
-        if (currentHour < 3) {
-            start.setDate(start.getDate() - 1);
-            end.setHours(3, 0, 0, 0);
-        } else {
-            end.setDate(end.getDate() + 1);
-            end.setHours(3, 0, 0, 0);
-        }
-        start.setHours(17, 0, 0, 0);
-
-        switch (periodo) {
-            // "hoje" já está computado na lógica do turno acima
-            case '7d':
-                start.setDate(start.getDate() - 6); // Hoje + 6 pra trás = 7 dias
-                break;
-            case '30d':
-                start.setDate(start.getDate() - 29);
-                break;
-            case 'all':
-                start = new Date(2000, 0, 1);
-                break;
-        }
-
-        return { start: start.toISOString(), end: end.toISOString() };
-    }, [periodo]);
 
     const { data: metrics, isLoading, isError } = useQuery({
-        queryKey: ['analytics_pro_metrics', user?.unidade, dateRange],
+        queryKey: ['analytics_pro_metrics', user?.unidade, dataInicio.toISOString(), dataFim.toISOString()],
         queryFn: async () => {
             if (!user?.unidade) throw new Error('Unidade não encontrada');
 
             const { data, error } = await supabase.rpc('get_analytics_pro_metrics', {
                 p_unidade_nome: user.unidade,
-                p_data_inicio: dateRange.start,
-                p_data_fim: dateRange.end,
+                p_data_inicio: dataInicio.toISOString(),
+                p_data_fim: dataFim.toISOString(),
             });
 
             if (error) {
@@ -125,18 +86,6 @@ export function AnalyticsDashboard() {
                         </div>
                     </div>
                 </div>
-
-                <Select value={periodo} onValueChange={(v) => setPeriodo(v as PeriodType)}>
-                    <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Selecione o período" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="hoje">Hoje</SelectItem>
-                        <SelectItem value="7d">Últimos 7 dias</SelectItem>
-                        <SelectItem value="30d">Últimos 30 dias</SelectItem>
-                        <SelectItem value="all">Todo o período</SelectItem>
-                    </SelectContent>
-                </Select>
             </div>
 
             {isLoading ? (
@@ -199,7 +148,7 @@ export function AnalyticsDashboard() {
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold">
-                                    {Math.round(metrics.total_entregas / (periodo === 'hoje' ? 1 : periodo === '7d' ? 7 : 30))}
+                                    {Math.round(metrics.total_entregas / Math.max(1, Math.ceil((dataFim.getTime() - dataInicio.getTime()) / (1000 * 3600 * 24))))}
                                 </div>
                                 <p className="text-xs text-muted-foreground">média por dia</p>
                             </CardContent>

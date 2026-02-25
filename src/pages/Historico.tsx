@@ -34,10 +34,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AnalyticsDashboard } from '@/components/historico/AnalyticsDashboard';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
-
-type PeriodType = 'hoje' | 'ontem' | '7d' | '30d' | 'all';
 
 interface EntregadorContagem {
   id: string;
@@ -109,47 +106,22 @@ export default function Historico() {
     return <Navigate to="/" replace />;
   }
 
-  const [periodo, setPeriodo] = useState<PeriodType>('hoje');
+  const [dataInicio, setDataInicio] = useState<Date>(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
 
-  // Calcula datas de início e fim baseadas no período selecionado (Fuso 17:00 às 03:00)
-  const dateRange = useMemo(() => {
-    const now = new Date();
-    const currentHour = now.getHours();
+  const [dataFim, setDataFim] = useState<Date>(() => {
+    const d = new Date();
+    d.setHours(23, 59, 59, 999);
+    return d;
+  });
 
-    let start = new Date(now);
-    let end = new Date(now);
-
-    // Fixa os horários do turno padrão
-    if (currentHour < 3) {
-      start.setDate(start.getDate() - 1);
-      end.setHours(3, 0, 0, 0);
-    } else {
-      end.setDate(end.getDate() + 1);
-      end.setHours(3, 0, 0, 0);
-    }
-    start.setHours(17, 0, 0, 0);
-
-    switch (periodo) {
-      // "hoje" já está computado na lógica do turno acima
-      case 'ontem':
-        start.setDate(start.getDate() - 1);
-        end.setDate(end.getDate() - 1);
-        break;
-      case '7d':
-        start.setDate(start.getDate() - 6); // Hoje + 6 pra trás = 7 dias
-        break;
-      case '30d':
-        start.setDate(start.getDate() - 29);
-        break;
-      case 'all':
-        start = new Date(2000, 0, 1);
-        break;
-    }
-
-    return { dataInicio: start, dataFim: end };
-  }, [periodo]);
-
-  const { dataInicio, dataFim } = dateRange;
+  const formatForInput = (d: Date) => {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
 
   // Configurações da franquia para checar módulos ativos
   const { data: franquiaConfig } = useQuery<{ config_pagamento: any | null }>({
@@ -372,30 +344,40 @@ export default function Historico() {
 
         <TabsContent value="historico" className="m-0 space-y-6">
 
-          {/* Período */}
+          {/* Período Customizado */}
           <div className="bg-card border border-border rounded-lg p-4 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <Clock className="w-5 h-5 text-muted-foreground" />
               <div>
-                <p className="text-sm text-muted-foreground">Filtro de período</p>
-                <p className="font-mono font-medium">
-                  {format(dataInicio, "dd/MM 'às' HH'h'")} até {periodo === 'hoje' || periodo === 'ontem' ? format(dataFim, "dd/MM 'às' HH'h'") : 'Hoje'}
-                </p>
+                <p className="text-sm font-semibold">Período Analisado</p>
+                <p className="text-xs text-muted-foreground">Defina a janela exata de tempo</p>
               </div>
             </div>
 
-            <Select value={periodo} onValueChange={(v) => setPeriodo(v as PeriodType)}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Selecione o período" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="hoje">Hoje</SelectItem>
-                <SelectItem value="ontem">Ontem</SelectItem>
-                <SelectItem value="7d">Últimos 7 dias</SelectItem>
-                <SelectItem value="30d">Últimos 30 dias</SelectItem>
-                <SelectItem value="all">Todo o Histórico</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Início</Label>
+                <Input
+                  type="datetime-local"
+                  value={formatForInput(dataInicio)}
+                  onChange={(e) => {
+                    if (e.target.value) setDataInicio(new Date(e.target.value));
+                  }}
+                  className="w-[200px]"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Fim</Label>
+                <Input
+                  type="datetime-local"
+                  value={formatForInput(dataFim)}
+                  onChange={(e) => {
+                    if (e.target.value) setDataFim(new Date(e.target.value));
+                  }}
+                  className="w-[200px]"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Stats */}
@@ -479,7 +461,7 @@ export default function Historico() {
         </TabsContent>
 
         <TabsContent value="analytics" className="m-0">
-          <AnalyticsDashboard />
+          <AnalyticsDashboard dataInicio={dataInicio} dataFim={dataFim} />
         </TabsContent>
       </Tabs>
 
