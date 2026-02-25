@@ -21,7 +21,7 @@ ADD COLUMN IF NOT EXISTS clima_updated_at TIMESTAMP WITH TIME ZONE;
 
 -- SELECT cron.schedule(
 --   'sync-weather-cron',      -- Nome da tarefa
---   '20 * * * *',             -- Expressão: aos 20 minutos (nota: */20 quebra comentarios em bloco) ou substitua por repeticao
+--   '*/20 * * * *',           -- Expressão: a cada 20 minutos
 --   $$
 --     SELECT net.http_post(
 --       url:='https://<SUA-URL-SUPABASE>.supabase.co/functions/v1/sync-weather-data',
