@@ -37,7 +37,7 @@ Esses módulos podem ser geridos livremente pelo painel Super Admin na visualiza
 ### Backend (Lovable Cloud/Supabase)
 - **Banco de Dados**: PostgreSQL com Row Level Security (RLS)
 - **Autenticação**: Sistema customizado baseado em `system_users`
-- **Storage**: Supabase Storage (bucket `motoboy_voices`)
+- **Storage**: Supabase Storage (`motoboy_voices` para voz TTS offline e `franquia_media` para Galeria isolada por Franquia contendo Imagens, Vídeos e Áudios em geral)
 - **Edge Functions**: Deno runtime para lógica serverless
 - **Tempo Real**: Supabase Realtime para atualizações instantâneas
 
@@ -101,12 +101,13 @@ CREATE TABLE franquias (
          "instance": "pizzaria",
          "url": "https://dom-evolution-api.adhwpy.easypanel.host/"
        },
-       "tv_tts": {
-         "enabled": true,
-         "voice_model": "elevenlabs",
-         "volume": 100,
-         "ringtone_id": "classic_short"
-       }
+        "tv_tts": {
+          "enabled": true,
+          "voice_model": "elevenlabs",
+          "volume": 100,
+          "ringtone_id": "classic_short",
+          "idle_time_seconds": 15
+        }
      }
      ```
 
@@ -600,6 +601,7 @@ CREATE TABLE franquia_bag_tipos (
   nome TEXT NOT NULL,
   descricao TEXT,
   ativo BOOLEAN NOT NULL DEFAULT true,
+  audio_url TEXT, -- Áudio amarrado da galeria de mídia (opcional bypass ao motoboy_voices)
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 ```
@@ -1019,10 +1021,16 @@ CREATE POLICY "only_admins_can_modify_franquias"
 ```
 
 **Modo Ocioso (Screensaver & Widget Clima):**
-1. Se passar mais de 15 segundos sem atividade na tela e sem motoboys chamados, a TV entra em "Ociosismo".
-2. Aciona nativamente o `play` nas listas do banco de dados `tv_playlist`. (YouTube API e Tag Vídeo).
-3. Se houver Clima, puxará dados abertos da "OpenWeatherMap" buscando a temperatura e ícone da `cidade_clima` configurada na configuração da Unidade.
-4. Qualquer atividade muta e esconde o player pausando a Playlist com zero perda de continuidade e posição (bypass no DRM).
+1. O tempo mínimo inerte para ativar o modo ocioso é um Custom Slider definido na aba Config > TV de cada loja (entre 5 e 60 segundos, default: 15s).
+2. Se o tempo da variável estourar sem uso de botões e sem novas chamadas de entrega, a TV recua.
+3. Aciona nativamente o `play` nas listas do banco de dados `tv_playlist` (imagens, videos da Galeria `franquia_media` e YouTube iframe sync).
+4. Se houver Clima, puxará dados abertos da "OpenWeatherMap" buscando a temperatura e ícone da `cidade_clima` cadastrada na configuração local da Unidade.
+5. Qualquer movimento de mouse via operador muta, esconde e cessa a Playlist com repasse inteligente de posição temporal.
+
+**Integração Galeria de Mídia (Storage `franquia_media`):**
+- Os Franqueados possuem um gerenciador modal UI visual contendo abas nativas de (Fotos, Vídeos e Áudios).
+- A API restringe e alimenta os uploads baseados no RLS vinculado ao próprio `franquia_id` do enviador para que lixos de outras lojas não colidam.
+- Esses botões da Galeria e URLs estão dispostos na **Formulação da Playlist da TV**, na aba de **Configurações de Bags** para vozes e em **Edição de TtS do Motoboy** (como Bypass do sistema ElevenLabs convencional).
 
 ---
 
