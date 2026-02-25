@@ -23,6 +23,7 @@ import { useTTS } from '@/hooks/useTTS';
 import { CheckinModal } from '@/components/CheckinModal';
 import { TVCallAnimation } from '@/components/TVCallAnimation';
 import { WeatherSlide } from '@/components/WeatherSlide';
+import { TopRankWidget } from '@/components/tv/TopRankWidget';
 import { supabase } from '@/integrations/supabase/client';
 
 const DEFAULT_CALL_AUDIO_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
@@ -269,6 +270,8 @@ export default function TV() {
     switch (slide.tipo) {
       case 'clima':
         return <WeatherSlide cidadeInput={unidadeData?.cidade_clima} />;
+      case 'top_rank':
+        return <TopRankWidget unidadeId={selectedUnit} />;
       case 'imagem':
         return <img src={slide.url || ''} alt="Slide" className="w-full h-full object-cover" />;
       case 'video':

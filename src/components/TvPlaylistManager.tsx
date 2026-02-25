@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
-import { Tv, Cloud, Youtube, Image, Video, Plus, Trash2, GripVertical } from 'lucide-react';
+import { Tv, Cloud, Youtube, Image, Video, Plus, Trash2, GripVertical, Trophy } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { MediaGalleryModal } from './MediaGalleryModal';
 
@@ -19,7 +19,7 @@ interface TvPlaylistManagerProps {
 
 interface PlaylistItem {
     id: string;
-    tipo: 'imagem' | 'video' | 'youtube' | 'clima';
+    tipo: 'imagem' | 'video' | 'youtube' | 'clima' | 'top_rank';
     url: string | null;
     duracao: number;
     volume: number;
@@ -84,7 +84,7 @@ export function TvPlaylistManager({ franquiaId, unidadeId }: TvPlaylistManagerPr
     });
 
     const [novoItem, setNovoItem] = useState<{
-        tipo: 'imagem' | 'video' | 'youtube' | 'clima';
+        tipo: 'imagem' | 'video' | 'youtube' | 'clima' | 'top_rank';
         url: string;
         duracao: number;
         volume: number;
@@ -188,6 +188,7 @@ export function TvPlaylistManager({ franquiaId, unidadeId }: TvPlaylistManagerPr
         video: Video,
         youtube: Youtube,
         clima: Cloud,
+        top_rank: Trophy,
     };
 
     return (
@@ -236,6 +237,7 @@ export function TvPlaylistManager({ franquiaId, unidadeId }: TvPlaylistManagerPr
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="clima">Widget de Clima (Previsão)</SelectItem>
+                            <SelectItem value="top_rank">Ranking Top 5 (Motoboys)</SelectItem>
                             <SelectItem value="imagem">Imagem (URL)</SelectItem>
                             <SelectItem value="youtube">YouTube (Vídeo ou Playlist)</SelectItem>
                             <SelectItem value="video">Vídeo Direto (.mp4 URL)</SelectItem>
@@ -244,11 +246,11 @@ export function TvPlaylistManager({ franquiaId, unidadeId }: TvPlaylistManagerPr
                 </div>
 
                 <div className="md:col-span-5 space-y-2">
-                    <Label>URL da Mídia {novoItem.tipo === 'clima' ? '(Não necessário)' : ''}</Label>
+                    <Label>URL da Mídia {(novoItem.tipo === 'clima' || novoItem.tipo === 'top_rank') ? '(Não necessário)' : ''}</Label>
                     <div className="flex gap-2">
                         <Input
-                            placeholder={novoItem.tipo === 'clima' ? "Puxará cidade da loja" : "https://..."}
-                            disabled={novoItem.tipo === 'clima'}
+                            placeholder={(novoItem.tipo === 'clima' || novoItem.tipo === 'top_rank') ? "Puxará automático pelo sistema" : "https://..."}
+                            disabled={novoItem.tipo === 'clima' || novoItem.tipo === 'top_rank'}
                             value={novoItem.url}
                             onChange={(e) => setNovoItem({ ...novoItem, url: e.target.value })}
                         />
