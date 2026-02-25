@@ -177,6 +177,7 @@ export type Database = {
           franquia_id: string
           id: string
           nome: string
+          audio_url: string | null
         }
         Insert: {
           ativo?: boolean
@@ -185,6 +186,7 @@ export type Database = {
           franquia_id: string
           id?: string
           nome: string
+          audio_url?: string | null
         }
         Update: {
           ativo?: boolean
@@ -193,6 +195,7 @@ export type Database = {
           franquia_id?: string
           id?: string
           nome?: string
+          audio_url?: string | null
         }
         Relationships: [
           {

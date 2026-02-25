@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Trash2, Pencil, Mic, Loader2, X } from 'lucide-react';
+import { Trash2, Pencil, Mic, Loader2, X, UploadCloud, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { MediaGalleryModal } from './MediaGalleryModal';
 
 interface FranquiaBagsSectionProps {
   franquiaId: string;
@@ -19,6 +20,7 @@ interface FranquiaBagTipoRow {
   nome: string;
   descricao: string | null;
   ativo: boolean;
+  audio_url?: string | null;
 }
 
 export const FranquiaBagsSection: React.FC<FranquiaBagsSectionProps> = ({ franquiaId }) => {
@@ -33,11 +35,10 @@ export const FranquiaBagsSection: React.FC<FranquiaBagsSectionProps> = ({ franqu
     queryFn: async () => {
       const { data, error } = await supabase
         .from('franquia_bag_tipos')
-        .select('id, franquia_id, nome, descricao, ativo')
+        .select('id, franquia_id, nome, descricao, ativo, audio_url')
         .eq('franquia_id', franquiaId)
-        .order('created_at', { ascending: true });
       if (error) throw error;
-      return data as FranquiaBagTipoRow[];
+      return data as any;
     },
   });
 
@@ -99,6 +100,20 @@ export const FranquiaBagsSection: React.FC<FranquiaBagsSectionProps> = ({ franqu
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['franquia-bag-tipos', franquiaId] });
     },
+  });
+
+  const saveUrlAudioMutation = useMutation({
+    mutationFn: async ({ bagId, url }: { bagId: string, url: string | null }) => {
+      const { error } = await supabase
+        .from('franquia_bag_tipos')
+        .update({ audio_url: url })
+        .eq('id', bagId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['franquia-bag-tipos', franquiaId] });
+      toast.success('Áudio da galeria vinculado à bolsa.');
+    }
   });
 
   const deleteBagMutation = useMutation({
@@ -263,9 +278,14 @@ export const FranquiaBagsSection: React.FC<FranquiaBagsSectionProps> = ({ franqu
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="font-medium">{bag.nome}</p>
-                        {hasAudio && (
-                          <span className="inline-flex items-center gap-1 text-[10px] bg-green-500/10 text-green-500 px-2 py-0.5 rounded-full font-medium">
-                            <Mic className="w-3 h-3" /> Áudio Anexado
+                        {hasAudio && !bag.audio_url && (
+                          <span className="inline-flex items-center gap-1 text-[10px] bg-green-500/10 text-green-500 px-2 py-0.5 rounded-full font-medium" title="Gravado no Microfone">
+                            <Mic className="w-3 h-3" /> Áudio Gravado
+                          </span>
+                        )}
+                        {bag.audio_url && (
+                          <span className="inline-flex items-center gap-1 text-[10px] bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded-full font-medium" title="Sincronizado da Galeria">
+                            <Link2 className="w-3 h-3" /> Áudio da Galeria
                           </span>
                         )}
                       </div>
@@ -286,7 +306,7 @@ export const FranquiaBagsSection: React.FC<FranquiaBagsSectionProps> = ({ franqu
 
                       <div className="h-6 w-px bg-border mx-1"></div>
 
-                      {hasAudio ? (
+                      {hasAudio || bag.audio_url ? (
                         <Button
                           type="button"
                           size="sm"
@@ -294,26 +314,46 @@ export const FranquiaBagsSection: React.FC<FranquiaBagsSectionProps> = ({ franqu
                           className="h-9 gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
                           onClick={() => {
                             if (confirm(`Remover áudio de ${bag.nome}? A TV voltará a falar com a voz do computador.`)) {
-                              deleteAudioBagMutation.mutate(bag.id);
+                              if (hasAudio) deleteAudioBagMutation.mutate(bag.id);
+                              if (bag.audio_url) saveUrlAudioMutation.mutate({ bagId: bag.id, url: null });
                             }
                           }}
-                          disabled={deleteAudioBagMutation.isPending}
+                          disabled={deleteAudioBagMutation.isPending || saveUrlAudioMutation.isPending}
                         >
                           <X className="w-4 h-4" />
                           Remover Áudio
                         </Button>
                       ) : (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="secondary"
-                          className="h-9 gap-2"
-                          onClick={() => triggerFileInput(bag)}
-                          disabled={isUploading}
-                        >
-                          {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
-                          {isUploading ? 'Anexando...' : 'Anexar Áudio (MP3)'}
-                        </Button>
+                        <div className="flex gap-2">
+                          <MediaGalleryModal
+                            acceptedTypes={['audio']}
+                            title="Galeria de Áudios"
+                            onSelect={(url) => saveUrlAudioMutation.mutate({ bagId: bag.id, url })}
+                            triggerButton={
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-9 gap-2"
+                              >
+                                <Link2 className="w-4 h-4" />
+                                Da Galeria
+                              </Button>
+                            }
+                          />
+
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            className="h-9 gap-2"
+                            onClick={() => triggerFileInput(bag)}
+                            disabled={isUploading}
+                          >
+                            {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
+                            Gravar
+                          </Button>
+                        </div>
                       )}
 
                       <Button
@@ -346,6 +386,6 @@ export const FranquiaBagsSection: React.FC<FranquiaBagsSectionProps> = ({ franqu
           )}
         </CardContent>
       </Card>
-    </div>
+    </div >
   );
 };

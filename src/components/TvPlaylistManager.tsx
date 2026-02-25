@@ -10,6 +10,7 @@ import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
 import { Tv, Cloud, Youtube, Image, Video, Plus, Trash2, GripVertical } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import { MediaGalleryModal } from './MediaGalleryModal';
 
 interface TvPlaylistManagerProps {
     franquiaId: string;
@@ -244,12 +245,26 @@ export function TvPlaylistManager({ franquiaId, unidadeId }: TvPlaylistManagerPr
 
                 <div className="md:col-span-5 space-y-2">
                     <Label>URL da Mídia {novoItem.tipo === 'clima' ? '(Não necessário)' : ''}</Label>
-                    <Input
-                        placeholder={novoItem.tipo === 'clima' ? "Puxará cidade da loja" : "https://..."}
-                        disabled={novoItem.tipo === 'clima'}
-                        value={novoItem.url}
-                        onChange={(e) => setNovoItem({ ...novoItem, url: e.target.value })}
-                    />
+                    <div className="flex gap-2">
+                        <Input
+                            placeholder={novoItem.tipo === 'clima' ? "Puxará cidade da loja" : "https://..."}
+                            disabled={novoItem.tipo === 'clima'}
+                            value={novoItem.url}
+                            onChange={(e) => setNovoItem({ ...novoItem, url: e.target.value })}
+                        />
+                        {(novoItem.tipo === 'imagem' || novoItem.tipo === 'video') && (
+                            <MediaGalleryModal
+                                title="Galeria da Franquia"
+                                acceptedTypes={novoItem.tipo === 'imagem' ? ['image'] : ['video']}
+                                onSelect={(url) => setNovoItem({ ...novoItem, url })}
+                                triggerButton={
+                                    <Button type="button" variant="outline" size="icon" title="Abrir Galeria">
+                                        {novoItem.tipo === 'imagem' ? <Image className="w-4 h-4" /> : <Video className="w-4 h-4" />}
+                                    </Button>
+                                }
+                            />
+                        )}
+                    </div>
                 </div>
 
                 <div className="md:col-span-2 space-y-2">

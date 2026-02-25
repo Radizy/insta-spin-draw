@@ -160,6 +160,22 @@ export default function TV() {
     enabled: !!selectedUnit,
   });
 
+  // Configurações Globais da Loja e Prompts da TV (por franquia)
+  const { data: franquiaConfig } = useQuery<{ config_pagamento: any | null }>({
+    queryKey: ['franquia-config-tv', user?.franquiaId],
+    queryFn: async () => {
+      if (!user?.franquiaId) return { config_pagamento: null };
+      const { data, error } = await supabase
+        .from('franquias')
+        .select('config_pagamento')
+        .eq('id', user.franquiaId)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as any) || { config_pagamento: null };
+    },
+    enabled: !!user?.franquiaId,
+  });
+
   // Buscar Playlist da TV da Unidade
   const { data: tvPlaylist = [] } = useQuery({
     queryKey: ['tv-playlist', user?.unidadeId],
@@ -189,7 +205,9 @@ export default function TV() {
     const handleActivity = () => {
       setIsIdle(false);
       if (idleTimeoutRef.current) clearTimeout(idleTimeoutRef.current);
-      idleTimeoutRef.current = setTimeout(() => setIsIdle(true), 15000); // 15s ocioso entra screensaver
+
+      const configOcioso = ((franquiaConfig?.config_pagamento as any)?.tv_tts?.idle_time_seconds || 15) * 1000;
+      idleTimeoutRef.current = setTimeout(() => setIsIdle(true), configOcioso); // X segundos ocioso entra screensaver
     };
 
     window.addEventListener('mousemove', handleActivity);
@@ -206,7 +224,7 @@ export default function TV() {
       window.removeEventListener('click', handleActivity);
       if (idleTimeoutRef.current) clearTimeout(idleTimeoutRef.current);
     };
-  }, []);
+  }, [franquiaConfig]);
 
   // Lógica de Rotação da Playlist
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
@@ -523,22 +541,6 @@ export default function TV() {
         .order('created_at', { ascending: true });
       if (error) throw error;
       return data as any;
-    },
-    enabled: !!user?.franquiaId,
-  });
-
-  // Configurações de prompts da TV (por franquia)
-  const { data: franquiaConfig } = useQuery<{ config_pagamento: any | null }>({
-    queryKey: ['franquia-config-tv', user?.franquiaId],
-    queryFn: async () => {
-      if (!user?.franquiaId) return { config_pagamento: null };
-      const { data, error } = await supabase
-        .from('franquias')
-        .select('config_pagamento')
-        .eq('id', user.franquiaId)
-        .maybeSingle();
-      if (error) throw error;
-      return (data as any) || { config_pagamento: null };
     },
     enabled: !!user?.franquiaId,
   });
@@ -1010,8 +1012,8 @@ export default function TV() {
       {tvPlaylist.length > 0 && (
         <div
           className={`fixed inset-0 z-40 bg-black transition-opacity duration-1000 ${isIdle && !displayingCalled && !displayingPagamento
-              ? 'opacity-100 pointer-events-auto'
-              : 'opacity-0 pointer-events-none'
+            ? 'opacity-100 pointer-events-auto'
+            : 'opacity-0 pointer-events-none'
             }`}
         >
           {renderPlaylistSlide(isIdle && !displayingCalled && !displayingPagamento)}

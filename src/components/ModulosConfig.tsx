@@ -450,6 +450,7 @@ function TvTtsConfigSection({ franquiaId, initialConfig }: TvTtsConfigSectionPro
   );
   const [elevenVoiceId, setElevenVoiceId] = useState<string>(initialConfig?.eleven_voice_id ?? '');
   const [ringtoneId, setRingtoneId] = useState<string>(initialConfig?.ringtone_id ?? 'classic_short');
+  const [idleTimeSeconds, setIdleTimeSeconds] = useState<number>(initialConfig?.idle_time_seconds ?? 15);
 
   const RINGTONE_OPTIONS = [
     {
@@ -538,6 +539,7 @@ function TvTtsConfigSection({ franquiaId, initialConfig }: TvTtsConfigSectionPro
           elevenlabs_api_key_tertiary: elevenApiKeyTertiary || undefined,
           eleven_voice_id: elevenVoiceId || undefined,
           ringtone_id: ringtoneId || undefined,
+          idle_time_seconds: idleTimeSeconds,
         },
       };
 
@@ -618,13 +620,33 @@ function TvTtsConfigSection({ franquiaId, initialConfig }: TvTtsConfigSectionPro
       </p>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label>Ativar voz</Label>
-          <div className="flex items-center gap-3">
-            <Switch checked={enabled} onCheckedChange={setEnabled} />
-            <span className="text-xs text-muted-foreground">
-              Quando desativado, apenas a animação visual será exibida na TV.
-            </span>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Ativar som e voz para a TV</Label>
+            <div className="flex items-center gap-3">
+              <Switch checked={enabled} onCheckedChange={setEnabled} />
+              <span className="text-xs text-muted-foreground">
+                Quando desativado, apenas a animação visual será exibida na TV ao chamar pedidos.
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-2 mt-2 pt-2 border-t border-border/50">
+            <Label>Tempo para Ocioso (Screensaver/Fila)</Label>
+            <div className="flex items-center gap-4">
+              <Slider
+                value={[idleTimeSeconds]}
+                min={5}
+                max={60}
+                step={1}
+                onValueChange={([v]) => setIdleTimeSeconds(v)}
+                className="flex-1"
+              />
+              <span className="w-10 text-xs text-right text-muted-foreground">{idleTimeSeconds}s</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-tight">
+              Tempo sem o mouse mover ou novas chamadas para o painel entrar no carrossel de Mídias.
+            </p>
           </div>
         </div>
 
