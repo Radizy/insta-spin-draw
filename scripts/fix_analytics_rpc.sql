@@ -60,14 +60,14 @@ BEGIN
     SELECT COALESCE(jsonb_agg(row_to_json(b)), '[]'::jsonb) INTO v_performance_bag
     FROM (
         SELECT 
-            COALESCE(tipo_bag, 'Não Informado') as tipo_bag,
+            COALESCE((SELECT fbt.nome FROM franquia_bag_tipos fbt WHERE fbt.id::text = h.tipo_bag LIMIT 1), h.tipo_bag, 'Não Informado') as tipo_bag,
             COUNT(*) as total,
-            COALESCE(AVG(EXTRACT(EPOCH FROM (hora_retorno - hora_saida))/60)::int, 0) as tempo_medio
-        FROM historico_entregas
-        WHERE unidade = p_unidade_nome
-          AND hora_saida >= p_data_inicio 
-          AND hora_saida <= p_data_fim
-        GROUP BY tipo_bag
+            COALESCE(AVG(EXTRACT(EPOCH FROM (h.hora_retorno - h.hora_saida))/60)::int, 0) as tempo_medio
+        FROM historico_entregas h
+        WHERE h.unidade = p_unidade_nome
+          AND h.hora_saida >= p_data_inicio 
+          AND h.hora_saida <= p_data_fim
+        GROUP BY COALESCE((SELECT fbt.nome FROM franquia_bag_tipos fbt WHERE fbt.id::text = h.tipo_bag LIMIT 1), h.tipo_bag, 'Não Informado')
         ORDER BY total DESC
     ) b;
 
