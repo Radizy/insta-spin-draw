@@ -1,8 +1,5 @@
 import { useState, useEffect } from 'react';
-
-// OpenWeatherMap API Key
-// O ideal é colocar no .env "VITE_OPENWEATHER_API_KEY", mas para facilitar os testes colocaremos um fallback de dev
-const API_KEY = import.meta.env.VITE_OPENWEATHER_API_KEY || ''; // Você precisa inserir a chave aqui ou no .env
+import { supabase } from '@/integrations/supabase/client';
 
 export interface WeatherData {
     temp: number;
@@ -23,48 +20,76 @@ export function useWeather(city: string | null | undefined) {
             return;
         }
 
-        if (!API_KEY) {
-            setError('Chave da API de Clima não configurada no .env');
-            return;
-        }
-
-        const fetchWeather = async () => {
+        const fetchWeatherCache = async () => {
             setLoading(true);
             setError(null);
 
             try {
-                const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(
-                    city
-                )}&units=metric&lang=pt_br&appid=${API_KEY}`;
+                // Ao invés de chamar a API da OpenWeather, busca o JSONB já servido pela Edge Function e CRON do Supabase
+                const { data, error: sbError } = await supabase
+                    .from('unidades')
+                    .select('clima_cache')
+                    .ilike('cidade_clima', city)
+                    .not('clima_cache', 'is', null)
+                    .limit(1)
+                    .maybeSingle();
 
-                const response = await fetch(url);
-
-                if (!response.ok) {
-                    throw new Error('Falha ao buscar clima da cidade');
+                if (sbError) {
+                    throw new Error(sbError.message);
                 }
 
-                const data = await response.json();
+                if (!data || !data.clima_cache) {
+                    throw new Error('Nenhum dado de clima cacheado encontrado para essa cidade ainda.');
+                }
+
+                const cachedData = data.clima_cache as any;
 
                 setWeather({
-                    temp: Math.round(data.main.temp),
-                    description: data.weather[0].description,
-                    icon: data.weather[0].icon,
-                    city: data.name,
+                    temp: Math.round(cachedData.main.temp),
+                    description: cachedData.weather[0].description,
+                    icon: cachedData.weather[0].icon,
+                    city: cachedData.name,
                 });
             } catch (err) {
-                console.error('Erro na API de Clima:', err);
-                setError(err instanceof Error ? err.message : 'Erro desconhecido');
+                console.error('Erro ao ler Cache de Clima do Banco:', err);
+                setError(err instanceof Error ? err.message : 'Erro desconhecido ao ler o clima');
                 setWeather(null);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchWeather();
+        fetchWeatherCache();
 
-        // Atualiza clima a cada hora se a TV ficar ligada o dia todo
-        const intervalId = setInterval(fetchWeather, 3600000);
-        return () => clearInterval(intervalId);
+        // Ouve atualizações em tempo real na tabela de unidades para a coluna de clima
+        const channel = supabase
+            .channel('public:unidades:clima_cache')
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'unidades',
+                    filter: `cidade_clima=ilike.${city}`
+                },
+                (payload) => {
+                    const newData = payload.new as any;
+                    if (newData.clima_cache) {
+                        const cachedData = newData.clima_cache;
+                        setWeather({
+                            temp: Math.round(cachedData.main.temp),
+                            description: cachedData.weather[0].description,
+                            icon: cachedData.weather[0].icon,
+                            city: cachedData.name,
+                        });
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [city]);
 
     return { weather, loading, error };

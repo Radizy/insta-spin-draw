@@ -858,6 +858,8 @@ export type Database = {
       unidades: {
         Row: {
           cidade_clima: string | null
+          clima_cache: Json | null
+          clima_updated_at: string | null
           config_sheets_url: string | null
           config_whatsapp: Json | null
           created_at: string | null
@@ -867,6 +869,8 @@ export type Database = {
         }
         Insert: {
           cidade_clima?: string | null
+          clima_cache?: Json | null
+          clima_updated_at?: string | null
           config_sheets_url?: string | null
           config_whatsapp?: Json | null
           created_at?: string | null
@@ -876,6 +880,8 @@ export type Database = {
         }
         Update: {
           cidade_clima?: string | null
+          clima_cache?: Json | null
+          clima_updated_at?: string | null
           config_sheets_url?: string | null
           config_whatsapp?: Json | null
           created_at?: string | null
