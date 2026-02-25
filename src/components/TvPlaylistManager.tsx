@@ -112,7 +112,7 @@ export function TvPlaylistManager({ franquiaId, unidadeId }: TvPlaylistManagerPr
             const { error } = await supabase.from('tv_playlist').insert({
                 unidade_id: unidadeData.id,
                 tipo: novoItem.tipo,
-                url: novoItem.tipo === 'clima' ? null : novoItem.url,
+                url: (novoItem.tipo === 'clima' || novoItem.tipo === 'top_rank') ? null : novoItem.url,
                 duracao: novoItem.duracao,
                 volume: novoItem.volume || 0,
                 ordem: playlist.length,
@@ -282,7 +282,7 @@ export function TvPlaylistManager({ franquiaId, unidadeId }: TvPlaylistManagerPr
                 <div className="md:col-span-2">
                     <Button
                         className="w-full gap-2"
-                        disabled={addItemMutation.isPending || (novoItem.tipo !== 'clima' && !novoItem.url)}
+                        disabled={addItemMutation.isPending || ((novoItem.tipo !== 'clima' && novoItem.tipo !== 'top_rank') && !novoItem.url)}
                         onClick={() => addItemMutation.mutate()}
                     >
                         <Plus className="w-4 h-4" />
