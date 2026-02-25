@@ -70,7 +70,16 @@ export interface SystemConfig {
   webhook_url?: string;
   nome_loja?: string;
   created_at?: string;
-  updated_at?: string;
+}
+
+export interface SystemUpdate {
+  id: string;
+  titulo: string;
+  tipo: string; // 'MELHORIAS', 'NOVO RECURSO'
+  status: 'lancado' | 'planejado';
+  data_publicacao: string;
+  ordem: number;
+  created_at: string;
 }
 
 // Turno padrão do sistema (16:00 às 02:00)
@@ -946,4 +955,63 @@ export async function resetDaily(unidade?: string, unidadeId?: string): Promise<
   if (data && typeof data === 'object' && 'success' in data && (data as any).success === false) {
     throw new Error((data as any).error || 'Falha ao executar reset diário');
   }
+}
+
+// ==========================================
+// SYSTEM UPDATES (CHANGELOG)
+// ==========================================
+
+export async function fetchSystemUpdates(): Promise<SystemUpdate[]> {
+  const { data, error } = await supabase
+    .from('system_updates' as any)
+    .select('*')
+    .order('ordem', { ascending: true })
+    .order('data_publicacao', { ascending: false });
+
+  if (error) {
+    throw new Error('Failed to fetch system updates: ' + error.message);
+  }
+
+  return (data || []) as SystemUpdate[];
+}
+
+export async function createSystemUpdate(data: Partial<SystemUpdate>): Promise<SystemUpdate> {
+  const { data: result, error } = await supabase
+    .from('system_updates' as any)
+    .insert([data])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return result as SystemUpdate;
+}
+
+export async function updateSystemUpdate(id: string, data: Partial<SystemUpdate>): Promise<SystemUpdate> {
+  const { data: result, error } = await supabase
+    .from('system_updates' as any)
+    .update(data)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return result as SystemUpdate;
+}
+
+export async function deleteSystemUpdate(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('system_updates' as any)
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+}
+
+// Bulk update para ordem (Drag and Drop)
+export async function reorderSystemUpdates(updates: { id: string, ordem: number }[]): Promise<void> {
+  const promises = updates.map(update =>
+    supabase.from('system_updates').update({ ordem: update.ordem }).eq('id', update.id)
+  );
+
+  await Promise.all(promises);
 }

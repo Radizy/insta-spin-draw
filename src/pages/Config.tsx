@@ -57,7 +57,7 @@ import {
 } from '@/lib/api';
 import { Trash2, AlertCircle, Volume2, Plus, Clock, Save, Edit, RefreshCw, LogOut, Download, Mic, Upload, Users, Loader2, Filter, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams, useNavigate } from 'react-router-dom';
 
 const DIAS_SEMANA = [
   { key: 'seg', label: 'Segunda' },
@@ -83,6 +83,7 @@ export default function Config() {
   const { selectedUnit } = useUnit();
   const { logout, user } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const cancelVoicesRef = useRef(false);
 
   const [searchParams] = useSearchParams();
@@ -729,7 +730,10 @@ export default function Config() {
           <Button
             variant="outline"
             size="sm"
-            onClick={logout}
+            onClick={async () => {
+              await logout();
+              navigate('/login');
+            }}
             className="gap-2 w-full sm:w-auto justify-center"
           >
             <LogOut className="w-4 h-4" />

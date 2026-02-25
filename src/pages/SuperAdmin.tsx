@@ -1,4 +1,5 @@
 import React from 'react';
+import { SuperAdminUpdates } from '@/components/admin/SuperAdminUpdates';
 import { Layout } from '@/components/Layout';
 import { UsersManagement } from '@/components/UsersManagement';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,7 +16,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Building2, Store, Users, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
+import { Loader2, Building2, Store, Users, Pencil, Plus, Trash2, Check, ChevronsUpDown, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Unidade } from '@/lib/api';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
@@ -66,13 +70,23 @@ interface UnidadePlano {
   ativo: boolean;
 }
 
+export function mapNomeLojaToUnidadeSlug(nome: string): string {
+  if (!nome) return '';
+  const lower = nome.toLowerCase();
+  if (lower.includes('itaqua')) return 'ITAQUA';
+  if (lower.includes('poá') || lower.includes('poa')) return 'POA';
+  if (lower.includes('suzano')) return 'SUZANO';
+  return nome;
+}
+
 export default function SuperAdmin() {
-  const { user } = useAuth();
+  const { user, changeUnit } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { setSelectedUnit } = useUnit();
 
   const [selectedAdminUnit, setSelectedAdminUnit] = React.useState<string>('MASTER');
+  const [openCombobox, setOpenCombobox] = React.useState(false);
   const [searchFranquia, setSearchFranquia] = React.useState('');
   const [quickAccessSearch, setQuickAccessSearch] = React.useState('');
   const [financePeriodPreset, setFinancePeriodPreset] = React.useState<
@@ -928,6 +942,7 @@ export default function SuperAdmin() {
             <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
             <TabsTrigger value="config">Config</TabsTrigger>
             <TabsTrigger value="dados">Dados</TabsTrigger>
+            <TabsTrigger value="atualizacoes">Atualizações</TabsTrigger>
           </TabsList>
 
           {/* Aba Geral */}
@@ -944,34 +959,77 @@ export default function SuperAdmin() {
                   </p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                  <Input
-                    placeholder="Buscar loja ou franquia"
-                    value={quickAccessSearch}
-                    onChange={(e) => setQuickAccessSearch(e.target.value)}
-                    className="w-full sm:w-64"
-                  />
-                  <Select
-                    value={selectedAdminUnit}
-                    onValueChange={(value) => setSelectedAdminUnit(value)}
-                  >
-                    <SelectTrigger className="w-full sm:w-64">
-                      <SelectValue placeholder="Selecionar visão" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MASTER">Painel Administrativo Master</SelectItem>
-                      {quickAccessUnits.map((u) => {
-                        const franquia = franquias.find((f) => f.id === u.franquia_id);
-                        const label = franquia
-                          ? `${franquia.nome_franquia} / ${u.nome_loja}`
-                          : u.nome_loja;
-                        return (
-                          <SelectItem key={u.id} value={u.nome_loja}>
-                            {label}
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={openCombobox}
+                        className="w-full sm:w-[400px] justify-between font-normal"
+                      >
+                        {selectedAdminUnit === 'MASTER'
+                          ? 'Painel Administrativo Master'
+                          : quickAccessUnits.find((u) => u.nome_loja === selectedAdminUnit)?.nome_loja
+                            ? (() => {
+                              const u = quickAccessUnits.find((u) => u.nome_loja === selectedAdminUnit)!;
+                              const f = franquias.find((f) => f.id === u.franquia_id);
+                              return f ? `${f.nome_franquia} / ${u.nome_loja}` : u.nome_loja;
+                            })()
+                            : 'Selecionar Loja/Franquia...'}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Buscar loja ou franquia..." />
+                        <CommandList>
+                          <CommandEmpty>Nenhuma loja encontrada.</CommandEmpty>
+                          <CommandGroup heading="Ações">
+                            <CommandItem
+                              value="MASTER"
+                              onSelect={() => {
+                                setSelectedAdminUnit('MASTER');
+                                setOpenCombobox(false);
+                              }}
+                              className="font-medium text-primary"
+                            >
+                              <Check
+                                className={cn(
+                                  'mr-2 h-4 w-4',
+                                  selectedAdminUnit === 'MASTER' ? 'opacity-100' : 'opacity-0'
+                                )}
+                              />
+                              Painel Administrativo Master
+                            </CommandItem>
+                          </CommandGroup>
+                          <CommandGroup heading="Lojas Disponíveis">
+                            {quickAccessUnits.map((u) => {
+                              const franquia = franquias.find((f) => f.id === u.franquia_id);
+                              const label = franquia ? `${franquia.nome_franquia} / ${u.nome_loja}` : u.nome_loja;
+                              return (
+                                <CommandItem
+                                  key={u.id}
+                                  value={label}
+                                  onSelect={() => {
+                                    setSelectedAdminUnit(u.nome_loja);
+                                    setOpenCombobox(false);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      'mr-2 h-4 w-4',
+                                      selectedAdminUnit === u.nome_loja ? 'opacity-100' : 'opacity-0'
+                                    )}
+                                  />
+                                  {label}
+                                </CommandItem>
+                              );
+                            })}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                   <div className="flex gap-2">
                     <Button
                       type="button"
@@ -986,9 +1044,12 @@ export default function SuperAdmin() {
                     <Button
                       type="button"
                       disabled={selectedAdminUnit === 'MASTER'}
-                      onClick={() => {
+                      className="bg-primary hover:bg-primary/90"
+                      onClick={async () => {
                         if (selectedAdminUnit === 'MASTER') return;
-                        setSelectedUnit(selectedAdminUnit as any);
+                        const slug = mapNomeLojaToUnidadeSlug(selectedAdminUnit);
+                        await changeUnit(slug as any);
+                        setSelectedUnit(slug as any);
                         navigate('/roteirista');
                       }}
                     >
@@ -1001,28 +1062,34 @@ export default function SuperAdmin() {
 
             {/* Resumo rápido */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <Card className="border-border">
-                <CardHeader>
-                  <CardTitle className="text-sm font-mono">Franquias</CardTitle>
+              <Card className="relative overflow-hidden group border-muted/30 shadow-none bg-gradient-to-br from-indigo-500/10 via-background to-background">
+                <div className="absolute right-0 top-0 w-24 h-24 bg-gradient-to-br from-indigo-500/20 to-transparent rounded-bl-full pointer-events-none transition-transform group-hover:scale-110" />
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground z-10">Total de Franquias</CardTitle>
+                  <Building2 className="w-4 h-4 text-indigo-500 z-10" />
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-mono font-bold">{totalFranquias}</p>
+                  <p className="text-4xl font-mono font-bold text-foreground drop-shadow-sm">{totalFranquias}</p>
                 </CardContent>
               </Card>
-              <Card className="border-border">
-                <CardHeader>
-                  <CardTitle className="text-sm font-mono">Lojas</CardTitle>
+              <Card className="relative overflow-hidden group border-muted/30 shadow-none bg-gradient-to-br from-emerald-500/10 via-background to-background">
+                <div className="absolute right-0 top-0 w-24 h-24 bg-gradient-to-br from-emerald-500/20 to-transparent rounded-bl-full pointer-events-none transition-transform group-hover:scale-110" />
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground z-10">Total de Lojas</CardTitle>
+                  <Store className="w-4 h-4 text-emerald-500 z-10" />
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-mono font-bold">{totalLojas}</p>
+                  <p className="text-4xl font-mono font-bold text-foreground drop-shadow-sm">{totalLojas}</p>
                 </CardContent>
               </Card>
-              <Card className="border-border">
-                <CardHeader>
-                  <CardTitle className="text-sm font-mono">Usuários</CardTitle>
+              <Card className="relative overflow-hidden group border-muted/30 shadow-none bg-gradient-to-br from-violet-500/10 via-background to-background">
+                <div className="absolute right-0 top-0 w-24 h-24 bg-gradient-to-br from-violet-500/20 to-transparent rounded-bl-full pointer-events-none transition-transform group-hover:scale-110" />
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground z-10">Usuários no Sistema</CardTitle>
+                  <Users className="w-4 h-4 text-violet-500 z-10" />
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-mono font-bold">{totalUsuarios}</p>
+                  <p className="text-4xl font-mono font-bold text-foreground drop-shadow-sm">{totalUsuarios}</p>
                 </CardContent>
               </Card>
             </div>
@@ -1442,6 +1509,11 @@ export default function SuperAdmin() {
           {/* Aba Dados (Export/Import) */}
           <TabsContent value="dados" className="space-y-6">
             <DataExportImport />
+          </TabsContent>
+
+          {/* Aba Atualizações do Sistema */}
+          <TabsContent value="atualizacoes" className="space-y-6">
+            <SuperAdminUpdates />
           </TabsContent>
         </Tabs>
       </div>

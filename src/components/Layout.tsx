@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { UnitSwitcher } from './UnitSwitcher';
 import { MessageSquare } from 'lucide-react';
+import { SystemUpdatesWidget } from './SystemUpdatesWidget';
 
 const whatsappNumber = "5511954545985";
 const whatsappMessage = encodeURIComponent("Olá! Gostaria de suporte no sistema FilaLab.");
@@ -31,7 +32,7 @@ const navItems = [
 export function Layout({ children, showHeader = true }: LayoutProps) {
   const location = useLocation();
   const { selectedUnit, setSelectedUnit } = useUnit();
-  const { user, logout } = useAuth();
+  const { user, logout, restoreAdmin } = useAuth();
   const navigate = useNavigate();
 
   const canChangeUnit = user?.role === 'super_admin' || user?.role === 'admin_franquia';
@@ -60,7 +61,7 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
 
   const handleLogout = () => {
     logout();
-    navigate('/');
+    navigate('/login');
     toast.success('Logout realizado com sucesso');
   };
 
@@ -69,6 +70,7 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
   }
 
   const isAdminRoute = location.pathname === '/admin';
+  const isSimulatingStore = user?.role === 'super_admin' && !isAdminRoute && selectedUnit !== null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -86,6 +88,19 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
 
           {selectedUnit && !isAdminRoute && (
             <div className="flex items-center gap-4">
+              {isSimulatingStore && (
+                <button
+                  onClick={async () => {
+                    await restoreAdmin();
+                    setSelectedUnit(null as any);
+                    navigate('/admin');
+                  }}
+                  className="animate-pulse flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold text-xs shadow-sm transition-all bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground border border-destructive/20 mr-2"
+                  title="Você está acessando dados desta loja como Super Admin"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" /> Sair do Modo Loja
+                </button>
+              )}
               <nav className="flex items-center gap-1">
                 {navItems.map((item) => {
                   const Icon = item.icon;
@@ -131,17 +146,25 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
 
       <main className="container py-8 animate-fade-in">{children}</main>
 
+      <SystemUpdatesWidget />
+
       {/* Floating WhatsApp Button */}
-      <a
-        href={whatsappLink}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="fixed bottom-6 right-6 w-14 h-14 bg-green-500 hover:bg-green-600 text-white rounded-full shadow-xl flex items-center justify-center z-50 transition-transform hover:scale-110 animate-bounce"
-        style={{ animationDuration: '3s' }}
-        title="Suporte via WhatsApp"
-      >
-        <MessageSquare className="w-7 h-7" />
-      </a>
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-4 items-end">
+        <a
+          href={whatsappLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-14 h-14 bg-green-500 hover:bg-green-600 text-white rounded-full shadow-xl flex items-center justify-center transition-transform hover:scale-110 animate-bounce group relative"
+          style={{ animationDuration: '3s' }}
+        >
+          <MessageSquare className="w-7 h-7" />
+
+          <div className="absolute right-full mr-4 top-1/2 -translate-y-1/2 px-3 py-2 bg-slate-800 text-slate-200 text-sm font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg flex items-center border border-slate-700">
+            Suporte via WhatsApp
+            <div className="absolute top-1/2 right-[-4px] -translate-y-1/2 w-2 h-2 bg-slate-800 rotate-45 border-t border-r border-slate-700"></div>
+          </div>
+        </a>
+      </div>
     </div>
   );
 }

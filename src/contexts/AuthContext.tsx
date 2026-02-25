@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Unidade } from '@/lib/api';
- 
+
 interface User {
   id: string;
   username: string;
@@ -19,7 +19,8 @@ interface AuthContextType {
   isLoading: boolean;
   login: (username: string, password: string, unidade?: Unidade) => Promise<User | null>;
   logout: () => void | Promise<void>;
-  changeUnit: (unidade: Unidade) => Promise<void>;
+  changeUnit: (unidade: Unidade, unidadeId?: string, franquiaId?: string) => Promise<void>;
+  restoreAdmin: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -119,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return userData;
   };
 
-  const changeUnit = async (newUnidade: Unidade) => {
+  const changeUnit = async (newUnidade: Unidade, novaUnidadeId?: string, novaFranquiaId?: string) => {
     if (!user) return;
 
     // Verificar se o usuário tem acesso a esta unidade
@@ -131,7 +132,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error('Você não tem acesso a esta unidade');
     }
 
-    const updatedUser = { ...user, unidade: newUnidade };
+    let newUnidadeId = novaUnidadeId || null;
+    let newFranquiaId = novaFranquiaId || null;
+
+    if (!newUnidadeId && user.availableUnits) {
+      const u = user.availableUnits.find(x => x.unidade_nome === newUnidade || x.nome_loja === newUnidade);
+      if (u) newUnidadeId = u.id;
+    }
+
+    const updatedUser = {
+      ...user,
+      unidade: newUnidade,
+      unidadeId: newUnidadeId ?? user.unidadeId,
+      franquiaId: newFranquiaId ?? user.franquiaId
+    };
+
+    setUser(updatedUser);
+    const stored: StoredSession = { ...(updatedUser as any), loggedAt: new Date().toISOString() };
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(stored));
+  };
+
+  const restoreAdmin = async () => {
+    if (!user || user.role !== 'super_admin') return;
+
+    // O Super Admin original tem a raiz Master nula (exceto a role)
+    const updatedUser = {
+      ...user,
+      unidade: '' as Unidade,
+      unidadeId: null,
+      franquiaId: null
+    };
+
     setUser(updatedUser);
     const stored: StoredSession = { ...(updatedUser as any), loggedAt: new Date().toISOString() };
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(stored));
@@ -156,9 +187,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(AUTH_STORAGE_KEY);
     sessionStorage.removeItem(TOKEN_STORAGE_KEY);
   };
- 
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout, changeUnit }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout, changeUnit, restoreAdmin }}>
       {children}
     </AuthContext.Provider>
   );
