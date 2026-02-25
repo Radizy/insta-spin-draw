@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface WeatherData {
@@ -25,10 +25,12 @@ export function useWeather(city: string | null | undefined) {
             setError(null);
 
             try {
+                // Ao inv├®s de chamar a API da OpenWeather, busca o JSONB j├í servido pela Edge Function e CRON do Supabase
                 const { data, error: sbError } = await supabase
                     .from('unidades')
-                    .select('clima_cache, clima_updated_at')
+                    .select('clima_cache')
                     .ilike('cidade_clima', city)
+                    .not('clima_cache', 'is', null)
                     .limit(1)
                     .maybeSingle();
 
@@ -36,43 +38,11 @@ export function useWeather(city: string | null | undefined) {
                     throw new Error(sbError.message);
                 }
 
-                let cachedData = data?.clima_cache as any;
-                let lastUpdated = data?.clima_updated_at ? new Date(data.clima_updated_at).getTime() : 0;
-                const now = new Date().getTime();
-                const twentyMinutes = 20 * 60 * 1000;
-
-                const needsUpdate = !cachedData || (now - lastUpdated > twentyMinutes);
-
-                if (needsUpdate) {
-                    console.log(`Clima desatualizado ou vazio para ${city}. Buscando direto na OpenWeather...`);
-
-                    const apiKey = import.meta.env.VITE_OPENWEATHER_API_KEY;
-                    if (!apiKey) {
-                        throw new Error('Chave VITE_OPENWEATHER_API_KEY não configurada no painel. Avise o suporte.');
-                    }
-
-                    const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(
-                        city
-                    )}&units=metric&appid=${apiKey}&lang=pt_br`;
-
-                    const response = await fetch(url);
-                    if (!response.ok) {
-                        throw new Error(`Falha na OpenWeather: ${response.statusText}`);
-                    }
-
-                    const weatherData = await response.json();
-
-                    // Sucesso! Atualiza o banco para que as outras TVs e recarregamentos usem o novo cache
-                    await supabase
-                        .from('unidades')
-                        .update({
-                            clima_cache: weatherData,
-                            clima_updated_at: new Date().toISOString()
-                        })
-                        .ilike('cidade_clima', city);
-
-                    cachedData = weatherData;
+                if (!data || !data.clima_cache) {
+                    throw new Error('Nenhum dado de clima cacheado encontrado para essa cidade ainda.');
                 }
+
+                const cachedData = data.clima_cache as any;
 
                 setWeather({
                     temp: Math.round(cachedData.main.temp),
@@ -81,8 +51,8 @@ export function useWeather(city: string | null | undefined) {
                     city: cachedData.name,
                 });
             } catch (err) {
-                console.error('Erro ao processar Clima:', err);
-                setError(err instanceof Error ? err.message : 'Erro desconhecido ao processar o clima');
+                console.error('Erro ao ler Cache de Clima do Banco:', err);
+                setError(err instanceof Error ? err.message : 'Erro desconhecido ao ler o clima');
                 setWeather(null);
             } finally {
                 setLoading(false);
@@ -91,7 +61,7 @@ export function useWeather(city: string | null | undefined) {
 
         fetchWeatherCache();
 
-        // Ouve atualizações em tempo real na tabela de unidades para a coluna de clima
+        // Ouve atualiza├º├Áes em tempo real na tabela de unidades para a coluna de clima
         const channel = supabase
             .channel('public:unidades:clima_cache')
             .on(
