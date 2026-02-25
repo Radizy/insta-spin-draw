@@ -8,38 +8,25 @@ interface TopRankWidgetProps {
 }
 
 export function TopRankWidget({ unidadeId }: TopRankWidgetProps) {
-    // 1. Pegar período de expediente
+    // 1. Pegar período de expediente (Dia contábil de 12:00 até 11:59 do dia seguinte)
     const getExpedientePeriod = () => {
         const now = new Date();
-        const currentHour = now.getHours();
+        const start = new Date(now);
+        const end = new Date(now);
 
-        let dataInicio: Date;
-        let dataFim: Date;
+        if (now.getHours() < 12) {
+            start.setDate(start.getDate() - 1);
+            start.setHours(12, 0, 0, 0);
 
-        if (currentHour < 3) {
-            dataInicio = new Date(now);
-            dataInicio.setDate(dataInicio.getDate() - 1);
-            dataInicio.setHours(HORARIO_EXPEDIENTE.inicio, 0, 0, 0);
-
-            dataFim = new Date(now);
-            dataFim.setHours(3, 0, 0, 0);
-        } else if (currentHour >= HORARIO_EXPEDIENTE.inicio) {
-            dataInicio = new Date(now);
-            dataInicio.setHours(HORARIO_EXPEDIENTE.inicio, 0, 0, 0);
-
-            dataFim = new Date(now);
-            dataFim.setDate(dataFim.getDate() + 1);
-            dataFim.setHours(3, 0, 0, 0);
+            end.setHours(11, 59, 59, 999);
         } else {
-            dataInicio = new Date(now);
-            dataInicio.setHours(HORARIO_EXPEDIENTE.inicio, 0, 0, 0);
+            start.setHours(12, 0, 0, 0);
 
-            dataFim = new Date(now);
-            dataFim.setDate(dataFim.getDate() + 1);
-            dataFim.setHours(3, 0, 0, 0);
+            end.setDate(end.getDate() + 1);
+            end.setHours(11, 59, 59, 999);
         }
 
-        return { dataInicio, dataFim };
+        return { dataInicio: start, dataFim: end };
     };
 
     const { dataInicio, dataFim } = getExpedientePeriod();
@@ -59,8 +46,8 @@ export function TopRankWidget({ unidadeId }: TopRankWidgetProps) {
                 .from('historico_entregas')
                 .select('entregador_id, hora_saida, hora_retorno, created_at')
                 .eq('unidade', unidadeId)
-                .gte('created_at', dataInicio.toISOString())
-                .lte('created_at', dataFim.toISOString());
+                .gte('hora_saida', dataInicio.toISOString())
+                .lte('hora_saida', dataFim.toISOString());
 
             if (error) throw error;
             return data;

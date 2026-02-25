@@ -11,8 +11,8 @@ import {
   HORARIO_EXPEDIENTE,
 } from '@/lib/api';
 import { toast } from 'sonner';
-import { History, Download, Loader2, Users, Trash2, Clock, FileSpreadsheet, Copy } from 'lucide-react';
-import { Navigate } from 'react-router-dom';
+import { History, Download, Loader2, Users, Trash2, Clock, FileSpreadsheet, Copy, ArrowLeft } from 'lucide-react';
+import { Navigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -286,7 +286,13 @@ export default function Historico() {
 
   return (
     <Layout>
-      <BackButton />
+      <Link
+        to="/roteirista"
+        className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        <span>Voltar ao Roteirista</span>
+      </Link>
 
       <div className="flex items-center justify-between mb-8">
         <div>
