@@ -13,6 +13,7 @@ import {
   TipoBag,
   sendDispatchWebhook,
   resetDaily,
+  registrarRetornoEntrega,
 } from '@/lib/api';
 import { toast } from 'sonner';
 import { Users, Loader2, Phone, GripVertical, SkipForward, UserMinus, LogOut, ArrowRight, MessageSquare, Map, MessageCircleOff, MessageCircle } from 'lucide-react';
@@ -265,16 +266,8 @@ export default function Roteirista() {
           tipo_bag: tipoBag,
         },
       });
-
-      // Create historico entry
-      await createHistoricoEntrega({
-        entregador_id: selectedEntregador.id,
-        unidade: selectedUnit,
-        tipo_bag: tipoBag,
-      });
-
-      // Invalidate saidas-dia query to update count immediately
-      queryClient.invalidateQueries({ queryKey: ['saidas-dia', selectedUnit] });
+      // O historico_entregas agora é criado apenas quando o Entregador vai de fato 
+      // para a aba "Em Entrega" (status: 'entregando'). Isso padroniza os gráficos do Analytics.
 
       // Disparar webhook de despacho (server-side)
       await sendDispatchWebhook({
@@ -349,6 +342,15 @@ export default function Roteirista() {
           hora_saida: new Date().toISOString(),
         },
       });
+
+      // Criar o historico oficial agora que ele realmente saiu pra rua (start do Analytics)
+      await createHistoricoEntrega({
+        entregador_id: entregador.id,
+        unidade: selectedUnit,
+        tipo_bag: entregador.tipo_bag || 'normal',
+      });
+      queryClient.invalidateQueries({ queryKey: ['saidas-dia', selectedUnit] });
+
       toast.success(`${entregador.nome} movido para Em Entrega`);
     } catch (error) {
       toast.error('Erro ao mover entregador');
@@ -396,6 +398,10 @@ export default function Roteirista() {
           fila_posicao: new Date().toISOString(),
         },
       });
+
+      // Finaliza a entrega batendo a hora de retorno (fecha o timer do Analytics Pro)
+      await registrarRetornoEntrega(actionEntregador.id, selectedUnit);
+      queryClient.invalidateQueries({ queryKey: ['saidas-dia', selectedUnit] });
 
       toast.success(`${actionEntregador.nome} retornou para a fila`);
       setReturnToQueueOpen(false);

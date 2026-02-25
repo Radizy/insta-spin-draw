@@ -15,6 +15,7 @@ import {
   Unidade,
   updateEntregador,
   resetDaily,
+  registrarRetornoEntrega,
 } from '@/lib/api';
 import { toast } from 'sonner';
 import { Ticket, Check, Loader2, Tv, ArrowDownCircle, ArrowRightLeft, RotateCcw, Phone } from 'lucide-react';
@@ -213,6 +214,7 @@ export default function FilaPagamento() {
         const entregador = entregadoresById.get(senha.entregador_id);
         if (entregador) {
           await updateEntregador(entregador.id, { status: 'disponivel' });
+          await registrarRetornoEntrega(entregador.id, selectedUnit);
         }
 
         await gerarSenhaPagamento(
