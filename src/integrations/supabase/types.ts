@@ -978,7 +978,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_analytics_pro_metrics: {
+        Args: {
+          p_unidade_id: string
+          p_data_inicio: string
+          p_data_fim: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "user"

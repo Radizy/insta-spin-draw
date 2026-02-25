@@ -32,6 +32,8 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AnalyticsDashboard } from '@/components/historico/AnalyticsDashboard';
 
 interface EntregadorContagem {
   id: string;
@@ -161,6 +163,7 @@ export default function Historico() {
   });
 
   const isPlanilhaAtivo = (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes('planilha');
+  const isAnalyticsProAtivo = (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes('analytics_pro');
 
   // Query for fetching entregadores
   const { data: entregadores = [] } = useQuery({
@@ -310,9 +313,9 @@ export default function Historico() {
 
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold font-mono mb-2">Histórico</h1>
+          <h1 className="text-3xl font-bold font-mono mb-2">Painel Analítico</h1>
           <p className="text-muted-foreground">
-            Contagem de entregas do expediente •{' '}
+            Acompanhamento e contagem de entregas •{' '}
             <span className="font-semibold text-foreground">{selectedUnit}</span>
           </p>
         </div>
@@ -342,98 +345,126 @@ export default function Historico() {
         </div>
       </div>
 
-      {/* Período */}
-      <div className="bg-card border border-border rounded-lg p-4 mb-6">
-        <div className="flex items-center gap-3">
-          <Clock className="w-5 h-5 text-muted-foreground" />
-          <div>
-            <p className="text-sm text-muted-foreground">Período do expediente</p>
-            <p className="font-mono font-medium">
-              {formatDate(dataInicio)} - {HORARIO_EXPEDIENTE.inicio}:00 às{' '}
-              {HORARIO_EXPEDIENTE.fim}:00
-            </p>
-          </div>
+      <Tabs defaultValue="historico" className="w-full space-y-6">
+        <div className="flex justify-between items-center mb-6 border-b pb-0">
+          <TabsList className="bg-transparent border-0 h-auto p-0 justify-start w-full gap-6">
+            <TabsTrigger
+              value="historico"
+              className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 pb-3"
+            >
+              Histórico Padrão
+            </TabsTrigger>
+            {isAnalyticsProAtivo && (
+              <TabsTrigger
+                value="analytics"
+                className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 pb-3 font-semibold text-primary"
+              >
+                📊 Analytics Pro
+              </TabsTrigger>
+            )}
+          </TabsList>
         </div>
-      </div>
 
-      {/* Stats */}
-      <div className="grid sm:grid-cols-2 gap-4 mb-8">
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <History className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Total de saídas</p>
-              <p className="text-2xl font-bold font-mono">{totalEntregas}</p>
+        <TabsContent value="historico" className="m-0 space-y-6">
+
+          {/* Período */}
+          <div className="bg-card border border-border rounded-lg p-4 mb-6">
+            <div className="flex items-center gap-3">
+              <Clock className="w-5 h-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm text-muted-foreground">Período do expediente</p>
+                <p className="font-mono font-medium">
+                  {formatDate(dataInicio)} - {HORARIO_EXPEDIENTE.inicio}:00 às{' '}
+                  {HORARIO_EXPEDIENTE.fim}:00
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-status-available/10 flex items-center justify-center">
-              <Users className="w-5 h-5 text-status-available" />
+
+          {/* Stats */}
+          <div className="grid sm:grid-cols-2 gap-4 mb-8">
+            <div className="bg-card border border-border rounded-lg p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <History className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Total de saídas</p>
+                  <p className="text-2xl font-bold font-mono">{totalEntregas}</p>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Entregadores ativos</p>
-              <p className="text-2xl font-bold font-mono">
-                {contagemPorEntregador.filter((e) => e.entregas > 0).length}
+            <div className="bg-card border border-border rounded-lg p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-status-available/10 flex items-center justify-center">
+                  <Users className="w-5 h-5 text-status-available" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Entregadores ativos</p>
+                  <p className="text-2xl font-bold font-mono">
+                    {contagemPorEntregador.filter((e) => e.entregas > 0).length}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Table */}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : contagemPorEntregador.length === 0 ? (
+            <div className="text-center py-20 bg-card border border-dashed border-border rounded-lg">
+              <History className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-xl text-muted-foreground mb-2">Nenhum registro encontrado</p>
+              <p className="text-sm text-muted-foreground">
+                Os registros de entregas aparecerão aqui durante o expediente
               </p>
             </div>
-          </div>
-        </div>
-      </div>
+          ) : (
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">#</TableHead>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Telefone</TableHead>
+                    <TableHead className="text-right">Entregas</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {contagemPorEntregador.map((entregador, index) => (
+                    <TableRow key={entregador.id}>
+                      <TableCell className="font-mono text-muted-foreground">
+                        {index + 1}
+                      </TableCell>
+                      <TableCell className="font-medium">{entregador.nome}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {entregador.telefone}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span
+                          className={`inline-flex items-center justify-center w-10 h-10 rounded-full font-bold font-mono ${entregador.entregas > 0
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-secondary text-muted-foreground'
+                            }`}
+                        >
+                          {entregador.entregas}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </TabsContent>
 
-      {/* Table */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-        </div>
-      ) : contagemPorEntregador.length === 0 ? (
-        <div className="text-center py-20 bg-card border border-dashed border-border rounded-lg">
-          <History className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-          <p className="text-xl text-muted-foreground mb-2">Nenhum registro encontrado</p>
-          <p className="text-sm text-muted-foreground">
-            Os registros de entregas aparecerão aqui durante o expediente
-          </p>
-        </div>
-      ) : (
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">#</TableHead>
-                <TableHead>Nome</TableHead>
-                <TableHead>Telefone</TableHead>
-                <TableHead className="text-right">Entregas</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {contagemPorEntregador.map((entregador, index) => (
-                <TableRow key={entregador.id}>
-                  <TableCell className="font-mono text-muted-foreground">
-                    {index + 1}
-                  </TableCell>
-                  <TableCell className="font-medium">{entregador.nome}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {entregador.telefone}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <span
-                      className={`inline-flex items-center justify-center w-10 h-10 rounded-full font-bold font-mono ${entregador.entregas > 0
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-secondary text-muted-foreground'
-                        }`}
-                    >
-                      {entregador.entregas}
-                    </span>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+        <TabsContent value="analytics" className="m-0">
+          <AnalyticsDashboard />
+        </TabsContent>
+      </Tabs>
 
       {/* Script Dialog */}
       <Dialog open={scriptDialogOpen} onOpenChange={setScriptDialogOpen}>
