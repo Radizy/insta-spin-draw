@@ -11,6 +11,8 @@ import { useNavigate } from 'react-router-dom';
 import { UnitSwitcher } from './UnitSwitcher';
 import { MessageSquare } from 'lucide-react';
 import { SystemUpdatesWidget } from './SystemUpdatesWidget';
+import { useTraining } from '@/contexts/TrainingContext';
+import { TrainingOverlay } from './TrainingOverlay';
 
 const whatsappNumber = "5511954545985";
 const whatsappMessage = encodeURIComponent("Olá! Gostaria de suporte no sistema FilaLab.");
@@ -33,6 +35,7 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
   const location = useLocation();
   const { selectedUnit, setSelectedUnit } = useUnit();
   const { user, logout, restoreAdmin } = useAuth();
+  const { isTrainingMode, stopTraining } = useTraining();
   const navigate = useNavigate();
 
   const canChangeUnit = user?.role === 'super_admin' || user?.role === 'admin_franquia';
@@ -73,7 +76,18 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
   const isSimulatingStore = user?.role === 'super_admin' && !isAdminRoute && selectedUnit !== null;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      {isTrainingMode && (
+        <div className="w-full bg-blue-600 text-white font-bold text-center py-2 text-sm sticky top-0 z-[100] shadow-md flex items-center justify-center gap-4">
+          <span>⚠️ Você está no Ambiente de Treinamento. Dados são fictícios.</span>
+          <button onClick={stopTraining} className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-md transition-colors text-xs font-semibold">
+            Sair do Treinamento
+          </button>
+        </div>
+      )}
+
+      {isTrainingMode && <TrainingOverlay />}
+
       <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-4">

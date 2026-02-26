@@ -58,6 +58,7 @@ import {
 import { Trash2, AlertCircle, Volume2, Plus, Clock, Save, Edit, RefreshCw, LogOut, Download, Mic, Upload, Users, Loader2, Filter, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Navigate, useSearchParams, useNavigate } from 'react-router-dom';
+import { useTraining } from '@/contexts/TrainingContext';
 
 const DIAS_SEMANA = [
   { key: 'seg', label: 'Segunda' },
@@ -84,6 +85,7 @@ export default function Config() {
   const { logout, user } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { isTrainingMode, fakeEntregadores, setFakeEntregadores, setFakeHistorico } = useTraining();
   const cancelVoicesRef = useRef(false);
 
   const [searchParams] = useSearchParams();
@@ -247,12 +249,23 @@ export default function Config() {
   });
 
   const resetDailyMutation = useMutation({
-    mutationFn: () => resetDaily(selectedUnit),
+    mutationFn: async () => {
+      if (isTrainingMode) {
+        setFakeEntregadores(
+          fakeEntregadores.map((e) => ({ ...e, status: 'disponivel', hora_saida: null }))
+        );
+        setFakeHistorico([]);
+        return;
+      }
+      return resetDaily(selectedUnit);
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['entregadores'] });
-      queryClient.invalidateQueries({ queryKey: ['saidas-dia'] });
+      if (!isTrainingMode) {
+        queryClient.invalidateQueries({ queryKey: ['entregadores'] });
+        queryClient.invalidateQueries({ queryKey: ['saidas-dia'] });
+      }
       setResetDialogOpen(false);
-      toast.success('Reset diário executado para esta unidade: motoboys desativados e histórico limpo.');
+      toast.success('Reset de expediente executado para esta unidade: motoboys disponíveis e ativos.');
     },
     onError: () => {
       toast.error('Erro ao executar reset diário. Tente novamente.');
@@ -855,13 +868,12 @@ export default function Config() {
                   Gerar Áudios Bags/Bebida
                 </Button>
                 <Button
-                  type="button"
                   variant="destructive"
                   onClick={() => setResetDialogOpen(true)}
-                  className="gap-2 text-xs sm:text-sm"
+                  className="gap-2 sm:ml-auto w-full sm:w-auto mt-2 sm:mt-0"
                 >
                   <RotateCcw className="w-4 h-4" />
-                  Reset Diário
+                  Reset de Expediente
                 </Button>
                 {isGeneratingAllVoices && (voicesProgress ? (
                   <Button
@@ -1526,31 +1538,31 @@ export default function Config() {
         </DialogContent>
       </Dialog>
 
-      {/* Reset Diário Confirmation Dialog */}
+      {/* Reset de Expediente Confirmation Dialog */}
       <AlertDialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Reset Diário</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação irá desativar todos os motoboys e limpar o histórico de entregas do dia.
-              Tem certeza que deseja continuar?
+            <AlertDialogTitle>Confirmar Reset de Expediente</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>Tem certeza que deseja realizar o reset do expediente para a unidade <strong>{selectedUnit}</strong>?</p>
+              <ul className="list-disc pl-4 text-sm mt-2">
+                <li>Todos os motoboys serão desativados da fila atual.</li>
+                <li>Entregadores que ainda estiverem "Em Entrega" voltarão para o status "Disponível".</li>
+                <li>Os dados do Histórico e do Analytics serão <strong className="text-emerald-500">preservados</strong>.</li>
+              </ul>
+              <p className="font-semibold text-destructive mt-4">
+                O primeiro motoboy deverá realizar check-in novamente para iniciar um novo expediente.
+              </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => resetDailyMutation.mutate()}
-              disabled={resetDailyMutation.isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={resetDailyMutation.isPending}
             >
-              {resetDailyMutation.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Resetando...
-                </>
-              ) : (
-                'Confirmar Reset'
-              )}
+              {resetDailyMutation.isPending ? 'Resetando...' : 'Confirmar Reset'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

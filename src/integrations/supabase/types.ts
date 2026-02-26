@@ -980,9 +980,9 @@ export type Database = {
     Functions: {
       get_analytics_pro_metrics: {
         Args: {
-          p_unidade_nome: string
-          p_data_inicio: string
-          p_data_fim: string
+          p_unidade_id: string
+          datetime_inicio: string
+          datetime_fim: string
         }
         Returns: Json
       }

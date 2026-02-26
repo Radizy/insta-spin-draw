@@ -12,12 +12,13 @@ import {
   Entregador,
   TipoBag,
   sendDispatchWebhook,
+  atualizarSaidaEntrega,
   resetDaily,
   registrarRetornoEntrega,
-  atualizarSaidaEntrega,
 } from '@/lib/api';
+import { useTraining } from '@/contexts/TrainingContext';
 import { toast } from 'sonner';
-import { Users, Loader2, Phone, GripVertical, SkipForward, UserMinus, LogOut, ArrowRight, MessageSquare, Map, MessageCircleOff, MessageCircle } from 'lucide-react';
+import { Users, Loader2, Phone, GripVertical, SkipForward, UserMinus, LogOut, ArrowRight, MessageSquare, Map, MessageCircleOff, MessageCircle, XCircle, GraduationCap } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import {
   Dialog,
@@ -103,20 +104,32 @@ export default function Roteirista() {
   // selectedUnit é usado apenas na renderização condicional mais abaixo para evitar erros de hooks
 
 
+  const { isTrainingMode, fakeEntregadores, setFakeEntregadores, currentStep, setCurrentStep, fakeHistorico, setFakeHistorico, startTraining } = useTraining();
+
   // Query for fetching available entregadores
-  const { data: entregadores = [], isLoading } = useQuery({
+  const { data: realEntregadores = [], isLoading: isRealLoading } = useQuery({
     queryKey: ['entregadores', selectedUnit, 'active'],
     queryFn: () => fetchEntregadores({ unidade: selectedUnit, ativo: true }),
     refetchInterval: 5000,
-    enabled: !!selectedUnit,
+    enabled: !!selectedUnit && !isTrainingMode,
   });
+
+  const entregadores = isTrainingMode ? fakeEntregadores : realEntregadores;
+  const isLoading = isTrainingMode ? false : isRealLoading;
 
   // Mutation for updating status
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Entregador> }) =>
-      updateEntregador(id, data),
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Entregador> }) => {
+      if (isTrainingMode) {
+        setFakeEntregadores(fakeEntregadores.map(e => e.id === id ? { ...e, ...data } : e));
+        return { data: { id, ...data }, error: null };
+      }
+      return updateEntregador(id, data);
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['entregadores'] });
+      if (!isTrainingMode) {
+        queryClient.invalidateQueries({ queryKey: ['entregadores'] });
+      }
     },
     onError: () => {
       toast.error('Erro ao atualizar status');
@@ -271,40 +284,45 @@ export default function Roteirista() {
         },
       });
       // Cria a Saída no ato da chamada para aparecer na TV imediatamente
-      await createHistoricoEntrega({
-        entregador_id: selectedEntregador.id,
-        unidade: selectedUnit,
-        tipo_bag: bagName,
-      });
-      queryClient.invalidateQueries({ queryKey: ['saidas-dia', selectedUnit] });
-
-      // Disparar webhook de despacho (server-side)
-      await sendDispatchWebhook({
-        unidade: selectedUnit,
-        entregador: selectedEntregador,
-        quantidadeEntregas: deliveryCount,
-        bag: bagName,
-        hasBebida: hasBebida,
-      });
-
-      // Send WhatsApp message with delivery count and bag type
-      const bagMessage = bagName
-        ? `🎒 Pegue a ${bagName.toUpperCase()}`
-        : '🎒 Pegue a sua BAG';
-
-      const bebidaMessage = hasBebida
-        ? '\n\n*⚠️ ATENÇÃO, NO SEUS PEDIDOS POSSUI BEBIDA*'
-        : '';
-
-      const message = deliveryCount === 1
-        ? `🍕 Sua vez na unidade ${selectedUnit}! Você tem 1 entrega. ${bagMessage}. Vá ao balcão.${bebidaMessage}`
-        : `🍕 Sua vez na unidade ${selectedUnit}! Você tem ${deliveryCount} entregas. ${bagMessage}. Vá ao balcão.${bebidaMessage}`;
-
-      if (isWhatsappAtivo && selectedEntregador.whatsapp_ativo !== false) {
-        await sendWhatsAppMessage(selectedEntregador.telefone, message, {
-          franquiaId: user?.franquiaId ?? null,
-          unidadeId: null,
+      if (!isTrainingMode) {
+        await createHistoricoEntrega({
+          entregador_id: selectedEntregador.id,
+          unidade: selectedUnit,
+          tipo_bag: bagName,
         });
+        queryClient.invalidateQueries({ queryKey: ['saidas-dia', selectedUnit] });
+
+        // Disparar webhook de despacho (server-side)
+        await sendDispatchWebhook({
+          unidade: selectedUnit,
+          entregador: selectedEntregador,
+          quantidadeEntregas: deliveryCount,
+          bag: bagName,
+          hasBebida: hasBebida,
+        });
+
+        // Send WhatsApp message with delivery count and bag type
+        const bagMessage = bagName
+          ? `🎒 Pegue a ${bagName.toUpperCase()}`
+          : '🎒 Pegue a sua BAG';
+
+        const bebidaMessage = hasBebida
+          ? '\n\n*⚠️ ATENÇÃO, NO SEUS PEDIDOS POSSUI BEBIDA*'
+          : '';
+
+        const message = deliveryCount === 1
+          ? `🍕 Sua vez na unidade ${selectedUnit}! Você tem 1 entrega. ${bagMessage}. Vá ao balcão.${bebidaMessage}`
+          : `🍕 Sua vez na unidade ${selectedUnit}! Você tem ${deliveryCount} entregas. ${bagMessage}. Vá ao balcão.${bebidaMessage}`;
+
+        if (isWhatsappAtivo && selectedEntregador.whatsapp_ativo !== false) {
+          await sendWhatsAppMessage(selectedEntregador.telefone, message, {
+            franquiaId: user?.franquiaId ?? null,
+            unidadeId: null,
+          });
+        }
+      } else {
+        // Simulando fluxo na memória
+        setFakeHistorico([...fakeHistorico, { id: Date.now().toString(), entregador_id: selectedEntregador.id }]);
       }
 
       toast.success(`${selectedEntregador.nome} foi chamado com ${deliveryCount} entrega(s)!`);
@@ -349,9 +367,11 @@ export default function Roteirista() {
         },
       });
 
-      // Se a loja clicar em 'Em Entrega', atualiza o início do tempo contábil no Analytics
-      await atualizarSaidaEntrega(entregador.id, selectedUnit);
-      queryClient.invalidateQueries({ queryKey: ['saidas-dia', selectedUnit] });
+      if (!isTrainingMode) {
+        // Se a loja clicar em 'Em Entrega', atualiza o início do tempo contábil no Analytics
+        await atualizarSaidaEntrega(entregador.id, selectedUnit);
+        queryClient.invalidateQueries({ queryKey: ['saidas-dia', selectedUnit] });
+      }
 
       toast.success(`${entregador.nome} movido para Em Entrega`);
     } catch (error) {
@@ -412,6 +432,23 @@ export default function Roteirista() {
       toast.error('Erro ao retornar entregador para fila');
     } finally {
       setIsSending(false);
+    }
+  };
+
+  // 3.1 Remover da fila de Em Entrega (cancelar sem registrar historico)
+  const handleCancelDelivery = async (entregadorId: string, nome: string) => {
+    try {
+      await updateMutation.mutateAsync({
+        id: entregadorId,
+        data: {
+          status: 'disponivel',
+          hora_saida: null,
+          fila_posicao: new Date().toISOString(),
+        },
+      });
+      toast.success(`${nome} foi removido da entrega e voltou para a fila.`);
+    } catch (error) {
+      toast.error('Erro ao remover da fila de entrega');
     }
   };
 
@@ -506,6 +543,17 @@ export default function Roteirista() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {!isTrainingMode && (
+            <Button
+              variant="outline"
+              className="gap-2 shrink-0 md:h-12 border-blue-500/50 hover:bg-blue-500/10 transition-colors text-blue-500"
+              onClick={() => startTraining()}
+              title="Iniciar treinamento guiado"
+            >
+              <GraduationCap className="w-5 h-5" />
+              Tutorial
+            </Button>
+          )}
           <Button
             variant="outline"
             className="gap-2 shrink-0 md:h-12 border-primary/50 hover:bg-primary/10 transition-colors"
@@ -764,6 +812,13 @@ export default function Roteirista() {
                           >
                             <ArrowRight className="w-4 h-4" />
                             Voltar para Fila
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleCancelDelivery(entregador.id, entregador.nome)}
+                            className="gap-2 text-orange-600"
+                          >
+                            <XCircle className="w-4 h-4" />
+                            Remover da Fila
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

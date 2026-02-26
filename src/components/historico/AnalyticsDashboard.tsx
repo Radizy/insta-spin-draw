@@ -41,14 +41,14 @@ export function AnalyticsDashboard({ dataInicio, dataFim }: AnalyticsDashboardPr
     const { user } = useAuth();
 
     const { data: metrics, isLoading, isError } = useQuery({
-        queryKey: ['analytics_pro_metrics', user?.unidade, dataInicio.toISOString(), dataFim.toISOString()],
+        queryKey: ['analytics_pro_metrics', user?.unidadeId, dataInicio.toISOString(), dataFim.toISOString()],
         queryFn: async () => {
-            if (!user?.unidade) throw new Error('Unidade não encontrada');
+            if (!user?.unidadeId) throw new Error('Unidade não encontrada');
 
             const { data, error } = await supabase.rpc('get_analytics_pro_metrics', {
-                p_unidade_nome: user.unidade,
-                p_data_inicio: dataInicio.toISOString(),
-                p_data_fim: dataFim.toISOString(),
+                p_unidade_id: user.unidadeId,
+                datetime_inicio: dataInicio.toISOString(),
+                datetime_fim: dataFim.toISOString(),
             });
 
             if (error) {

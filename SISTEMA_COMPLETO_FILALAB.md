@@ -17,7 +17,8 @@ Os 5 módulos principais são:
 2. **TV Premium (`tv_avancada`)**: Destrava customizações exclusivas como upload de fundo e customização de toques e vozes de AI da tela de TV de espera.
 3. **Integração Planilha (`planilha`)**: Habilita o webhook do Google Sheets no painel de Histórico permitindo exportação autônoma de dados.
 4. **Fila de Pagamento (`fila_pagamento`)**: Libera o uso da tela `/fila-pagamento` para o gerenciamento de senhas (cash-out financeiro dos motoqueiros).
-5. **Analytics Pro (`analytics_pro`)**: Habilita um dashboard avançado dentro da aba de histórico contendo Estatísticas, Recordes, Entregas/Hora e Gráficos Gerenciais.
+5. **Analytics Pro (`analytics_pro`)**: Habilita um dashboard avançado dentro da aba de histórico contendo Estatísticas, Recordes, Entregas/Hora e Gráficos Gerenciais (com precisão exata de Data e Hora).
+6. **Modo Treinamento (FilaLab Academy)**: Treinamento simulado em memória local, guiado passo a passo para novos operadores (`isTrainingMode`).
 
 Esses módulos podem ser geridos livremente pelo painel Super Admin na visualização e edição de uma franquia.
 
@@ -363,6 +364,7 @@ CREATE TABLE historico_entregas (
 - Registra check-in (hora_saida) e check-out (hora_retorno) dos motoboys
 - Permite cálculo de tempo médio de entrega
 - Histórico exportável para análises
+- **Preservação Contínua:** Este histórico não é mais excluído através do botão da página Configuração de fechamento de expediente, permanecendo preservado para o Analytics.
 
 **RLS Policies:**
 ```sql
@@ -856,13 +858,13 @@ CREATE POLICY "only_admins_can_modify_franquias"
 
 ---
 
-### 4. reset-daily
+### 4. reset-daily (Reset de Expediente)
 **Rota:** `POST /reset-daily`  
-**Descrição:** Reseta status de motoboys diariamente (chamada via cron).  
+**Descrição:** Reseta status de motoboys. Funciona como botão "Reset de Expediente" da aba da loja.  
 **Ações:**
-- Define todos motoboys como `disponivel`
-- Limpa `hora_saida`
-- Reseta `fila_posicao`
+- Define todos motoboys como `disponivel` e os desativa `ativo: false`
+- Limpa `hora_saida` de todos para garantir zeramento da fila
+- Prepara o sistema para o próximo dia sem excluir os dados em nuvem do Histórico (`historico_entregas`).
 
 ---
 

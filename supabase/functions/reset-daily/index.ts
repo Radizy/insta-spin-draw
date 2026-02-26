@@ -23,63 +23,55 @@ serve(async (req) => {
 
     console.log(`Iniciando reset diário para unidade: ${unidade || unidadeId}...`);
 
-    // Construir query com filtro por unidade
-    let resetQuery = supabase
+    // Construir query para desativar todos e limpar hora_saida
+    let resetAtivoQuery = supabase
       .from('entregadores')
       .update({
-        status: 'disponivel',
-        ativo: false, // Força check-in no próximo dia
+        ativo: false,
         hora_saida: null,
       });
 
-    // Filtrar por unidade_id se fornecido, senão por unidade (nome)
     if (unidadeId) {
-      resetQuery = resetQuery.eq('unidade_id', unidadeId);
+      resetAtivoQuery = resetAtivoQuery.eq('unidade_id', unidadeId);
     } else if (unidade) {
-      resetQuery = resetQuery.eq('unidade', unidade);
+      resetAtivoQuery = resetAtivoQuery.eq('unidade', unidade);
     } else {
-      // Se não forneceu nem unidade nem unidadeId, retorna erro
       return new Response(
         JSON.stringify({ success: false, error: 'Parâmetro unidade ou unidadeId é obrigatório' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const { error: resetError } = await resetQuery;
-
-    if (resetError) {
-      console.error('Erro ao resetar motoboys:', resetError);
-      throw resetError;
+    const { error: resetAtivoError } = await resetAtivoQuery;
+    if (resetAtivoError) {
+      console.error('Erro ao desativar motoboys:', resetAtivoError);
+      throw resetAtivoError;
     }
 
-    // Limpar histórico de entregas da unidade específica
-    let deleteHistoricoQuery = supabase
-      .from('historico_entregas')
-      .delete();
+    // Construir query para mudar status "em_entrega" para "disponivel"
+    let resetStatusQuery = supabase
+      .from('entregadores')
+      .update({
+        status: 'disponivel',
+      })
+      .eq('status', 'em_entrega');
 
-    // Filtrar por unidade_id se fornecido, senão por unidade (nome)
     if (unidadeId) {
-      deleteHistoricoQuery = deleteHistoricoQuery.eq('unidade_id', unidadeId);
+      resetStatusQuery = resetStatusQuery.eq('unidade_id', unidadeId);
     } else if (unidade) {
-      deleteHistoricoQuery = deleteHistoricoQuery.eq('unidade', unidade);
+      resetStatusQuery = resetStatusQuery.eq('unidade', unidade);
     }
 
-    const { error: deleteHistoricoError } = await deleteHistoricoQuery;
-
-    if (deleteHistoricoError) {
-      console.error('Erro ao limpar histórico:', deleteHistoricoError);
-      // Não lança erro aqui, apenas loga
-    } else {
-      console.log('Histórico de entregas limpo com sucesso!');
+    const { error: resetStatusError } = await resetStatusQuery;
+    if (resetStatusError) {
+      console.error('Erro ao resetar status:', resetStatusError);
+      throw resetStatusError;
     }
 
-    console.log('Reset diário concluído com sucesso!');
+    console.log('Reset de expediente concluído com sucesso!');
 
     return new Response(
-      JSON.stringify({ success: true, message: 'Reset diário executado com sucesso' }),
+      JSON.stringify({ success: true, message: 'Reset de expediente executado com sucesso' }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }

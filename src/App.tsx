@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { UnitProvider } from "./contexts/UnitContext";
 import { AuthProvider } from "./contexts/AuthContext";
+import { TrainingProvider } from "./contexts/TrainingContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -30,62 +31,64 @@ const queryClient = new QueryClient({
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <UnitProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner position="top-right" theme="dark" />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route
-                path="/config"
-                element={
-                  <ProtectedRoute>
-                    <Config />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/roteirista"
-                element={
-                  <ProtectedRoute>
-                    <Roteirista />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/tv"
-                element={
-                  <ProtectedRoute>
-                    <TV />
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="/historico" element={<Historico />} />
-              <Route path="/meu-lugar" element={<MeuLugar />} />
-              <Route
-                path="/fila-pagamento"
-                element={
-                  <ProtectedRoute>
-                    <FilaPagamento />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin"
-                element={
-                  <ProtectedRoute>
-                    <SuperAdmin />
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </UnitProvider>
+      <TrainingProvider>
+        <UnitProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner position="top-right" theme="dark" />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route
+                  path="/config"
+                  element={
+                    <ProtectedRoute>
+                      <Config />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/roteirista"
+                  element={
+                    <ProtectedRoute>
+                      <Roteirista />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/tv"
+                  element={
+                    <ProtectedRoute>
+                      <TV />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="/historico" element={<Historico />} />
+                <Route path="/meu-lugar" element={<MeuLugar />} />
+                <Route
+                  path="/fila-pagamento"
+                  element={
+                    <ProtectedRoute>
+                      <FilaPagamento />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin"
+                  element={
+                    <ProtectedRoute>
+                      <SuperAdmin />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </UnitProvider>
+      </TrainingProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
