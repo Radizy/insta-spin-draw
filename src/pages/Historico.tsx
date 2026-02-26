@@ -348,43 +348,43 @@ export default function Historico() {
           </TabsList>
         </div>
 
-        <TabsContent value="historico" className="m-0 space-y-6">
-
-          {/* Período Customizado */}
-          <div className="bg-card border border-border rounded-lg p-4 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <Clock className="w-5 h-5 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-semibold">Período Analisado</p>
-                <p className="text-xs text-muted-foreground">Defina a janela exata de tempo</p>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-              <div className="space-y-1 w-full sm:w-auto">
-                <Label className="text-xs">Início</Label>
-                <Input
-                  type="datetime-local"
-                  value={formatForInput(dataInicio)}
-                  onChange={(e) => {
-                    if (e.target.value) setDataInicio(new Date(e.target.value));
-                  }}
-                  className="w-full sm:w-[200px]"
-                />
-              </div>
-              <div className="space-y-1 w-full sm:w-auto">
-                <Label className="text-xs">Fim</Label>
-                <Input
-                  type="datetime-local"
-                  value={formatForInput(dataFim)}
-                  onChange={(e) => {
-                    if (e.target.value) setDataFim(new Date(e.target.value));
-                  }}
-                  className="w-full sm:w-[200px]"
-                />
-              </div>
+        {/* Período Customizado (Global para ambas as abas) */}
+        <div className="bg-card border border-border rounded-lg p-4 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Clock className="w-5 h-5 text-muted-foreground" />
+            <div>
+              <p className="text-sm font-semibold">Período Analisado</p>
+              <p className="text-xs text-muted-foreground">Defina a janela exata de tempo</p>
             </div>
           </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+            <div className="space-y-1 w-full sm:w-auto">
+              <Label className="text-xs">Início</Label>
+              <Input
+                type="datetime-local"
+                value={formatForInput(dataInicio)}
+                onChange={(e) => {
+                  if (e.target.value) setDataInicio(new Date(e.target.value));
+                }}
+                className="w-full sm:w-[200px]"
+              />
+            </div>
+            <div className="space-y-1 w-full sm:w-auto">
+              <Label className="text-xs">Fim</Label>
+              <Input
+                type="datetime-local"
+                value={formatForInput(dataFim)}
+                onChange={(e) => {
+                  if (e.target.value) setDataFim(new Date(e.target.value));
+                }}
+                className="w-full sm:w-[200px]"
+              />
+            </div>
+          </div>
+        </div>
+
+        <TabsContent value="historico" className="m-0 space-y-6">
 
           {/* Stats */}
           <div className="grid sm:grid-cols-2 gap-4 mb-8">

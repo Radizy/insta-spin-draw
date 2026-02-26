@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { toast } from 'sonner';
 
-export type TutorialStep = 'none' | 'chamar_entrega' | 'mover_em_entrega' | 'remover_fila' | 'reset_expediente' | 'finished';
+export type TutorialStep = 'none' | 'chamar_entrega' | 'mover_em_entrega' | 'remover_fila' | 'pular_vez' | 'reset_expediente' | 'finished';
 
 interface TrainingContextData {
     isTrainingMode: boolean;

@@ -68,6 +68,7 @@ export default function Roteirista() {
   const [tipoBag, setTipoBag] = useState<TipoBag>('normal');
   const [hasBebida, setHasBebida] = useState(false);
   const [skipReason, setSkipReason] = useState('');
+  const [skipPosition, setSkipPosition] = useState<'ultimo' | 'proximo'>('proximo');
   const [isSending, setIsSending] = useState(false);
 
   const [callMotoboyOpen, setCallMotoboyOpen] = useState(false);
@@ -452,7 +453,7 @@ export default function Roteirista() {
     }
   };
 
-  // Pular a vez do motoboy (vai para o fim da fila)
+  // Pular a vez do motoboy
   const handleSkipTurn = async () => {
     if (!selectedEntregador || !skipReason.trim()) {
       toast.error('Informe o motivo para pular a vez');
@@ -460,17 +461,35 @@ export default function Roteirista() {
     }
 
     try {
-      // Move para o fim da fila atualizando fila_posicao
+      let newTimestamp = new Date().toISOString();
+
+      if (skipPosition === 'proximo') {
+        const others = availableQueue.filter(m => m.id !== selectedEntregador.id);
+        if (others.length > 0) {
+          const m1 = others[0];
+          const t1 = new Date(m1.fila_posicao || 0).getTime();
+
+          if (others.length > 1) {
+            const m2 = others[1];
+            const t2 = new Date(m2.fila_posicao || 0).getTime();
+            newTimestamp = new Date(t1 + (t2 - t1) / 2).toISOString();
+          } else {
+            newTimestamp = new Date(t1 + 1000).toISOString();
+          }
+        }
+      }
+
       await updateMutation.mutateAsync({
         id: selectedEntregador.id,
         data: {
-          fila_posicao: new Date().toISOString(),
+          fila_posicao: newTimestamp,
         },
       });
 
-      toast.success(`${selectedEntregador.nome} foi para o fim da fila. Motivo: ${skipReason}`);
+      toast.success(`${selectedEntregador.nome} movido para ${skipPosition === 'proximo' ? 'o próximo' : 'o final'} da fila.`);
       setSkipDialogOpen(false);
       setSkipReason('');
+      setSkipPosition('proximo');
       setSelectedEntregador(null);
     } catch (error) {
       toast.error('Erro ao pular a vez');
@@ -565,8 +584,12 @@ export default function Roteirista() {
         </div>
       </div>
 
+      {isTrainingMode && currentStep !== 'none' && currentStep !== 'finished' && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-[2px] z-[100] transition-all duration-300 pointer-events-auto mix-blend-multiply dark:mix-blend-normal" />
+      )}
+
       {/* Botão Grande CHAMAR O PRÓXIMO */}
-      <div className="mb-4">
+      <div className={`mb-4 ${isTrainingMode && currentStep === 'chamar_entrega' ? 'relative z-[101] animate-pulse ring-4 ring-primary rounded-lg ring-offset-4 ring-offset-background' : ''}`}>
         <Button
           onClick={openCallDialog}
           disabled={!nextInQueue || isLoading}
@@ -684,7 +707,7 @@ export default function Roteirista() {
                                   <Button
                                     variant="default"
                                     size="sm"
-                                    className="w-full sm:w-auto gap-2 min-h-[48px] sm:min-h-0"
+                                    className={`w-full sm:w-auto gap-2 min-h-[48px] sm:min-h-0 ${isTrainingMode && currentStep === 'mover_em_entrega' && index === 0 ? 'relative z-[101] ring-2 ring-primary ring-offset-2 ring-offset-background animate-pulse' : ''}`}
                                     onClick={() => handleMoveToDelivering(entregador)}
                                   >
                                     <ArrowRight className="w-4 h-4" />
@@ -707,7 +730,7 @@ export default function Roteirista() {
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      className="w-full sm:w-auto gap-2 min-h-[48px] sm:min-h-0"
+                                      className={`w-full sm:w-auto gap-2 min-h-[48px] sm:min-h-0 ${isTrainingMode && currentStep === 'pular_vez' && index === 0 ? 'relative z-[101] ring-2 ring-primary ring-offset-2 ring-offset-background animate-pulse bg-background' : ''}`}
                                       onClick={() => {
                                         setSelectedEntregador(entregador);
                                         setSkipReason('');
@@ -755,7 +778,7 @@ export default function Roteirista() {
               </div>
             ) : (
               <div className="space-y-3">
-                {deliveringQueue.map((entregador) => (
+                {deliveringQueue.map((entregador, index) => (
                   <div
                     key={entregador.id}
                     className="flex flex-col sm:flex-row sm:items-center gap-4 bg-card border border-border rounded-xl p-4"
@@ -795,7 +818,7 @@ export default function Roteirista() {
                         <Button
                           variant="destructive"
                           size="sm"
-                          className="w-full sm:w-auto gap-2 min-h-[48px] sm:min-h-0 order-last sm:order-none"
+                          className={`w-full sm:w-auto gap-2 min-h-[48px] sm:min-h-0 order-last sm:order-none ${isTrainingMode && currentStep === 'remover_fila' && index === 0 ? 'relative z-[101] ring-2 ring-destructive ring-offset-2 ring-offset-background animate-pulse' : ''}`}
                           onClick={() => handleCancelDelivery(entregador.id, entregador.nome)}
                         >
                           <XCircle className="w-4 h-4" />
@@ -965,20 +988,46 @@ export default function Roteirista() {
 
           {selectedEntregador && (
             <div className="space-y-4 py-4">
-              <div className="bg-secondary rounded-lg p-4 text-center">
-                <p className="text-sm text-muted-foreground mb-1">Motoboy</p>
-                <p className="text-xl font-bold font-mono">{selectedEntregador.nome}</p>
-              </div>
+              <div className="space-y-4">
+                <div className="bg-secondary rounded-lg p-3 text-center">
+                  <p className="text-sm text-muted-foreground mb-1">Motoboy</p>
+                  <p className="text-lg font-bold font-mono">{selectedEntregador.nome}</p>
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="skipReason">Motivo para pular a vez</Label>
-                <Textarea
-                  id="skipReason"
-                  value={skipReason}
-                  onChange={(e) => setSkipReason(e.target.value)}
-                  placeholder="Ex: Não estava pronto, foi ao banheiro..."
-                  rows={3}
-                />
+                <div className="space-y-3">
+                  <Label>Qual posição ele deve assumir?</Label>
+                  <RadioGroup
+                    value={skipPosition}
+                    onValueChange={(val: 'ultimo' | 'proximo') => setSkipPosition(val)}
+                    className="flex flex-col space-y-2"
+                  >
+                    <div className="flex items-start space-x-3 border rounded-md p-3 bg-card hover:bg-accent/50 cursor-pointer" onClick={() => setSkipPosition('proximo')}>
+                      <RadioGroupItem value="proximo" id="r-proximo" className="mt-1" />
+                      <Label htmlFor="r-proximo" className="font-medium cursor-pointer leading-tight">
+                        Colocar como Próximo
+                        <p className="text-xs text-muted-foreground font-normal mt-1">Ele será o próximo a ser chamado logo após o atual.</p>
+                      </Label>
+                    </div>
+                    <div className="flex items-start space-x-3 border rounded-md p-3 bg-card hover:bg-accent/50 cursor-pointer" onClick={() => setSkipPosition('ultimo')}>
+                      <RadioGroupItem value="ultimo" id="r-ultimo" className="mt-1" />
+                      <Label htmlFor="r-ultimo" className="font-medium cursor-pointer leading-tight">
+                        Colocar como Último
+                        <p className="text-xs text-muted-foreground font-normal mt-1">Ele voltará a ser o último da fila.</p>
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="skipReason">Motivo para pular a vez</Label>
+                  <Textarea
+                    id="skipReason"
+                    value={skipReason}
+                    onChange={(e) => setSkipReason(e.target.value)}
+                    placeholder="Ex: Pneu furado, documentação, foi ao banheiro..."
+                    rows={2}
+                  />
+                </div>
               </div>
             </div>
           )}

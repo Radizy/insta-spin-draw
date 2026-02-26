@@ -46,6 +46,20 @@ export function TrainingOverlay() {
                             <strong>2.</strong> Clique em "Ações".<br />
                             <strong>3.</strong> Clique em "Remover da fila".
                         </p>
+                        <Button onClick={() => setCurrentStep('pular_vez')} className="w-full">
+                            Próximo Passo
+                        </Button>
+                    </>
+                );
+            case 'pular_vez':
+                return (
+                    <>
+                        <p className="text-sm mb-4">
+                            <strong>1.</strong> Localize um Motoboy na lista "Disponíveis".<br />
+                            <strong>2.</strong> Clique no botão "Pular" e veja as opções.<br />
+                            <strong>3.</strong> Escolha: Voltar ele pra Último, ou Assumir como Próximo.<br />
+                            <strong>4.</strong> Descreva o Motivo e submeta.
+                        </p>
                         <Button onClick={() => setCurrentStep('reset_expediente')} className="w-full">
                             Próximo Passo
                         </Button>
@@ -85,7 +99,8 @@ export function TrainingOverlay() {
             case 'chamar_entrega': return "Passo 1: Chamar Entrega";
             case 'mover_em_entrega': return "Passo 2: Entregar Pedido";
             case 'remover_fila': return "Passo 3: Desfazer Entrega";
-            case 'reset_expediente': return "Passo 4: Fechar o Dia";
+            case 'pular_vez': return "Passo 4: Pular a Vez";
+            case 'reset_expediente': return "Passo 5: Fechar o Dia";
             case 'finished': return "Treinamento Concluído 🎉";
             default: return "";
         }

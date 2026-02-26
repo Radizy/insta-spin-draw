@@ -19,7 +19,7 @@ import { Switch } from '@/components/ui/switch';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { Loader2, Building2, Store, Users, Pencil, Plus, Trash2, Check, ChevronsUpDown, BarChart3 } from 'lucide-react';
+import { Loader2, Building2, Store, Users, Pencil, Plus, Trash2, Check, ChevronsUpDown, BarChart3, CalendarDays, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import { Unidade } from '@/lib/api';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
@@ -1209,28 +1209,23 @@ export default function SuperAdmin() {
             {unidades.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhuma loja cadastrada.</p>
             ) : (
-              <div className="overflow-x-auto border border-border rounded-lg">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50">
-                    <tr>
-                      <th className="px-4 py-2 text-left font-medium">Loja</th>
-                      <th className="px-4 py-2 text-left font-medium">Franquia</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {unidades.map((u) => {
-                      const franquia = franquias.find((f) => f.id === u.franquia_id);
-                      return (
-                        <tr key={u.id} className="border-t border-border/60">
-                          <td className="px-4 py-2">{u.nome_loja}</td>
-                          <td className="px-4 py-2">
-                            {franquia ? franquia.nome_franquia : 'Sem franquia'}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {unidades.map((u) => {
+                  const franquia = franquias.find((f) => f.id === u.franquia_id);
+                  return (
+                    <Card key={u.id} className="border-border">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base font-bold">{u.nome_loja}</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-muted-foreground">
+                          <span className="font-semibold text-foreground">Franquia vinculada:</span>{' '}
+                          {franquia ? franquia.nome_franquia : 'Nenhuma'}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </TabsContent>
@@ -1463,38 +1458,47 @@ export default function SuperAdmin() {
                       Nenhuma franquia encontrada com os filtros atuais.
                     </p>
                   ) : (
-                    <table className="w-full text-xs md:text-sm">
-                      <thead className="bg-muted/50">
-                        <tr>
-                          <th className="px-3 py-2 text-left font-medium">Franquia</th>
-                          <th className="px-3 py-2 text-left font-medium">Lojas</th>
-                          <th className="px-3 py-2 text-left font-medium">Status</th>
-                          <th className="px-3 py-2 text-left font-medium">Vencimento</th>
-                          <th className="px-3 py-2 text-right font-medium">Mensal est.</th>
-                          <th className="px-3 py-2 text-right font-medium">Anual est.</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {franquiasFinanceiroFiltradas.map((f) => (
-                          <tr key={f.id} className="border-t border-border/60">
-                            <td className="px-3 py-1.5">{f.nome}</td>
-                            <td className="px-3 py-1.5">{f.lojas}</td>
-                            <td className="px-3 py-1.5">{f.status_pagamento || '—'}</td>
-                            <td className="px-3 py-1.5">
-                              {f.data_vencimento
-                                ? new Date(f.data_vencimento).toLocaleDateString('pt-BR')
-                                : '—'}
-                            </td>
-                            <td className="px-3 py-1.5 text-right">
-                              R$ {Number(f.faturamentoMensalEstimado ?? 0).toFixed(2)}
-                            </td>
-                            <td className="px-3 py-1.5 text-right">
-                              R$ {Number(f.faturamentoAnualEstimado ?? 0).toFixed(2)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <div className="grid gap-3 p-2 sm:grid-cols-2">
+                      {franquiasFinanceiroFiltradas.map((f) => (
+                        <Card key={f.id} className="border border-border/60 bg-card/50 shadow-sm p-3 hover:bg-card transition-colors">
+                          <div className="flex flex-col gap-2">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <h4 className="font-semibold text-sm leading-tight">{f.nome}</h4>
+                                <p className="text-xs text-muted-foreground">{f.lojas} loja(s)</p>
+                              </div>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${f.status_pagamento === 'ativo'
+                                  ? 'bg-status-available/10 text-status-available border-status-available/20'
+                                  : 'bg-destructive/10 text-destructive border-destructive/20'
+                                  }`}
+                              >
+                                {f.status_pagamento || '—'}
+                              </span>
+                            </div>
+
+                            <Separator className="my-1" />
+
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div>
+                                <p className="text-muted-foreground flex items-center gap-1"><CalendarDays className="w-3 h-3" /> Vencimento</p>
+                                <p className="font-medium mt-0.5">
+                                  {f.data_vencimento
+                                    ? new Date(f.data_vencimento).toLocaleDateString('pt-BR')
+                                    : '—'}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-muted-foreground flex items-center justify-end gap-1"><DollarSign className="w-3 h-3" /> Mensal (est.)</p>
+                                <p className="font-medium mt-0.5">
+                                  R$ {Number(f.faturamentoMensalEstimado ?? 0).toFixed(2)}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
                   )}
                 </CardContent>
               </Card>
