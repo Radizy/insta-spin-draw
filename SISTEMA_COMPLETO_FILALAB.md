@@ -1716,6 +1716,9 @@ ORDER BY valor_final DESC;
 
 ## 📝 CHANGELOG
 
+### v1.2.0 (2026-02-26)
+- ✅ **Atualização Mobile Base Real:** Adicionado plano diretor para refatoração completa do layout e usabilidade mobile do sistema, contemplando menu Drawer global e Drawer operacional logado, empilhamento intuitivo de cards na aba Disponíveis, Fila e Histórico, além de responsividade dedicada ao Roteirista e Analytics Pro. Documentado em `Atualizacao_Mobile_Base_Sistema_Real.md`.
+
 ### v1.1.0 (2026-02-23)
 - ✅ **Mapa de Entregadores:** Implementado painel Mapa no Roteirista para visualização em tempo real.
 - ✅ **Obrigatoriedade GPS:** Adicionada permissão silenciosa de GPS à página `/meu-lugar` para motoboys operacionais. Se descer sem habilitar, ele toma Erro 503.
