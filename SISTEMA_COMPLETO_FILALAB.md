@@ -1718,6 +1718,7 @@ ORDER BY valor_final DESC;
 
 ### v1.2.0 (2026-02-26)
 - ✅ **Atualização Mobile Base Real:** Adicionado plano diretor para refatoração completa do layout e usabilidade mobile do sistema, contemplando menu Drawer global e Drawer operacional logado, empilhamento intuitivo de cards na aba Disponíveis, Fila e Histórico, além de responsividade dedicada ao Roteirista e Analytics Pro. Documentado em `Atualizacao_Mobile_Base_Sistema_Real.md`.
+- ✅ **Implementação Mobile Base Real:** Refatoração completa da UI/UX mobile executada. Drawers de navegação aplicados (Home e Dashboard), tabelas substituídas por Grid Cards responsivos no Roteirista e Histórico, botões de ação e modais (ex: Reset) reestruturados para width 100% visando máxima usabilidade em telas pequenas.
 
 ### v1.1.0 (2026-02-23)
 - ✅ **Mapa de Entregadores:** Implementado painel Mapa no Roteirista para visualização em tempo real.

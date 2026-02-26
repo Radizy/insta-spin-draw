@@ -302,26 +302,26 @@ export default function Historico() {
             <span className="font-semibold text-foreground">{selectedUnit}</span>
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto">
           {canClean() && (
-            <Button variant="outline" onClick={handleClean} className="gap-2">
+            <Button variant="outline" onClick={handleClean} className="gap-2 w-full sm:w-auto">
               <Trash2 className="w-4 h-4" />
               Limpar Ontem
             </Button>
           )}
           {isPlanilhaAtivo && (
             <>
-              <Button variant="outline" onClick={() => setScriptDialogOpen(true)} className="gap-2">
+              <Button variant="outline" onClick={() => setScriptDialogOpen(true)} className="gap-2 w-full sm:w-auto">
                 <FileSpreadsheet className="w-4 h-4" />
                 Config Planilha
               </Button>
-              <Button variant="outline" onClick={handleSyncToSheets} disabled={isSyncing} className="gap-2">
+              <Button variant="outline" onClick={handleSyncToSheets} disabled={isSyncing} className="gap-2 w-full sm:w-auto">
                 {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
                 Sincronizar
               </Button>
             </>
           )}
-          <Button onClick={handleExportExcel} className="gap-2">
+          <Button onClick={handleExportExcel} className="gap-2 w-full sm:w-auto">
             <Download className="w-4 h-4" />
             Exportar Excel
           </Button>
@@ -360,8 +360,8 @@ export default function Historico() {
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center gap-3">
-              <div className="space-y-1">
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+              <div className="space-y-1 w-full sm:w-auto">
                 <Label className="text-xs">Início</Label>
                 <Input
                   type="datetime-local"
@@ -369,10 +369,10 @@ export default function Historico() {
                   onChange={(e) => {
                     if (e.target.value) setDataInicio(new Date(e.target.value));
                   }}
-                  className="w-[200px]"
+                  className="w-full sm:w-[200px]"
                 />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 w-full sm:w-auto">
                 <Label className="text-xs">Fim</Label>
                 <Input
                   type="datetime-local"
@@ -380,7 +380,7 @@ export default function Historico() {
                   onChange={(e) => {
                     if (e.target.value) setDataFim(new Date(e.target.value));
                   }}
-                  className="w-[200px]"
+                  className="w-full sm:w-[200px]"
                 />
               </div>
             </div>
@@ -428,41 +428,71 @@ export default function Historico() {
               </p>
             </div>
           ) : (
-            <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">#</TableHead>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Telefone</TableHead>
-                    <TableHead className="text-right">Entregas</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {contagemPorEntregador.map((entregador, index) => (
-                    <TableRow key={entregador.id}>
-                      <TableCell className="font-mono text-muted-foreground">
+            <>
+              {/* Mobile View: Lista de cards */}
+              <div className="grid grid-cols-1 gap-4 md:hidden">
+                {contagemPorEntregador.map((entregador, index) => (
+                  <div key={entregador.id} className="bg-card border border-border rounded-lg p-4 flex items-center justify-between shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-secondary text-muted-foreground flex items-center justify-center font-mono font-bold text-sm">
                         {index + 1}
-                      </TableCell>
-                      <TableCell className="font-medium">{entregador.nome}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {entregador.telefone}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <span
-                          className={`inline-flex items-center justify-center w-10 h-10 rounded-full font-bold font-mono ${entregador.entregas > 0
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-secondary text-muted-foreground'
-                            }`}
-                        >
-                          {entregador.entregas}
-                        </span>
-                      </TableCell>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-base">{entregador.nome}</p>
+                        <p className="text-sm text-muted-foreground">{entregador.telefone}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <span
+                        className={`inline-flex items-center justify-center min-w-[2.5rem] px-3 h-9 rounded-full font-bold font-mono text-sm ${entregador.entregas > 0
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-secondary text-muted-foreground'
+                          }`}
+                      >
+                        {entregador.entregas} entr
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop View: Tabela */}
+              <div className="hidden md:block bg-card border border-border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">#</TableHead>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Telefone</TableHead>
+                      <TableHead className="text-right">Entregas</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {contagemPorEntregador.map((entregador, index) => (
+                      <TableRow key={entregador.id}>
+                        <TableCell className="font-mono text-muted-foreground">
+                          {index + 1}
+                        </TableCell>
+                        <TableCell className="font-medium">{entregador.nome}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {entregador.telefone}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span
+                            className={`inline-flex items-center justify-center w-10 h-10 rounded-full font-bold font-mono ${entregador.entregas > 0
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-secondary text-muted-foreground'
+                              }`}
+                          >
+                            {entregador.entregas}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </TabsContent>
 

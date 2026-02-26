@@ -155,9 +155,9 @@ export function AnalyticsDashboard({ dataInicio, dataFim }: AnalyticsDashboardPr
                         </Card>
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-4 md:grid-cols-2 min-w-0">
                         {/* Gráfico: Entregas por Hora */}
-                        <Card>
+                        <Card className="overflow-hidden">
                             <CardHeader>
                                 <CardTitle>Entregas por Hora</CardTitle>
                                 <CardDescription>Fluxo de saída ao longo do dia</CardDescription>
@@ -194,7 +194,7 @@ export function AnalyticsDashboard({ dataInicio, dataFim }: AnalyticsDashboardPr
                         </Card>
 
                         {/* Gráfico: Performance de Bag */}
-                        <Card>
+                        <Card className="overflow-hidden">
                             <CardHeader>
                                 <CardTitle>Uso de Bags</CardTitle>
                                 <CardDescription>Volume distribuído por tipo de entrega</CardDescription>

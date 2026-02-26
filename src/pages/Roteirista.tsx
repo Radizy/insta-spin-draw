@@ -542,11 +542,11 @@ export default function Roteirista() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col sm:flex-row w-full sm:w-auto items-stretch sm:items-center gap-3">
           {!isTrainingMode && (
             <Button
               variant="outline"
-              className="gap-2 shrink-0 md:h-12 border-blue-500/50 hover:bg-blue-500/10 transition-colors text-blue-500"
+              className="w-full sm:w-auto gap-2 border-blue-500/50 hover:bg-blue-500/10 transition-colors text-blue-500 min-h-[48px] sm:min-h-0"
               onClick={() => startTraining()}
               title="Iniciar treinamento guiado"
             >
@@ -556,7 +556,7 @@ export default function Roteirista() {
           )}
           <Button
             variant="outline"
-            className="gap-2 shrink-0 md:h-12 border-primary/50 hover:bg-primary/10 transition-colors"
+            className="w-full sm:w-auto gap-2 border-primary/50 hover:bg-primary/10 transition-colors min-h-[48px] sm:min-h-0"
             onClick={() => setMapModalOpen(true)}
           >
             <Map className="w-5 h-5 text-primary" />
@@ -677,53 +677,58 @@ export default function Roteirista() {
                                 </div>
                                 <p className="text-sm text-muted-foreground break-all">{entregador.telefone}</p>
                               </div>
-                              <div className="flex items-center justify-between gap-3 w-full sm:w-auto">
-                                <div className="w-3 h-3 rounded-full bg-status-available" />
-                                {/* Dropdown menu para ações */}
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="sm" className="flex-shrink-0">
-                                      Ações
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    <DropdownMenuItem
-                                      onClick={() => handleMoveToDelivering(entregador)}
-                                      className="gap-2"
-                                    >
-                                      <ArrowRight className="w-4 h-4" />
-                                      Mover para Em Entrega
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full sm:w-auto mt-2 sm:mt-0">
+                                <div className="hidden sm:block w-3 h-3 rounded-full bg-status-available" />
+
+                                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    className="w-full sm:w-auto gap-2 min-h-[48px] sm:min-h-0"
+                                    onClick={() => handleMoveToDelivering(entregador)}
+                                  >
+                                    <ArrowRight className="w-4 h-4" />
+                                    Em Entrega
+                                  </Button>
+
+                                  <div className="grid grid-cols-2 sm:flex gap-2 w-full sm:w-auto">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="w-full sm:w-auto gap-2 min-h-[48px] sm:min-h-0"
                                       onClick={() => {
                                         setActionEntregador(entregador);
                                         setCallMotoboyOpen(true);
                                       }}
-                                      className="gap-2"
                                     >
                                       <MessageSquare className="w-4 h-4" />
-                                      Chamar Motoboy
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
+                                      Chamar
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="w-full sm:w-auto gap-2 min-h-[48px] sm:min-h-0"
                                       onClick={() => {
                                         setSelectedEntregador(entregador);
                                         setSkipReason('');
                                         setSkipDialogOpen(true);
                                       }}
-                                      className="gap-2"
                                     >
                                       <SkipForward className="w-4 h-4" />
-                                      Pular a vez
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onClick={() => handleRemoveFromQueue(entregador)}
-                                      className="gap-2 text-destructive"
-                                    >
-                                      <UserMinus className="w-4 h-4" />
-                                      Remover da fila
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
+                                      Pular
+                                    </Button>
+                                  </div>
+
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="w-full sm:w-auto gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 min-h-[48px] sm:min-h-0"
+                                    onClick={() => handleRemoveFromQueue(entregador)}
+                                  >
+                                    <UserMinus className="w-4 h-4" />
+                                    Remover
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                           )}
@@ -783,45 +788,47 @@ export default function Roteirista() {
                         )}
                     </div>
                     <DeliveryTimer startTime={entregador.hora_saida} />
-                    <div className="flex items-center justify-between gap-3 w-full sm:w-auto">
-                      <div className="w-3 h-3 rounded-full bg-status-delivering" />
-                      {/* Dropdown menu com novas ações */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm" className="flex-shrink-0">
-                            Ações
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setActionEntregador(entregador);
-                              setCallMotoboyOpen(true);
-                            }}
-                            className="gap-2"
-                          >
-                            <MessageSquare className="w-4 h-4" />
-                            Chamar Motoboy
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full sm:w-auto mt-4 sm:mt-0 pt-4 sm:pt-0 border-t sm:border-0 border-border">
+                      <div className="hidden sm:block w-3 h-3 rounded-full bg-status-delivering" />
+
+                      <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="w-full sm:w-auto gap-2 min-h-[48px] sm:min-h-0 order-last sm:order-none"
+                          onClick={() => handleCancelDelivery(entregador.id, entregador.nome)}
+                        >
+                          <XCircle className="w-4 h-4" />
+                          Remover da Fila
+                        </Button>
+
+                        <div className="grid grid-cols-2 sm:flex gap-2 w-full sm:w-auto">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full sm:w-auto gap-2 min-h-[48px] sm:min-h-0"
                             onClick={() => {
                               setActionEntregador(entregador);
                               setReturnToQueueOpen(true);
                             }}
-                            className="gap-2"
                           >
                             <ArrowRight className="w-4 h-4" />
-                            Voltar para Fila
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleCancelDelivery(entregador.id, entregador.nome)}
-                            className="gap-2 text-orange-600"
+                            Finalizar
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full sm:w-auto gap-2 min-h-[48px] sm:min-h-0"
+                            onClick={() => {
+                              setActionEntregador(entregador);
+                              setCallMotoboyOpen(true);
+                            }}
                           >
-                            <XCircle className="w-4 h-4" />
-                            Remover da Fila
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                            <MessageSquare className="w-4 h-4" />
+                            Chamar
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}

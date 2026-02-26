@@ -144,24 +144,41 @@ export default function Index() {
           </button>
         </div>
 
-        {/* Mobile menu dropdown */}
+        {/* Mobile menu overlay */}
         {mobileMenuOpen && (
-          <div className="md:hidden absolute top-16 left-0 w-full bg-background border-b border-border shadow-lg py-4 flex flex-col gap-4 px-6 animate-in slide-in-from-top-2">
-            <button onClick={() => scrollToSection('home')} className="text-left text-lg font-medium py-2 border-b border-border/50">Home</button>
-            <button onClick={() => scrollToSection('como-funciona')} className="text-left text-lg font-medium py-2 border-b border-border/50">Como Funciona</button>
-            <button onClick={() => scrollToSection('modulos')} className="text-left text-lg font-medium py-2 border-b border-border/50">Módulos</button>
-            <button onClick={() => scrollToSection('contato')} className="text-left text-lg font-medium py-2 border-b border-border/50">Contato</button>
-            <Link to="/meu-lugar" className="text-left text-lg font-medium py-2 border-b border-border/50 text-emerald-500">Sou Motoboy</Link>
-            <div className="flex flex-col gap-2 pt-2">
-              <Button variant="outline" className="w-full justify-center" onClick={() => navigate('/login')}>
-                Fazer Login
-              </Button>
-              <Button className="w-full justify-center" onClick={() => window.location.href = 'https://filalab.com.br/register'}>
-                Assinar Agora
-              </Button>
-            </div>
-          </div>
+          <div
+            className="md:hidden fixed inset-0 bg-background/80 backdrop-blur-sm z-40"
+            onClick={() => setMobileMenuOpen(false)}
+          />
         )}
+
+        {/* Mobile menu drawer */}
+        <div className={`md:hidden fixed top-0 right-0 w-[85%] max-w-sm h-full bg-background border-l border-border z-50 shadow-2xl transition-transform duration-300 ease-in-out ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'} flex flex-col`}>
+          <div className="flex items-center justify-between p-6 border-b border-border">
+            <div className="flex items-center gap-2">
+              <Pizza className="w-5 h-5 text-primary" />
+              <span className="text-xl font-bold font-mono tracking-tight">FilaLab</span>
+            </div>
+            <button className="p-2 text-foreground rounded-md hover:bg-secondary" onClick={() => setMobileMenuOpen(false)}>
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          <div className="flex flex-col p-6 overflow-y-auto flex-1">
+            <button onClick={() => scrollToSection('home')} className="text-left text-lg font-medium py-3 border-b border-border/50 hover:text-primary transition-colors">Home</button>
+            <button onClick={() => scrollToSection('como-funciona')} className="text-left text-lg font-medium py-3 border-b border-border/50 hover:text-primary transition-colors">Como Funciona</button>
+            <button onClick={() => scrollToSection('modulos')} className="text-left text-lg font-medium py-3 border-b border-border/50 hover:text-primary transition-colors">Módulos</button>
+            <button onClick={() => scrollToSection('contato')} className="text-left text-lg font-medium py-3 border-b border-border/50 hover:text-primary transition-colors">Contato</button>
+            <Link to="/meu-lugar" onClick={() => setMobileMenuOpen(false)} className="text-left text-lg font-medium py-3 border-b border-border/50 text-emerald-500 hover:text-emerald-400 transition-colors">Sou Motoboy</Link>
+          </div>
+          <div className="p-6 border-t border-border mt-auto flex flex-col gap-4 bg-muted/30">
+            <Button variant="outline" className="w-full justify-center min-h-[48px] text-base" onClick={() => navigate('/login')}>
+              Fazer Login
+            </Button>
+            <Button className="w-full justify-center min-h-[48px] text-base" onClick={() => window.location.href = 'https://filalab.com.br/register'}>
+              Assinar Agora
+            </Button>
+          </div>
+        </div>
       </nav>
 
       {/* Hero Section */}

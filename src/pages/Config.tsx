@@ -838,91 +838,83 @@ export default function Config() {
                 </Select>
               </div>
             </div>
-            <div className="flex flex-col gap-3 md:items-end md:gap-4">
-              <div className="flex flex-wrap items-center gap-2 justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleGenerateAllVoices}
-                  disabled={isGeneratingAllVoices}
-                  className="gap-2 text-xs sm:text-sm"
-                >
-                  {isGeneratingAllVoices ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      {voicesProgress
-                        ? `Gerando voz ${voicesProgress.current} de ${voicesProgress.total}`
-                        : 'Gerando Vozes...'}
-                    </>
-                  ) : (
-                    'Gerar Vozes Motoboys'
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleGenerateBagVoices}
-                  disabled={isGeneratingAllVoices}
-                  className="gap-2 text-xs sm:text-sm"
-                >
-                  Gerar Áudios Bags/Bebida
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => setResetDialogOpen(true)}
-                  className="gap-2 sm:ml-auto w-full sm:w-auto mt-2 sm:mt-0"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  Reset de Expediente
-                </Button>
-                {isGeneratingAllVoices && (voicesProgress ? (
+            <div className="flex flex-col gap-4 w-full md:w-auto">
+              <div className="bg-card border border-border rounded-xl p-4 shadow-sm w-full">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+                  Ações de Expediente e Sistema
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:flex xl:flex-wrap items-stretch gap-3">
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => {
-                      cancelVoicesRef.current = true;
-                    }}
-                    className="gap-1 text-[11px]"
+                    onClick={handleGenerateAllVoices}
+                    disabled={isGeneratingAllVoices}
+                    className="gap-2 text-xs sm:text-sm min-h-[48px]"
                   >
-                    Cancelar
+                    {isGeneratingAllVoices ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        {voicesProgress
+                          ? `Gerando voz ${voicesProgress.current}/${voicesProgress.total}`
+                          : 'Gerando Vozes...'}
+                      </>
+                    ) : (
+                      'Gerar Vozes Motoboys'
+                    )}
                   </Button>
-                ) : null)}
-
-                <Button
-                  variant="outline"
-                  className="gap-2"
-                  onClick={handleClearAllVoices}
-                  title="Apagar todos os áudios desta unidade local"
-                  disabled={isGeneratingAllVoices}
-                >
-                  Limpar vozes
-                </Button>
-                <Button
-                  variant="outline"
-                  className="gap-2"
-                  onClick={handleClearBagAudios}
-                  title="Apagar todos os áudios de bolsas desta franquia"
-                  disabled={isGeneratingAllVoices}
-                >
-                  Limpar áudios bags
-                </Button>
-                <Button
-                  variant="outline"
-                  className="gap-2"
-                  onClick={() => hiddenBagAudioRef.current?.click()}
-                  title="Importar arquivos MP3 com o mesmo nome das bolsas"
-                  disabled={isGeneratingAllVoices}
-                >
-                  <Upload className="w-4 h-4" /> Importar Áudios Bags
-                </Button>
-                <input
-                  type="file"
-                  accept="audio/mpeg,.mp3"
-                  multiple
-                  ref={hiddenBagAudioRef}
-                  className="hidden"
-                  onChange={handleImportBagsAudios}
-                />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleGenerateBagVoices}
+                    disabled={isGeneratingAllVoices}
+                    className="gap-2 text-xs sm:text-sm min-h-[48px]"
+                  >
+                    Gerar Áudios Bags
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="gap-2 min-h-[48px]"
+                    onClick={handleClearAllVoices}
+                    title="Apagar todos os áudios desta unidade local"
+                    disabled={isGeneratingAllVoices}
+                  >
+                    Limpar Vozes
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="gap-2 min-h-[48px]"
+                    onClick={handleClearBagAudios}
+                    title="Apagar todos os áudios de bolsas desta franquia"
+                    disabled={isGeneratingAllVoices}
+                  >
+                    Limpar Bags
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="gap-2 min-h-[48px]"
+                    onClick={() => hiddenBagAudioRef.current?.click()}
+                    title="Importar arquivos MP3 com o mesmo nome das bolsas"
+                    disabled={isGeneratingAllVoices}
+                  >
+                    <Upload className="w-4 h-4" /> Importar Bags
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => setResetDialogOpen(true)}
+                    className="gap-2 w-full xl:w-auto xl:ml-auto min-h-[48px] shadow-sm order-first xl:order-none"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    Reset de Expediente
+                  </Button>
+                  <input
+                    type="file"
+                    accept="audio/mpeg,.mp3"
+                    multiple
+                    ref={hiddenBagAudioRef}
+                    className="hidden"
+                    onChange={handleImportBagsAudios}
+                  />
+                </div>
               </div>
               {isGeneratingAllVoices && voicesProgress && (
                 <div className="flex items-center gap-2 w-full max-w-xs md:max-w-sm ml-auto">
@@ -1034,7 +1026,7 @@ export default function Config() {
 
               <Button
                 onClick={() => setIsFormOpen(true)}
-                className="gap-2 w-full md:w-auto justify-center"
+                className="gap-2 w-full md:w-auto justify-center min-h-[48px]"
               >
                 <Plus className="w-4 h-4" />
                 Novo Motoboy
@@ -1540,26 +1532,23 @@ export default function Config() {
 
       {/* Reset de Expediente Confirmation Dialog */}
       <AlertDialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Reset de Expediente</AlertDialogTitle>
-            <AlertDialogDescription className="space-y-2">
-              <p>Tem certeza que deseja realizar o reset do expediente para a unidade <strong>{selectedUnit}</strong>?</p>
-              <ul className="list-disc pl-4 text-sm mt-2">
-                <li>Todos os motoboys serão desativados da fila atual.</li>
-                <li>Entregadores que ainda estiverem "Em Entrega" voltarão para o status "Disponível".</li>
-                <li>Os dados do Histórico e do Analytics serão <strong className="text-emerald-500">preservados</strong>.</li>
-              </ul>
-              <p className="font-semibold text-destructive mt-4">
-                O primeiro motoboy deverá realizar check-in novamente para iniciar um novo expediente.
-              </p>
+        <AlertDialogContent className="w-[95vw] max-w-lg rounded-xl">
+          <AlertDialogHeader className="text-left">
+            <AlertDialogTitle className="text-xl">Reset de Expediente</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-4 text-base mt-2">
+              <p>Tem certeza que deseja realizar o reset para a unidade <strong className="text-foreground">{selectedUnit}</strong>?</p>
+              <div className="bg-muted p-4 rounded-lg space-y-2 text-sm text-foreground">
+                <p>• Todos os motoboys serão <strong>desativados</strong> e voltarão ao status Disponível.</p>
+                <p>• Histórico e Analytics serão <strong className="text-emerald-500">preservados</strong>.</p>
+                <p className="text-destructive font-semibold">• O primeiro motoboy deverá fazer check-in amanhã.</p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2 mt-4">
+            <AlertDialogCancel className="mt-0 w-full sm:w-auto min-h-[48px] sm:min-h-0">Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => resetDailyMutation.mutate()}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 w-full sm:w-auto min-h-[48px] sm:min-h-0"
               disabled={resetDailyMutation.isPending}
             >
               {resetDailyMutation.isPending ? 'Resetando...' : 'Confirmar Reset'}
