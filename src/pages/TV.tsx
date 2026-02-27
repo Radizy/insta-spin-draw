@@ -113,7 +113,6 @@ export default function TV() {
   const updateMutationRef = useRef<typeof updateMutation>(null as any);
 
   const [callQueue, setCallQueue] = useState<CalledEntregadorInfo[]>([]);
-  const [isAudioUnlocked, setIsAudioUnlocked] = useState(false);
   const isProcessingRef = useRef(false);
   const interruptDisplayRef = useRef<(() => void) | null>(null);
 
@@ -893,30 +892,16 @@ export default function TV() {
         // Se o áudio demorar demais (>10s), cortamos ele para a tela não travar pra sempre
         await Promise.race([
           handleCallAnnouncementRef.current(entregador, hasBebida),
-          new Promise<void>((r) => setTimeout(r, 10000))
+          new Promise<void>((r) => setTimeout(r, 12000))
         ]);
       } catch (err) {
         console.error('TV: Erro no áudio da fila, ignorando...', err);
       }
 
-      // 2. Transição automática de 15s na tela OU interrupção (nova chamada)
-      await new Promise<void>((resolve) => {
-        interruptDisplayRef.current = resolve;
-        const timeout = setTimeout(() => {
-          interruptDisplayRef.current = null;
-          resolve();
-        }, DISPLAY_TIME_MS);
+      // 2. Reseta o timer de inatividade (screensaver) disparando um evento
+      window.dispatchEvent(new Event('mousemove'));
 
-        // Patch do cancelamento
-        const originalRes = resolve;
-        interruptDisplayRef.current = () => {
-          clearTimeout(timeout);
-          originalRes();
-        }
-      });
-      interruptDisplayRef.current = null;
-
-      // 3. Atualizar Status pro bd
+      // 3. Atualiza Status pro bd para Em Entrega
       updateMutationRef.current.mutate({
         id: entregador.id,
         data: {
@@ -925,10 +910,13 @@ export default function TV() {
         },
       });
 
+      // 4. Finaliza a animação ("volta para a tela mostrando a fila atual")
       setDisplayingCalled(null);
-      await new Promise(r => setTimeout(r, 500)); // gap suave
 
-      // 4. Libera ID para se ele voltar à fila e for chamado dnv na mesma session, e continua o processamento.
+      // Pequeno delay pra dar respiro visual antes da próxima chamada ser processada
+      await new Promise(r => setTimeout(r, 2000));
+
+      // 5. Libera ID da sessão
       processedCallsRef.current.delete(entregador.id);
       setCallQueue(prev => prev.slice(1));
       isProcessingRef.current = false;
@@ -1056,38 +1044,6 @@ export default function TV() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Overlay de desbloqueio de áudio (obrigatório no Desktop para autoplay) */}
-      {!isAudioUnlocked && (
-        <div className="fixed inset-0 z-[99999] bg-background/95 backdrop-blur-md flex flex-col items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full text-center shadow-2xl flex flex-col items-center animate-scale-in">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
-              <Volume2 className="w-8 h-8 sm:w-10 sm:h-10 text-primary animate-pulse" />
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-bold mb-3 font-mono">Painel TV Roteirista</h2>
-            <p className="text-muted-foreground mb-8 text-sm sm:text-base">
-              Navegadores de computador bloqueiam alertas sonoros automáticos (política de Autoplay). Clique abaixo para desbloquear o áudio permanentemente.
-            </p>
-            <Button
-              size="lg"
-              className="w-full text-base sm:text-lg h-12 sm:h-14 font-semibold shadow-md"
-              onClick={() => {
-                setIsAudioUnlocked(true);
-                // "Engana" o navegador tocando um som vazio agora que o user clicou
-                if (audioRef.current) {
-                  audioRef.current.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
-                  audioRef.current.volume = 0;
-                  audioRef.current.play().then(() => {
-                    audioRef.current?.pause();
-                  }).catch(() => { });
-                }
-              }}
-            >
-              Iniciar TV com Áudio Ativo
-            </Button>
-          </div>
-        </div>
-      )}
-
       {/* Hidden audio element */}
       <audio ref={audioRef} preload="auto" />
 
