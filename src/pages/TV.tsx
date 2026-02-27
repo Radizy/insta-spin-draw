@@ -109,6 +109,8 @@ export default function TV() {
   const lastCallTime = useRef<number>(0);
   const processedCallsRef = useRef<Set<string>>(new Set());
   const lastPagamentoIdRef = useRef<string | null>(null);
+  const handleCallAnnouncementRef = useRef<(entregador: Entregador, hasBebida: boolean) => Promise<void>>(async () => {});
+  const updateMutationRef = useRef<typeof updateMutation>(null as any);
 
   // Apenas usuários autenticados com unidade podem acessar (rota já é protegida,
   // mas aqui garantimos a unidade correta)
@@ -767,8 +769,16 @@ export default function TV() {
     [isMuted, playAudioSequence, tvTtsConfig.volume, tvTtsConfig.ringtone_id],
   );
 
+  // Manter refs atualizados para evitar reconexões do canal realtime
+  useEffect(() => {
+    handleCallAnnouncementRef.current = handleCallAnnouncement;
+  }, [handleCallAnnouncement]);
 
-  // Listen for realtime calls with bebida info (entregas)
+  useEffect(() => {
+    updateMutationRef.current = updateMutation;
+  }, [updateMutation]);
+
+  // Listen for realtime calls with bebida info (entregas) - deps estáveis!
   useEffect(() => {
     const channel = supabase
       .channel('tv-calls')
@@ -801,7 +811,7 @@ export default function TV() {
             setDisplayingCalled({ entregador: newData, hasBebida });
 
             // Dispara áudio (execução paralela, não trava a tela)
-            handleCallAnnouncement(newData, hasBebida).catch(err => console.error(err));
+            handleCallAnnouncementRef.current(newData, hasBebida).catch(err => console.error(err));
 
             // Transição automática após 15s para Entregando
             setTimeout(() => {
@@ -813,7 +823,7 @@ export default function TV() {
                 return prev;
               });
 
-              updateMutation.mutate({
+              updateMutationRef.current.mutate({
                 id: newData.id,
                 data: {
                   status: 'entregando',
@@ -829,14 +839,12 @@ export default function TV() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedUnit, handleCallAnnouncement, updateMutation]);
+  }, [selectedUnit]); // Apenas reconecta quando a unidade muda
 
-  // Processar chamados existentes (fallback)
+  // Processar chamados existentes (fallback via polling)
   useEffect(() => {
     calledEntregadores.forEach((entregador) => {
-      // Usar a Ref local para garantir que a tela processe cada moto apenas 1 vez por chamada.
       if (!processedCallsRef.current.has(entregador.id)) {
-        // Tenta recuperar informação de bebida do localStorage (setada na tela de Roteirista)
         const hasBebidaFromStorage =
           typeof window !== 'undefined'
             ? localStorage.getItem(`bebida_${entregador.id}`) === 'true'
@@ -847,11 +855,10 @@ export default function TV() {
         setDisplayingPagamento(null);
         setDisplayingCalled({ entregador, hasBebida: hasBebidaFromStorage });
 
-        // Chama o audio paralelamente
-        handleCallAnnouncement(entregador, hasBebidaFromStorage).catch(err => console.error(err));
+        // Chama o audio paralelamente via ref (estável)
+        handleCallAnnouncementRef.current(entregador, hasBebidaFromStorage).catch(err => console.error(err));
 
         setTimeout(() => {
-          // Só remove da tela se ainda for o MESMO motoboy em destaque
           setDisplayingCalled((prev) => {
             if (prev?.entregador.id === entregador.id) {
               return null;
@@ -859,7 +866,7 @@ export default function TV() {
             return prev;
           });
 
-          updateMutation.mutate({
+          updateMutationRef.current.mutate({
             id: entregador.id,
             data: {
               status: 'entregando',
@@ -878,7 +885,7 @@ export default function TV() {
         processedCallsRef.current.delete(id);
       }
     });
-  }, [calledEntregadores, handleCallAnnouncement, updateMutation, deliveringQueue]);
+  }, [calledEntregadores, deliveringQueue]);
 
   // Escutar chamadas de pagamento para TV via realtime e também via polling
   useEffect(() => {
