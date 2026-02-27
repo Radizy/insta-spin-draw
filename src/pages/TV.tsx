@@ -624,10 +624,11 @@ export default function TV() {
   // Protegido contra DOMException: play() failed because o user didn't interact (Autoplay Policy)
   const playOneAudio = useCallback(async (path: string, volume: number): Promise<boolean> => {
     try {
+      const safeVolume = Math.min(1, Math.max(0, volume));
       if (path.startsWith('http')) {
         const success = await new Promise<boolean>((resolve) => {
           const audio = new Audio(path);
-          audio.volume = volume;
+          audio.volume = safeVolume;
           audio.onended = () => resolve(true);
           audio.onerror = () => {
             console.warn('TV: Erro de rede ou indisponível URL:', path);
@@ -645,7 +646,7 @@ export default function TV() {
           const success = await new Promise<boolean>((resolve) => {
             const audioUrl = URL.createObjectURL(data);
             const audio = new Audio(audioUrl);
-            audio.volume = volume;
+            audio.volume = safeVolume;
             audio.onended = () => {
               URL.revokeObjectURL(audioUrl);
               resolve(true);
@@ -673,7 +674,7 @@ export default function TV() {
   const playAudioSequence = useCallback(
     async (entregador: Entregador, bagId: string | null, hasBebida: boolean) => {
       const franquiaId = user?.franquiaId;
-      const volume = (tvTtsConfig.volume ?? 100) / 100;
+      const volume = Math.min(1, Math.max(0, (tvTtsConfig.volume ?? 100) / 100));
       const pause = () => new Promise((r) => setTimeout(r, 300));
 
       // ---- 1. ÁUDIO DO MOTOBOY (prioridade: tts_voice_path pré-gravado/ElevenLabs) ----
@@ -695,7 +696,9 @@ export default function TV() {
       // ---- 2. ÁUDIO DA BAG (prioridade: audio_url da galeria > storage path) ----
       if (bagId && franquiaId) {
         let playedBag = false;
-        const bagTipo = franquiaBagTipos.find((b) => b.id === bagId);
+        // O bagId vindo de entregador.tipo_bag pode ser o NOME ou o ID, dependendo de como foi salvo
+        const bagTipo = franquiaBagTipos.find((b) => b.id === bagId || b.nome === bagId);
+        const actualBagId = bagTipo?.id || bagId;
 
         // Primeiro tenta audio_url da galeria (vinculado no painel)
         if (bagTipo?.audio_url) {
@@ -703,7 +706,7 @@ export default function TV() {
         }
         // Se não tem audio_url ou falhou, tenta storage path
         if (!playedBag) {
-          playedBag = await playOneAudio(`${franquiaId}/bags/${bagId}.mp3`, volume);
+          playedBag = await playOneAudio(`${franquiaId}/bags/${actualBagId}.mp3`, volume);
         }
         if (playedBag) {
           await pause();
@@ -743,7 +746,7 @@ export default function TV() {
       // Primeiro toca o toque completo, depois os áudios de voz
       if (audioRef.current) {
         try {
-          const ringVolume = (tvTtsConfig.volume ?? 100) / 100;
+          const ringVolume = Math.min(1, Math.max(0, (tvTtsConfig.volume ?? 100) / 100));
           audioRef.current.volume = ringVolume;
           audioRef.current.currentTime = 0;
           audioRef.current.src = getRingtoneUrl(tvTtsConfig.ringtone_id);
