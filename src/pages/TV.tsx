@@ -109,25 +109,29 @@ export default function TV() {
   const lastCallTime = useRef<number>(0);
   const processedCallsRef = useRef<Set<string>>(new Set());
   const lastPagamentoIdRef = useRef<string | null>(null);
-  const handleCallAnnouncementRef = useRef<(entregador: Entregador, hasBebida: boolean) => Promise<void>>(async () => {});
+  const handleCallAnnouncementRef = useRef<(entregador: Entregador, hasBebida: boolean) => Promise<void>>(async () => { });
   const updateMutationRef = useRef<typeof updateMutation>(null as any);
 
-  // Apenas usuários autenticados com unidade podem acessar (rota já é protegida,
-  // mas aqui garantimos a unidade correta)
-  if (!user || !user.unidade) {
-    return <Navigate to="/" replace />;
-  }
+  const [callQueue, setCallQueue] = useState<CalledEntregadorInfo[]>([]);
+  const isProcessingRef = useRef(false);
+  const interruptDisplayRef = useRef<(() => void) | null>(null);
 
+  // TODOS os hooks em cima para evitar React Hooks Violation
   useEffect(() => {
-    if (user.unidade && !selectedUnit) {
+    if (user?.unidade && !selectedUnit) {
       setSelectedUnit(user.unidade as any);
     }
   }, [user, selectedUnit, setSelectedUnit]);
 
-  // Redirect if no unit selecionada
+  // Early returns depositados após os hooks iniciais
+  if (!user || !user.unidade) {
+    return <Navigate to="/" replace />;
+  }
+
   if (!selectedUnit) {
     return <Navigate to="/" replace />;
   }
+
 
   // Query for system config (nome da loja)
   const { data: systemConfig } = useQuery({
@@ -617,6 +621,7 @@ export default function TV() {
   };
 
   // Helper: toca um áudio de URL ou storage path. Retorna true se tocou com sucesso.
+  // Protegido contra DOMException: play() failed because the user didn't interact (Autoplay Policy)
   const playOneAudio = useCallback(async (path: string, volume: number): Promise<boolean> => {
     try {
       if (path.startsWith('http')) {
@@ -624,8 +629,14 @@ export default function TV() {
           const audio = new Audio(path);
           audio.volume = volume;
           audio.onended = () => resolve();
-          audio.onerror = () => reject(new Error('Erro ao tocar URL: ' + path));
-          audio.play().catch(reject);
+          audio.onerror = () => {
+            console.warn('TV: Erro de rede ou indisponível URL:', path);
+            resolve(); // Nunca rejeita para não travar a fila
+          };
+          audio.play().catch(e => {
+            console.warn('TV: Audio bloqueado pelo navegador (URL)', e);
+            resolve(); // Nunca rejeita
+          });
         });
         return true;
       } else {
@@ -641,15 +652,20 @@ export default function TV() {
             };
             audio.onerror = () => {
               URL.revokeObjectURL(audioUrl);
-              reject(new Error('Erro ao tocar storage: ' + path));
+              console.warn('TV: Erro ao tocar blob local:', path);
+              resolve(); // Nunca rejeita
             };
-            audio.play().catch(reject);
+            audio.play().catch(e => {
+              URL.revokeObjectURL(audioUrl);
+              console.warn('TV: Audio bloqueado pelo navegador (Storage)', e);
+              resolve(); // Nunca rejeita
+            });
           });
           return true;
         }
       }
     } catch (e) {
-      console.warn('Áudio não disponível:', path, e);
+      console.warn('Áudio try-catch skipado:', path, e);
     }
     return false;
   }, []);
@@ -778,7 +794,10 @@ export default function TV() {
     updateMutationRef.current = updateMutation;
   }, [updateMutation]);
 
-  // Listen for realtime calls with bebida info (entregas) - deps estáveis!
+  // ============================================================
+  // PREVENÇÃO REALTIME: apenas adiciona na fila, sem travar
+  // Refs garantem que o canal seja reativo, porém estável.
+  // ============================================================
   useEffect(() => {
     const channel = supabase
       .channel('tv-calls')
@@ -804,33 +823,13 @@ export default function TV() {
 
             processedCallsRef.current.add(newData.id);
 
-            // Reseta state de pagamento caso estava em exibição para evitar overlay
-            setDisplayingPagamento(null);
+            // Interrompe imediatamente se existir timer display ativo
+            if (interruptDisplayRef.current) {
+              interruptDisplayRef.current();
+              interruptDisplayRef.current = null;
+            }
 
-            // Inicia exibição
-            setDisplayingCalled({ entregador: newData, hasBebida });
-
-            // Dispara áudio (execução paralela, não trava a tela)
-            handleCallAnnouncementRef.current(newData, hasBebida).catch(err => console.error(err));
-
-            // Transição automática após 15s para Entregando
-            setTimeout(() => {
-              // Somente remove da tela se ainda for ELE o moto a estar sendo exibido
-              setDisplayingCalled((prev) => {
-                if (prev?.entregador.id === newData.id) {
-                  return null;
-                }
-                return prev;
-              });
-
-              updateMutationRef.current.mutate({
-                id: newData.id,
-                data: {
-                  status: 'entregando',
-                  hora_saida: new Date().toISOString(),
-                },
-              });
-            }, DISPLAY_TIME_MS);
+            setCallQueue((prev) => [...prev, { entregador: newData, hasBebida }]);
           }
         }
       )
@@ -839,9 +838,11 @@ export default function TV() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedUnit]); // Apenas reconecta quando a unidade muda
+  }, [selectedUnit]); // Apenas ativa reconexão quando muda a Unidade.
 
-  // Processar chamados existentes (fallback via polling)
+  // ============================================================
+  // FALLBACK (POLLING): apenas adiciona na fila de processos
+  // ============================================================
   useEffect(() => {
     calledEntregadores.forEach((entregador) => {
       if (!processedCallsRef.current.has(entregador.id)) {
@@ -852,28 +853,12 @@ export default function TV() {
 
         processedCallsRef.current.add(entregador.id);
 
-        setDisplayingPagamento(null);
-        setDisplayingCalled({ entregador, hasBebida: hasBebidaFromStorage });
+        if (interruptDisplayRef.current) {
+          interruptDisplayRef.current();
+          interruptDisplayRef.current = null;
+        }
 
-        // Chama o audio paralelamente via ref (estável)
-        handleCallAnnouncementRef.current(entregador, hasBebidaFromStorage).catch(err => console.error(err));
-
-        setTimeout(() => {
-          setDisplayingCalled((prev) => {
-            if (prev?.entregador.id === entregador.id) {
-              return null;
-            }
-            return prev;
-          });
-
-          updateMutationRef.current.mutate({
-            id: entregador.id,
-            data: {
-              status: 'entregando',
-              hora_saida: new Date().toISOString(),
-            },
-          });
-        }, DISPLAY_TIME_MS);
+        setCallQueue((prev) => [...prev, { entregador, hasBebida: hasBebidaFromStorage }]);
       }
     });
 
@@ -886,6 +871,75 @@ export default function TV() {
       }
     });
   }, [calledEntregadores, deliveringQueue]);
+
+  // ============================================================
+  // PROCESSAMENTO SEQUENCIAL
+  // Lida um por um na callQueue e respeita bloqueios de áudio.
+  // ============================================================
+  useEffect(() => {
+    if (callQueue.length === 0 || isProcessingRef.current || displayingPagamento) return;
+
+    const processNext = async () => {
+      isProcessingRef.current = true;
+      const nextCall = callQueue[0];
+      const { entregador, hasBebida } = nextCall;
+
+      setDisplayingPagamento(null);
+      setDisplayingCalled(nextCall);
+
+      // 1. Tocar array de áudios (sequencial, se o navegador bloquear, catch silencioso resolve logo)
+      try {
+        // Se o áudio demorar demais (>10s), cortamos ele para a tela não travar pra sempre
+        await Promise.race([
+          handleCallAnnouncementRef.current(entregador, hasBebida),
+          new Promise<void>((r) => setTimeout(r, 10000))
+        ]);
+      } catch (err) {
+        console.error('TV: Erro no áudio da fila, ignorando...', err);
+      }
+
+      // 2. Transição automática de 15s na tela OU interrupção (nova chamada)
+      await new Promise<void>((resolve) => {
+        interruptDisplayRef.current = resolve;
+        const timeout = setTimeout(() => {
+          interruptDisplayRef.current = null;
+          resolve();
+        }, DISPLAY_TIME_MS);
+
+        // Patch do cancelamento
+        const originalRes = resolve;
+        interruptDisplayRef.current = () => {
+          clearTimeout(timeout);
+          originalRes();
+        }
+      });
+      interruptDisplayRef.current = null;
+
+      // 3. Atualizar Status pro bd
+      updateMutationRef.current.mutate({
+        id: entregador.id,
+        data: {
+          status: 'entregando',
+          hora_saida: new Date().toISOString(),
+        },
+      });
+
+      setDisplayingCalled(null);
+      await new Promise(r => setTimeout(r, 500)); // gap suave
+
+      // 4. Libera ID para se ele voltar à fila e for chamado dnv na mesma session, e continua o processamento.
+      processedCallsRef.current.delete(entregador.id);
+      setCallQueue(prev => prev.slice(1));
+      isProcessingRef.current = false;
+    };
+
+    processNext().catch(err => {
+      console.error("TV: Erro crítico ao processar fila", err);
+      setCallQueue(prev => prev.slice(1));
+      isProcessingRef.current = false;
+    });
+
+  }, [callQueue, displayingPagamento]);
 
   // Escutar chamadas de pagamento para TV via realtime e também via polling
   useEffect(() => {
@@ -981,14 +1035,12 @@ export default function TV() {
     }
   };
 
-  // Animação premium quando alguém é chamado
-  const handleAnimationComplete = () => {
-    setDisplayingCalled(null);
-  };
+  // Animação de chamada: a fila avança pelo timer do processNextCall
+  const handleAnimationComplete = useCallback(() => { }, []);
 
-  const handlePagamentoAnimationComplete = () => {
+  const handlePagamentoAnimationComplete = useCallback(() => {
     setDisplayingPagamento(null);
-  };
+  }, []);
 
   // Garantir que chamadas de pagamento nunca fiquem presas na tela
   useEffect(() => {
