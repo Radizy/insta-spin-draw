@@ -25,18 +25,8 @@ export const TVCallAnimation = ({
   hasBebida,
   onComplete,
 }: TVCallAnimationProps) => {
-  useEffect(() => {
-    if (!show) return;
-
-    // 4 segundos de exibição da tela cheia
-    const timer = setTimeout(() => {
-      onComplete();
-    }, 4000);
-
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [show, onComplete]);
+  // Timer removido: o componente pai (TV.tsx) controla a duração da exibição
+  // Entrega = 15s, Pagamento = 4s — cada um gerenciado pelo pai via onComplete
 
   // Buscar títulos personalizados da configuração
   const { data: entregaTituloCustom } = useQuery({

@@ -963,7 +963,7 @@ export async function resetDaily(unidade?: string, unidadeId?: string): Promise<
 
 export async function fetchSystemUpdates(): Promise<SystemUpdate[]> {
   const { data, error } = await supabase
-    .from('system_updates' as any)
+    .from('system_updates')
     .select('*')
     .order('ordem', { ascending: true })
     .order('data_publicacao', { ascending: false });
@@ -972,35 +972,35 @@ export async function fetchSystemUpdates(): Promise<SystemUpdate[]> {
     throw new Error('Failed to fetch system updates: ' + error.message);
   }
 
-  return (data || []) as SystemUpdate[];
+  return (data || []) as unknown as SystemUpdate[];
 }
 
 export async function createSystemUpdate(data: Partial<SystemUpdate>): Promise<SystemUpdate> {
   const { data: result, error } = await supabase
-    .from('system_updates' as any)
-    .insert([data])
+    .from('system_updates')
+    .insert([data as any])
     .select()
     .single();
 
   if (error) throw error;
-  return result as SystemUpdate;
+  return result as unknown as SystemUpdate;
 }
 
 export async function updateSystemUpdate(id: string, data: Partial<SystemUpdate>): Promise<SystemUpdate> {
   const { data: result, error } = await supabase
-    .from('system_updates' as any)
-    .update(data)
+    .from('system_updates')
+    .update(data as any)
     .eq('id', id)
     .select()
     .single();
 
   if (error) throw error;
-  return result as SystemUpdate;
+  return result as unknown as SystemUpdate;
 }
 
 export async function deleteSystemUpdate(id: string): Promise<void> {
   const { error } = await supabase
-    .from('system_updates' as any)
+    .from('system_updates')
     .delete()
     .eq('id', id);
 
@@ -1010,7 +1010,7 @@ export async function deleteSystemUpdate(id: string): Promise<void> {
 // Bulk update para ordem (Drag and Drop)
 export async function reorderSystemUpdates(updates: { id: string, ordem: number }[]): Promise<void> {
   const promises = updates.map(update =>
-    supabase.from('system_updates').update({ ordem: update.ordem }).eq('id', update.id)
+    supabase.from('system_updates').update({ ordem: update.ordem } as any).eq('id', update.id)
   );
 
   await Promise.all(promises);

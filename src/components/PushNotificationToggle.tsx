@@ -32,7 +32,7 @@ export function PushNotificationToggle({ entregadorId }: { entregadorId: string 
         if (!('serviceWorker' in navigator)) return;
         try {
             const registration = await navigator.serviceWorker.ready;
-            const subscription = await registration.pushManager.getSubscription();
+            const subscription = await (registration as any).pushManager.getSubscription();
             setIsSubscribed(!!subscription);
         } catch (e) {
             console.error('Erro ao verificar inscrição:', e);
@@ -53,7 +53,7 @@ export function PushNotificationToggle({ entregadorId }: { entregadorId: string 
             }
 
             const registration = await navigator.serviceWorker.ready;
-            const subscription = await registration.pushManager.subscribe({
+            const subscription = await (registration as any).pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
             });
