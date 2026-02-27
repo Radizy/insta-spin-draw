@@ -75,7 +75,7 @@ export function MediaGalleryModal({
             if (!user?.franquiaId) return [];
 
             const { data, error } = await supabase.storage
-                .from('franquia_media')
+                .from('motoboy_voices')
                 .list(user.franquiaId, {
                     sortBy: { column: 'created_at', order: 'desc' }
                 });
@@ -89,7 +89,7 @@ export function MediaGalleryModal({
                 .filter(f => f.name !== '.emptyFolderPlaceholder')
                 .map(file => {
                     const { data: publicUrl } = supabase.storage
-                        .from('franquia_media')
+                        .from('motoboy_voices')
                         .getPublicUrl(`${user.franquiaId}/${file.name}`);
 
                     return {
@@ -116,7 +116,7 @@ export function MediaGalleryModal({
             const filePath = `${user.franquiaId}/${fileName}`;
 
             const { error } = await supabase.storage
-                .from('franquia_media')
+                .from('motoboy_voices')
                 .upload(filePath, file);
 
             if (error) throw error;
@@ -135,7 +135,7 @@ export function MediaGalleryModal({
         mutationFn: async (fileName: string) => {
             if (!user?.franquiaId) throw new Error("Sem acesso");
             const { error } = await supabase.storage
-                .from('franquia_media')
+                .from('motoboy_voices')
                 .remove([`${user.franquiaId}/${fileName}`]);
             if (error) throw error;
         },

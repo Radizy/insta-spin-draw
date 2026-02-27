@@ -113,6 +113,7 @@ export default function TV() {
   const updateMutationRef = useRef<typeof updateMutation>(null as any);
 
   const [callQueue, setCallQueue] = useState<CalledEntregadorInfo[]>([]);
+  const [isAudioUnlocked, setIsAudioUnlocked] = useState(false);
   const isProcessingRef = useRef(false);
   const interruptDisplayRef = useRef<(() => void) | null>(null);
 
@@ -621,47 +622,47 @@ export default function TV() {
   };
 
   // Helper: toca um áudio de URL ou storage path. Retorna true se tocou com sucesso.
-  // Protegido contra DOMException: play() failed because the user didn't interact (Autoplay Policy)
+  // Protegido contra DOMException: play() failed because o user didn't interact (Autoplay Policy)
   const playOneAudio = useCallback(async (path: string, volume: number): Promise<boolean> => {
     try {
       if (path.startsWith('http')) {
-        await new Promise<void>((resolve, reject) => {
+        const success = await new Promise<boolean>((resolve) => {
           const audio = new Audio(path);
           audio.volume = volume;
-          audio.onended = () => resolve();
+          audio.onended = () => resolve(true);
           audio.onerror = () => {
             console.warn('TV: Erro de rede ou indisponível URL:', path);
-            resolve(); // Nunca rejeita para não travar a fila
+            resolve(false);
           };
           audio.play().catch(e => {
             console.warn('TV: Audio bloqueado pelo navegador (URL)', e);
-            resolve(); // Nunca rejeita
+            resolve(false);
           });
         });
-        return true;
+        return success;
       } else {
         const { data } = await supabase.storage.from('motoboy_voices').download(path);
         if (data) {
-          await new Promise<void>((resolve, reject) => {
+          const success = await new Promise<boolean>((resolve) => {
             const audioUrl = URL.createObjectURL(data);
             const audio = new Audio(audioUrl);
             audio.volume = volume;
             audio.onended = () => {
               URL.revokeObjectURL(audioUrl);
-              resolve();
+              resolve(true);
             };
             audio.onerror = () => {
               URL.revokeObjectURL(audioUrl);
               console.warn('TV: Erro ao tocar blob local:', path);
-              resolve(); // Nunca rejeita
+              resolve(false);
             };
             audio.play().catch(e => {
               URL.revokeObjectURL(audioUrl);
               console.warn('TV: Audio bloqueado pelo navegador (Storage)', e);
-              resolve(); // Nunca rejeita
+              resolve(false);
             });
           });
-          return true;
+          return success;
         }
       }
     } catch (e) {
@@ -1055,6 +1056,38 @@ export default function TV() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* Overlay de desbloqueio de áudio (obrigatório no Desktop para autoplay) */}
+      {!isAudioUnlocked && (
+        <div className="fixed inset-0 z-[99999] bg-background/95 backdrop-blur-md flex flex-col items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full text-center shadow-2xl flex flex-col items-center animate-scale-in">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
+              <Volume2 className="w-8 h-8 sm:w-10 sm:h-10 text-primary animate-pulse" />
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-bold mb-3 font-mono">Painel TV Roteirista</h2>
+            <p className="text-muted-foreground mb-8 text-sm sm:text-base">
+              Navegadores de computador bloqueiam alertas sonoros automáticos (política de Autoplay). Clique abaixo para desbloquear o áudio permanentemente.
+            </p>
+            <Button
+              size="lg"
+              className="w-full text-base sm:text-lg h-12 sm:h-14 font-semibold shadow-md"
+              onClick={() => {
+                setIsAudioUnlocked(true);
+                // "Engana" o navegador tocando um som vazio agora que o user clicou
+                if (audioRef.current) {
+                  audioRef.current.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
+                  audioRef.current.volume = 0;
+                  audioRef.current.play().then(() => {
+                    audioRef.current?.pause();
+                  }).catch(() => { });
+                }
+              }}
+            >
+              Iniciar TV com Áudio Ativo
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Hidden audio element */}
       <audio ref={audioRef} preload="auto" />
 
