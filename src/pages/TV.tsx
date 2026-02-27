@@ -532,13 +532,14 @@ export default function TV() {
     descricao: string | null;
     ativo: boolean;
     franquia_id: string;
+    audio_url: string | null;
   }[]>({
     queryKey: ['franquia-bag-tipos', user?.franquiaId],
     queryFn: async () => {
       if (!user?.franquiaId) return [];
       const { data, error } = await supabase
         .from('franquia_bag_tipos')
-        .select('id, nome, descricao, ativo, franquia_id')
+        .select('id, nome, descricao, ativo, franquia_id, audio_url')
         .eq('franquia_id', user.franquiaId)
         .eq('ativo', true)
         .order('created_at', { ascending: true });
@@ -613,80 +614,107 @@ export default function TV() {
     return { chamadaText, bagText, pagamentoText };
   };
 
+  // Helper: toca um áudio de URL ou storage path. Retorna true se tocou com sucesso.
+  const playOneAudio = useCallback(async (path: string, volume: number): Promise<boolean> => {
+    try {
+      if (path.startsWith('http')) {
+        await new Promise<void>((resolve, reject) => {
+          const audio = new Audio(path);
+          audio.volume = volume;
+          audio.onended = () => resolve();
+          audio.onerror = () => reject(new Error('Erro ao tocar URL: ' + path));
+          audio.play().catch(reject);
+        });
+        return true;
+      } else {
+        const { data } = await supabase.storage.from('motoboy_voices').download(path);
+        if (data) {
+          await new Promise<void>((resolve, reject) => {
+            const audioUrl = URL.createObjectURL(data);
+            const audio = new Audio(audioUrl);
+            audio.volume = volume;
+            audio.onended = () => {
+              URL.revokeObjectURL(audioUrl);
+              resolve();
+            };
+            audio.onerror = () => {
+              URL.revokeObjectURL(audioUrl);
+              reject(new Error('Erro ao tocar storage: ' + path));
+            };
+            audio.play().catch(reject);
+          });
+          return true;
+        }
+      }
+    } catch (e) {
+      console.warn('Áudio não disponível:', path, e);
+    }
+    return false;
+  }, []);
+
   const playAudioSequence = useCallback(
     async (entregador: Entregador, bagId: string | null, hasBebida: boolean) => {
       const franquiaId = user?.franquiaId;
       const volume = (tvTtsConfig.volume ?? 100) / 100;
+      const pause = () => new Promise((r) => setTimeout(r, 300));
 
-      // Tenta tocar áudios pré-gravados do storage
-      let playedAny = false;
+      // ---- 1. ÁUDIO DO MOTOBOY (prioridade: tts_voice_path pré-gravado/ElevenLabs) ----
+      let playedNome = false;
+      if (entregador.tts_voice_path) {
+        playedNome = await playOneAudio(entregador.tts_voice_path, volume);
+        if (playedNome) await pause();
+      }
+      // Fallback TTS para nome se não tocou
+      if (!playedNome) {
+        await speak(`É a vez de ${entregador.nome}`, {
+          enabled: true,
+          volume: tvTtsConfig.volume ?? 100,
+          voice_model: 'browser_clara',
+        });
+        await pause();
+      }
 
-      if (franquiaId) {
-        const audios: string[] = [];
+      // ---- 2. ÁUDIO DA BAG (prioridade: audio_url da galeria > storage path) ----
+      if (bagId && franquiaId) {
+        let playedBag = false;
+        const bagTipo = franquiaBagTipos.find((b) => b.id === bagId);
 
-        if (entregador.tts_voice_path) {
-          audios.push(entregador.tts_voice_path);
+        // Primeiro tenta audio_url da galeria (vinculado no painel)
+        if (bagTipo?.audio_url) {
+          playedBag = await playOneAudio(bagTipo.audio_url, volume);
         }
-        if (bagId) {
-          audios.push(`${franquiaId}/bags/${bagId}.mp3`);
+        // Se não tem audio_url ou falhou, tenta storage path
+        if (!playedBag) {
+          playedBag = await playOneAudio(`${franquiaId}/bags/${bagId}.mp3`, volume);
         }
-        if (hasBebida) {
-          audios.push(`${franquiaId}/bebida.mp3`);
-        }
-
-        for (const path of audios) {
-          try {
-            if (path.startsWith('http')) {
-              await new Promise<void>((resolve, reject) => {
-                const audio = new Audio(path);
-                audio.volume = volume;
-                audio.onended = () => resolve();
-                audio.onerror = () => reject();
-                audio.play().catch(reject);
-              });
-              playedAny = true;
-              await new Promise((r) => setTimeout(r, 300));
-            } else {
-              const { data } = await supabase.storage.from('motoboy_voices').download(path);
-              if (data) {
-                await new Promise<void>((resolve, reject) => {
-                  const audioUrl = URL.createObjectURL(data);
-                  const audio = new Audio(audioUrl);
-                  audio.volume = volume;
-                  audio.onended = () => {
-                    URL.revokeObjectURL(audioUrl);
-                    resolve();
-                  };
-                  audio.onerror = () => {
-                    URL.revokeObjectURL(audioUrl);
-                    reject();
-                  };
-                  audio.play().catch(reject);
-                });
-                playedAny = true;
-                await new Promise((r) => setTimeout(r, 300));
-              }
-            }
-          } catch (e) {
-            console.log('Áudio storage não disponível, usando TTS fallback:', path);
-          }
+        if (playedBag) {
+          await pause();
+        } else {
+          // Fallback TTS para bag
+          const bagName = bagTipo?.nome || bagId;
+          await speak(`Pegue a ${bagName}`, {
+            enabled: true,
+            volume: tvTtsConfig.volume ?? 100,
+            voice_model: 'browser_clara',
+          });
+          await pause();
         }
       }
 
-      // Fallback: usar Web Speech API (TTS do navegador) se nenhum áudio pré-gravado tocou
-      if (!playedAny) {
-        const bagName = bagId ? (franquiaBagTipos.find((b) => b.id === bagId)?.nome || bagId) : null;
-        let ttsText = `É a vez de ${entregador.nome}`;
-        if (bagName) {
-          ttsText += `. Pegue a ${bagName}`;
+      // ---- 3. ÁUDIO DE BEBIDA (prioridade: storage path pré-gravado) ----
+      if (hasBebida && franquiaId) {
+        let playedBebida = await playOneAudio(`${franquiaId}/bebida.mp3`, volume);
+        if (!playedBebida) {
+          // Fallback TTS
+          await speak('Tem bebida nas comandas', {
+            enabled: true,
+            volume: tvTtsConfig.volume ?? 100,
+            voice_model: 'browser_clara',
+          });
         }
-        if (hasBebida) {
-          ttsText += `. Tem bebida nas comandas`;
-        }
-        await speak(ttsText, { enabled: true, volume: tvTtsConfig.volume ?? 100, voice_model: 'browser_clara' });
       }
     },
-    [user?.franquiaId, tvTtsConfig.volume, franquiaBagTipos, speak],
+    [user?.franquiaId, tvTtsConfig.volume, franquiaBagTipos, speak, playOneAudio],
   );
 
   // Play audio and TTS quando alguém é chamado
