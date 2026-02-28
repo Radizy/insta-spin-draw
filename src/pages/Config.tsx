@@ -341,10 +341,15 @@ export default function Config() {
   };
 
   const handleToggleAtivo = (entregador: Entregador) => {
-    const updateData: Partial<Entregador> = { ativo: !entregador.ativo };
+    const isActivating = !entregador.ativo;
+    const updateData: Partial<Entregador> = { ativo: isActivating };
 
-    if (!entregador.ativo) {
+    if (isActivating) {
       updateData.fila_posicao = new Date().toISOString();
+      // Se não tiver hora_saida (primeiro check-in do dia), define agora
+      if (!entregador.hora_saida) {
+        updateData.hora_saida = new Date().toISOString();
+      }
     }
 
     updateMutation.mutate({

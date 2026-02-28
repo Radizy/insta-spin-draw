@@ -35,10 +35,29 @@ interface MetricResult {
     performance_bag: { tipo_bag: string; total: number; tempo_medio: number }[];
     entregas_por_hora: { hora: number; total: number }[];
     entregas_por_dia: { dia: string; total: number }[];
+    pontualidade_ranking: { nome: string; tempo_medio: number }[];
 }
 
 export function AnalyticsDashboard({ dataInicio, dataFim }: AnalyticsDashboardProps) {
     const { user } = useAuth();
+
+    const { data: franquiaConfig } = useQuery({
+        queryKey: ['franquia-config', user?.franquiaId],
+        queryFn: async () => {
+            if (!user?.franquiaId) return null;
+            const { data, error } = await supabase
+                .from('franquias')
+                .select('config_pagamento')
+                .eq('id', user.franquiaId)
+                .maybeSingle();
+
+            if (error) throw error;
+            return (data?.config_pagamento as any) || {};
+        },
+        enabled: !!user?.franquiaId,
+    });
+
+    const isMachineModuleActive = franquiaConfig?.modulos_ativos?.includes('controle_maquininhas');
 
     const { data: metrics, isLoading, isError } = useQuery({
         queryKey: ['analytics_pro_metrics', user?.unidadeId, dataInicio.toISOString(), dataFim.toISOString()],
@@ -110,7 +129,7 @@ export function AnalyticsDashboard({ dataInicio, dataFim }: AnalyticsDashboardPr
             ) : (
                 <>
                     {/* Cards Resumo */}
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <CardTitle className="text-sm font-medium">Total de Entregas</CardTitle>
@@ -160,6 +179,46 @@ export function AnalyticsDashboard({ dataInicio, dataFim }: AnalyticsDashboardPr
                                 <p className="text-xs text-muted-foreground">média por dia</p>
                             </CardContent>
                         </Card>
+
+                        {isMachineModuleActive && (
+                            <Card className="border-border/50">
+                                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                                    <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                        <Clock className="w-3.5 h-3.5 text-violet-500" />
+                                        Pontualidade
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-3 max-h-[140px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-primary/10 hover:scrollbar-thumb-primary/20">
+                                        {metrics?.pontualidade_ranking && metrics.pontualidade_ranking.length > 0 ? (
+                                            metrics.pontualidade_ranking.map((item, index) => (
+                                                <div key={item.nome} className="flex items-center justify-between group">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={`flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-[9px] font-bold ${index === 0 ? 'bg-amber-500/20 text-amber-500' :
+                                                                index === 1 ? 'bg-slate-400/20 text-slate-400' :
+                                                                    index === 2 ? 'bg-orange-400/20 text-orange-400' :
+                                                                        'bg-muted text-muted-foreground'
+                                                            }`}>
+                                                            {index + 1}
+                                                        </div>
+                                                        <span className="text-[11px] font-semibold group-hover:text-primary transition-colors truncate max-w-[60px]">{item.nome}</span>
+                                                    </div>
+                                                    <div className="flex flex-col items-end">
+                                                        <span className="text-[10px] font-mono font-bold text-primary">
+                                                            {item.tempo_medio}m
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center h-10 text-center opacity-60">
+                                                <p className="text-[9px] font-medium leading-tight">Sem dados</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-2 min-w-0">

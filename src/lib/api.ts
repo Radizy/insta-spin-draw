@@ -65,6 +65,33 @@ export interface HistoricoEntrega {
   created_at: string;
 }
 
+export interface Maquininha {
+  id: string;
+  nome: string;
+  numero_serie: string | null;
+  unidade_id: string | null;
+  franquia_id: string | null;
+  status: 'livre' | 'em_uso';
+  ativo: boolean;
+  created_at: string;
+}
+
+export interface MaquininhaVinculo {
+  id: string;
+  motoboy_id: string;
+  maquininha_id: string;
+  unidade_id: string | null;
+  franquia_id: string | null;
+  data: string;
+  horario_checkin: string | null;
+  horario_retirada: string;
+  horario_devolucao: string | null;
+  status: 'em_uso' | 'devolvida';
+  created_at: string;
+  entregador?: { nome: string };
+  maquininha?: { nome: string };
+}
+
 export interface SystemConfig {
   id: string;
   unidade: string;
@@ -1017,4 +1044,151 @@ export async function reorderSystemUpdates(updates: { id: string, ordem: number 
   );
 
   await Promise.all(promises);
+}
+
+export async function fetchMaquininhas(unidadeId: string): Promise<Maquininha[]> {
+  const { data, error } = await supabase
+    .from('maquininhas')
+    .select('*')
+    .eq('unidade_id', unidadeId)
+    .eq('ativo', true)
+    .order('nome');
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function fetchActiveVinculos(unidadeId: string): Promise<MaquininhaVinculo[]> {
+  const { data, error } = await supabase
+    .from('maquininha_vinculos')
+    .select(`
+      *,
+      entregador:entregadores(nome),
+      maquininha:maquininhas(nome)
+    `)
+    .eq('unidade_id', unidadeId)
+    .eq('status', 'em_uso')
+    .order('horario_retirada', { ascending: false });
+
+  if (error) throw error;
+  return (data || []) as any;
+}
+
+export async function atrelarMaquininha(params: {
+  motoboy_id: string;
+  maquininha_id: string;
+  unidade_id: string;
+  franquia_id: string;
+  horario_checkin: string | null;
+  unidade_nome: string;
+  motoboy_nome: string;
+  maquininha_nome: string;
+}): Promise<void> {
+  const now = new Date().toISOString();
+
+  // 1. Criar vínculo
+  const { error: vinculoError } = await supabase
+    .from('maquininha_vinculos')
+    .insert({
+      motoboy_id: params.motoboy_id,
+      maquininha_id: params.maquininha_id,
+      unidade_id: params.unidade_id,
+      franquia_id: params.franquia_id,
+      horario_checkin: params.horario_checkin,
+      horario_retirada: now,
+      status: 'em_uso'
+    });
+
+  if (vinculoError) throw vinculoError;
+
+  // 2. Atualizar status da maquininha
+  const { error: machineError } = await supabase
+    .from('maquininhas')
+    .update({ status: 'em_uso' })
+    .eq('id', params.maquininha_id);
+
+  if (machineError) throw machineError;
+
+  // 3. Webhook Google Sheets
+  try {
+    const { data: config } = await supabase
+      .from('unidades')
+      .select('config_sheets_url')
+      .eq('id', params.unidade_id)
+      .single();
+
+    if (config?.config_sheets_url) {
+      await fetch(config.config_sheets_url, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tipo: "retirada_maquininha",
+          motoboy: params.motoboy_nome,
+          maquininha: params.maquininha_nome,
+          checkin: params.horario_checkin,
+          retirada: now,
+          unidade: params.unidade_nome
+        })
+      });
+    }
+  } catch (e) {
+    console.error('Erro ao enviar webhook retirada:', e);
+  }
+}
+
+export async function devolverMaquininha(params: {
+  vinculo_id: string;
+  maquininha_id: string;
+  unidade_id: string;
+  unidade_nome: string;
+  motoboy_nome: string;
+  maquininha_nome: string;
+}): Promise<void> {
+  const now = new Date().toISOString();
+
+  // 1. Atualizar vínculo
+  const { error: vinculoError } = await supabase
+    .from('maquininha_vinculos')
+    .update({
+      horario_devolucao: now,
+      status: 'devolvida'
+    })
+    .eq('id', params.vinculo_id);
+
+  if (vinculoError) throw vinculoError;
+
+  // 2. Atualizar status da maquininha
+  const { error: machineError } = await supabase
+    .from('maquininhas')
+    .update({ status: 'livre' })
+    .eq('id', params.maquininha_id);
+
+  if (machineError) throw machineError;
+
+  // 3. Webhook Google Sheets
+  try {
+    const { data: config } = await supabase
+      .from('unidades')
+      .select('config_sheets_url')
+      .eq('id', params.unidade_id)
+      .single();
+
+    if (config?.config_sheets_url) {
+      await fetch(config.config_sheets_url, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tipo: "devolucao_maquininha",
+          motoboy: params.motoboy_nome,
+          maquininha: params.maquininha_nome,
+          devolucao: now,
+          unidade: params.unidade_nome
+        })
+      });
+    }
+  } catch (e) {
+    console.error('Erro ao enviar webhook devolução:', e);
+  }
 }
