@@ -86,10 +86,9 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
     const hoje = new Date().toISOString().split('T')[0];
 
     const motoboysElegiveis = entregadores.filter(e => {
-        const isPresente = e.ativo;
-        const hasCheckinHoje = e.hora_saida && e.hora_saida.startsWith(hoje);
+        const isAtivo = e.ativo;
         const hasActiveMachine = vinculosAtivos.some(v => v.motoboy_id === e.id);
-        return isPresente && hasCheckinHoje && !hasActiveMachine;
+        return isAtivo && !hasActiveMachine;
     });
 
     const maquininhasLivres = maquininhas.filter(m => m.status === 'livre' && m.ativo);

@@ -1046,16 +1046,52 @@ export async function reorderSystemUpdates(updates: { id: string, ordem: number 
   await Promise.all(promises);
 }
 
-export async function fetchMaquininhas(unidadeId: string): Promise<Maquininha[]> {
-  const { data, error } = await supabase
+export async function fetchMaquininhas(unidadeId: string, onlyActive = true): Promise<Maquininha[]> {
+  let query = supabase
     .from('maquininhas')
     .select('*')
-    .eq('unidade_id', unidadeId)
-    .eq('ativo', true)
-    .order('nome');
+    .eq('unidade_id', unidadeId);
+
+  if (onlyActive) {
+    query = query.eq('status', 'livre').eq('ativo', true);
+  }
+
+  const { data, error } = await query.order('nome');
 
   if (error) throw error;
   return data || [];
+}
+
+export async function createMaquininha(data: Partial<Maquininha>): Promise<Maquininha> {
+  const { data: result, error } = await supabase
+    .from('maquininhas')
+    .insert([data as any])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return result as unknown as Maquininha;
+}
+
+export async function updateMaquininha(id: string, data: Partial<Maquininha>): Promise<Maquininha> {
+  const { data: result, error } = await supabase
+    .from('maquininhas')
+    .update(data as any)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return result as unknown as Maquininha;
+}
+
+export async function deleteMaquininha(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('maquininhas')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
 }
 
 export async function fetchActiveVinculos(unidadeId: string): Promise<MaquininhaVinculo[]> {
