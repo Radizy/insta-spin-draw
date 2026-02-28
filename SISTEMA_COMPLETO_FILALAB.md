@@ -17,10 +17,19 @@ Os 5 módulos principais são:
 2. **TV Premium (`tv_avancada`)**: Destrava customizações exclusivas como upload de fundo e customização de toques e vozes de AI da tela de TV de espera. Inclui sistema de rediscagem automática de 10s e caminhos de áudio otimizados por franquia.
 3. **Integração Planilha (`planilha`)**: Habilita o webhook do Google Sheets no painel de Histórico permitindo exportação autônoma de dados.
 4. **Fila de Pagamento (`fila_pagamento`)**: Libera o uso da tela `/fila-pagamento` para o gerenciamento de senhas (cash-out financeiro dos motoqueiros).
-5. **Analytics Pro (`analytics_pro`)**: Habilita um dashboard avançado dentro da aba de histórico contendo Estatísticas, Recordes, Entregas/Hora e Gráficos Gerenciais. Totalmente retrocompatível com registros legados baseados em nome de unidade.
-6. **Modo Treinamento (FilaLab Academy)**: Treinamento simulado em memória local, guiado passo a passo para novos operadores (`isTrainingMode`).
+6. **Controle de Maquininhas (`controle_maquininhas`)**: Módulo para gestão de estoque e atribuição de máquinas de cartão para motoboys. Inclui aba de inventário nas configurações e modal flutuante para atrelar/devolver máquinas com busca inteligente e fluxo dual (por máquina ou por motoboy).
+7. **Modo Treinamento (FilaLab Academy)**: Treinamento simulado em memória local, guiado passo a passo para novos operadores (`isTrainingMode`).
 
 Esses módulos podem ser geridos livremente pelo painel Super Admin na visualização e edição de uma franquia.
+
+### Versão do Sistema
+- **Versão Atual**: `2.4.0` (Fev 2026)
+- **Últimas Implementações**:
+    - Redesign do menu de configurações (Premium UI).
+    - Módulo de Inventário de Maquininhas.
+    - Busca inteligente no Controle de Maquininhas.
+    - Exibição de horário de check-in no card do motoboy.
+    - Correções no Changelog (Ordenação e Botão fechar).
 
 ---
 
@@ -435,6 +444,7 @@ CREATE TABLE modulos (
 | planilha | Integração Planilha | Webhook Google Sheets automático | R$ 0,00 | true |
 | fila_pagamento | Fila de Pagamento | Sistema de senhas para pagamento | R$ 0,00 | true |
 | tv_avancada | TV Premium | Animações exclusivas na tela da TV | R$ 0,00 | true |
+| controle_maquininhas | Controle de Maquininhas | Gestão de máquinas de cartão e vínculos | R$ 0,00 | true |
 
 **Nota:** Preço R$ 0,00 indica que os módulos estão inclusos nos pacotes comerciais.
 
@@ -590,6 +600,46 @@ CREATE TABLE senhas_pagamento (
 ```sql
 CREATE POLICY "Anyone can manage senhas_pagamento" ON senhas_pagamento FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Anyone can read senhas_pagamento" ON senhas_pagamento FOR SELECT USING (true);
+```
+
+---
+
+### TABELA: maquininhas
+Estoque de máquinas de cartão da unidade.
+
+**Estrutura:**
+```sql
+CREATE TABLE maquininhas (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome TEXT NOT NULL,
+  numero_serie TEXT,
+  unidade_id UUID REFERENCES unidades(id),
+  franquia_id UUID REFERENCES franquias(id),
+  status TEXT DEFAULT 'livre', -- livre, em_uso
+  ativo BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+```
+
+---
+
+### TABELA: maquininha_vinculos
+Registro histórico e ativo de qual motoboy está com qual máquina.
+
+**Estrutura:**
+```sql
+CREATE TABLE maquininha_vinculos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  motoboy_id UUID REFERENCES entregadores(id),
+  maquininha_id UUID REFERENCES maquininhas(id),
+  unidade_id UUID REFERENCES unidades(id),
+  franquia_id UUID REFERENCES franquias(id),
+  horario_checkin TIMESTAMP WITH TIME ZONE,
+  horario_retirada TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  horario_devolucao TIMESTAMP WITH TIME ZONE,
+  status TEXT DEFAULT 'em_uso', -- em_uso, devolvida
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
 ```
 
 ---
