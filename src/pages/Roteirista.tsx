@@ -297,6 +297,7 @@ export default function Roteirista() {
         // Disparar webhook de despacho (server-side)
         await sendDispatchWebhook({
           unidade: selectedUnit,
+          unidadeId: user?.unidadeId,
           entregador: selectedEntregador,
           quantidadeEntregas: deliveryCount,
           bag: bagName,

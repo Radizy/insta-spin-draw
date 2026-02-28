@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUnit } from '@/contexts/UnitContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -173,9 +173,7 @@ export default function Historico() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [scriptDialogOpen, setScriptDialogOpen] = useState(false);
-  const [webhookUrl, setWebhookUrl] = useState(() =>
-    localStorage.getItem('sheets_webhook_url') || ''
-  );
+  const [webhookUrl, setWebhookUrl] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
 
   // Redirect if no unit selected
@@ -224,6 +222,27 @@ export default function Historico() {
     queryKey: ['entregadores', selectedUnit],
     queryFn: () => fetchEntregadores({ unidade: selectedUnit }),
   });
+
+  // Buscar configuração da unidade para o webhook
+  const { data: unitData } = useQuery({
+    queryKey: ['unidade-config-sheets', selectedUnit],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('unidades')
+        .select('config_sheets_url')
+        .eq('id', user?.unidadeId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.unidadeId,
+  });
+
+  useEffect(() => {
+    if (unitData?.config_sheets_url) {
+      setWebhookUrl(unitData.config_sheets_url);
+    }
+  }, [unitData]);
 
   // Query for fetching historico
   const { data: historico = [], isLoading } = useQuery({
@@ -307,9 +326,23 @@ export default function Historico() {
     toast.success('Arquivo exportado com sucesso!');
   };
 
-  const handleSaveWebhook = () => {
-    localStorage.setItem('sheets_webhook_url', webhookUrl);
-    toast.success('URL do webhook salva!');
+  const handleSaveWebhook = async () => {
+    if (!user?.unidadeId) return;
+
+    try {
+      const { error } = await supabase
+        .from('unidades')
+        .update({ config_sheets_url: webhookUrl })
+        .eq('id', user.unidadeId);
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ['unidade-config-sheets'] });
+      toast.success('URL do webhook salva na unidade!');
+    } catch (error) {
+      console.error('Erro ao salvar webhook:', error);
+      toast.error('Erro ao salvar no banco de dados');
+    }
   };
 
   const handleSyncToSheets = async () => {

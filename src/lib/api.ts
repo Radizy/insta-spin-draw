@@ -317,6 +317,7 @@ export async function sendWhatsAppMessage(
 // Disparar webhook de despacho (server-side)
 export async function sendDispatchWebhook(params: {
   unidade: Unidade;
+  unidadeId?: string | null;
   entregador: Entregador;
   quantidadeEntregas: number;
   bag: TipoBag;
@@ -324,10 +325,12 @@ export async function sendDispatchWebhook(params: {
 }): Promise<void> {
   try {
     // Buscar URL do webhook configurada para a unidade
+    if (!params.unidadeId) return;
+
     const { data: config, error: configError } = await supabase
-      .from('system_config')
-      .select('webhook_url')
-      .eq('unidade', params.unidade)
+      .from('unidades')
+      .select('config_sheets_url')
+      .eq('id', params.unidadeId)
       .maybeSingle();
 
     if (configError) {
@@ -335,7 +338,7 @@ export async function sendDispatchWebhook(params: {
       return;
     }
 
-    const webhookUrl = config?.webhook_url;
+    const webhookUrl = config?.config_sheets_url;
     if (!webhookUrl) {
       // Webhook não configurado, não faz nada
       return;
