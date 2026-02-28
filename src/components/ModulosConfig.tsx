@@ -257,8 +257,8 @@ export function ModulosConfig() {
         )}
 
         {/* TV Screensaver Playlist */}
-        {user?.franquiaId && selectedUnit && user?.unidadeId && (
-          <TvPlaylistManager franquiaId={user.franquiaId} unidadeId={user.unidadeId} />
+        {user?.franquiaId && selectedUnit && (
+          <TvPlaylistManager franquiaId={user.franquiaId} unidadeId={selectedUnit} />
         )}
 
         {/* Integração Planilha (Google Sheets) */}

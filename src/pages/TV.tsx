@@ -551,16 +551,16 @@ export default function TV() {
     // Se exibir_fila_tv estiver ativo e não for o slide nativo de rank, mescla a fila lateral
     if (unidadeData?.exibir_fila_tv && slide.tipo !== 'top_rank') {
       return (
-        <div className="w-full h-full bg-slate-950 flex text-slate-50 relative overflow-hidden">
-          <div className="flex-1 overflow-hidden relative">
-            {media}
+        <div className="w-full h-full relative overflow-hidden bg-black text-slate-50">
+          {media}
+          <div className="absolute top-0 right-0 bottom-0 z-20 flex shadow-2xl">
+            <div className="w-px bg-white/10 self-stretch flex-shrink-0" />
+            <QueueSidebarWidget
+              availableQueue={availableQueue}
+              deliveringQueue={deliveringQueue}
+              lastCalled={calledEntregadores[0] || deliveringQueue[0] || null}
+            />
           </div>
-          <div className="w-px bg-white/10 self-stretch flex-shrink-0 z-20" />
-          <QueueSidebarWidget
-            availableQueue={availableQueue}
-            deliveringQueue={deliveringQueue}
-            lastCalled={calledEntregadores[0] || deliveringQueue[0] || null}
-          />
         </div>
       );
     }
