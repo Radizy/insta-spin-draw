@@ -344,6 +344,8 @@ export async function sendDispatchWebhook(params: {
     const horarioSaida = new Date().toISOString();
 
     const payload = {
+      tipo: "saida_entrega",
+      unidade: params.unidade,
       nome: params.entregador.nome,
       horario_saida: horarioSaida,
       quantidade_entregas: String(params.quantidadeEntregas),
@@ -1180,7 +1182,7 @@ export async function atrelarMaquininha(params: {
   const now = new Date().toISOString();
 
   // 1. Criar vínculo
-  const { error: vinculoError } = await supabase
+  const { data: vinculoData, error: vinculoError } = await supabase
     .from('maquininha_vinculos')
     .insert({
       motoboy_id: params.motoboy_id,
@@ -1190,9 +1192,12 @@ export async function atrelarMaquininha(params: {
       horario_checkin: params.horario_checkin,
       horario_retirada: now,
       status: 'em_uso'
-    });
+    })
+    .select('id')
+    .single();
 
   if (vinculoError) throw vinculoError;
+  const vinculo_id = vinculoData.id;
 
   // 2. Atualizar status da maquininha
   const { error: machineError } = await supabase
@@ -1217,6 +1222,7 @@ export async function atrelarMaquininha(params: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tipo: "retirada_maquininha",
+          id_vinculo: vinculo_id,
           motoboy: params.motoboy_nome,
           maquininha: params.maquininha_nome,
           checkin: params.horario_checkin,
@@ -1274,6 +1280,7 @@ export async function devolverMaquininha(params: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tipo: "devolucao_maquininha",
+          id_vinculo: params.vinculo_id,
           motoboy: params.motoboy_nome,
           maquininha: params.maquininha_nome,
           devolucao: now,

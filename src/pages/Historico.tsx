@@ -50,29 +50,106 @@ function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
     const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const unidade = data.unidade || "Geral";
+    const now = new Date();
+    const dateStr = now.toLocaleDateString("pt-BR");
     
-    // Nome da aba: Unidade-DD/MM
-    const sheetName = data.unidade + '-' + data.data;
-    
-    // Criar ou obter a aba
-    let sheet = ss.getSheetByName(sheetName);
-    if (!sheet) {
-      sheet = ss.insertSheet(sheetName);
-      // Cabeçalhos
-      sheet.getRange(1, 1, 1, 3).setValues([['Nome', 'Telefone', 'Entregas']]);
-      sheet.getRange(1, 1, 1, 3).setFontWeight('bold');
+    // 1. Lógica para Controle de Maquininhas
+    if (data.tipo === "retirada_maquininha" || data.tipo === "devolucao_maquininha") {
+      const sheetName = "(" + unidade + ") HORARIO MOTOBOY";
+      let sheet = ss.getSheetByName(sheetName);
+      if (!sheet) {
+        sheet = ss.insertSheet(sheetName);
+        sheet.appendRow(["Data", "Motoboy", "Maquininha", "Check-in", "Retirada", "Devolução", "Tempo com máquina", "ID_VINCULO"]);
+        sheet.getRange(1, 1, 1, 8).setFontWeight("bold").setBackground("#f3f3f3");
+        sheet.setFrozenRows(1);
+      }
+
+      if (data.tipo === "retirada_maquininha") {
+        const checkinTime = data.checkin ? new Date(data.checkin) : null;
+        const retiradaTime = new Date(data.retirada);
+        
+        sheet.appendRow([
+          dateStr, 
+          data.motoboy, 
+          data.maquininha, 
+          checkinTime ? checkinTime : "--:--", 
+          retiradaTime, 
+          "", 
+          "", 
+          data.id_vinculo
+        ]);
+        
+        const lastRow = sheet.getLastRow();
+        if (checkinTime) sheet.getRange(lastRow, 4).setNumberFormat("HH:mm");
+        sheet.getRange(lastRow, 5).setNumberFormat("HH:mm");
+        sheet.hideColumns(8); // Oculta ID_VINCULO
+      } 
+      else if (data.tipo === "devolucao_maquininha") {
+        const values = sheet.getDataRange().getValues();
+        const idProcurado = data.id_vinculo;
+        let found = false;
+        
+        for (let i = values.length - 1; i >= 1; i--) {
+          if (values[i][7] == idProcurado) {
+            const rowIdx = i + 1;
+            const devolucaoTime = new Date(data.devolucao);
+            
+            const cellDevolucao = sheet.getRange(rowIdx, 6);
+            cellDevolucao.setValue(devolucaoTime);
+            cellDevolucao.setNumberFormat("HH:mm");
+            
+            const cellTempo = sheet.getRange(rowIdx, 7);
+            cellTempo.setFormulaR1C1("=RC[-1]-RC[-2]");
+            cellTempo.setNumberFormat("[h]:mm:ss");
+            
+            found = true;
+            break;
+          }
+        }
+      }
+    } 
+    // 2. Lógica para Saídas e Entregas (Tempo Real)
+    else if (data.tipo === "saida_entrega") {
+      const sheetName = "(" + unidade + ") Saidas e entregas";
+      let sheet = ss.getSheetByName(sheetName);
+      if (!sheet) {
+        sheet = ss.insertSheet(sheetName);
+        sheet.appendRow(["Data", "Horário", "Motoboy", "Entregas", "Bag", "Bebida"]);
+        sheet.getRange(1, 1, 1, 6).setFontWeight("bold").setBackground("#f3f3f3");
+        sheet.setFrozenRows(1);
+      }
+      
+      const horario = new Date(data.horario_saida || now);
+      sheet.appendRow([
+        dateStr,
+        horario,
+        data.motoboy,
+        data.quantidade_entregas,
+        data.bag,
+        data.possui_bebida
+      ]);
+      sheet.getRange(sheet.getLastRow(), 2).setNumberFormat("HH:mm");
     }
-    
-    // Limpar dados antigos (mantém cabeçalho)
-    const lastRow = sheet.getLastRow();
-    if (lastRow > 1) {
-      sheet.getRange(2, 1, lastRow - 1, 3).clearContent();
-    }
-    
-    // Inserir novos dados
-    if (data.entregas && data.entregas.length > 0) {
-      const values = data.entregas.map(e => [e.nome, e.telefone, e.entregas]);
-      sheet.getRange(2, 1, values.length, 3).setValues(values);
+    // 3. Lógica para Resumo Manual (Botão Sincronizar)
+    else {
+      const sheetName = unidade + '-' + data.data;
+      let sheet = ss.getSheetByName(sheetName);
+      if (!sheet) {
+        sheet = ss.insertSheet(sheetName);
+        sheet.appendRow(['Nome', 'Telefone', 'Entregas']);
+        sheet.getRange(1, 1, 1, 3).setFontWeight('bold').setBackground("#f3f3f3");
+      }
+      
+      const lastRow = sheet.getLastRow();
+      if (lastRow > 1) {
+        sheet.getRange(2, 1, lastRow - 1, 3).clearContent();
+      }
+      
+      if (data.entregas && data.entregas.length > 0) {
+        const values = data.entregas.map(e => [e.nome, e.telefone, e.entregas]);
+        sheet.getRange(2, 1, values.length, 3).setValues(values);
+      }
     }
     
     return ContentService.createTextOutput(JSON.stringify({ success: true }))
@@ -250,6 +327,7 @@ export default function Historico() {
       });
 
       const payload = {
+        tipo: 'resumo_entregas',
         unidade: selectedUnit,
         data: dataFormatted,
         entregas: contagemPorEntregador.filter(e => e.entregas > 0),
@@ -563,8 +641,9 @@ export default function Historico() {
             </div>
 
             <p className="text-sm text-muted-foreground">
-              A planilha criará automaticamente uma aba para cada dia com o formato:
-              <span className="font-mono font-semibold"> {selectedUnit}-DD/MM</span>
+              A planilha criará automaticamente as abas:
+              <span className="font-mono font-semibold"> ({selectedUnit}) HORARIO MOTOBOY</span> e
+              <span className="font-mono font-semibold"> ({selectedUnit}) Saidas e entregas</span>.
             </p>
           </div>
         </DialogContent>
