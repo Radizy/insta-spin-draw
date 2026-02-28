@@ -34,6 +34,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { MaquininhaManagement } from '@/components/MaquininhaManagement';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,7 +56,7 @@ import {
   DiasTrabalho,
   TURNO_PADRAO,
 } from '@/lib/api';
-import { Trash2, AlertCircle, Volume2, Plus, Clock, Save, Edit, RefreshCw, LogOut, Download, Mic, Upload, Users, Loader2, Filter, RotateCcw } from 'lucide-react';
+import { Trash2, AlertCircle, Volume2, Plus, Clock, Save, Edit, RefreshCw, LogOut, Download, Mic, Upload, Users, Loader2, Filter, RotateCcw, Smartphone, Settings2, Globe, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 import { Navigate, useSearchParams, useNavigate } from 'react-router-dom';
 import { useTraining } from '@/contexts/TrainingContext';
@@ -784,30 +785,69 @@ export default function Config() {
       )}
 
       <Tabs defaultValue={initialTab} className="space-y-6">
-        <TabsList
-          className={`w-full flex gap-1 overflow-x-auto rounded-lg bg-muted/40 p-1 border border-border
-            ${user?.role === 'admin_franquia' ? 'sm:grid sm:grid-cols-5 sm:w-auto' : 'sm:grid sm:grid-cols-4 sm:w-auto'}`}
-        >
-          <TabsTrigger value="motoboys" className="whitespace-nowrap text-xs sm:text-sm px-3 py-1.5">
-            Motoboys
-          </TabsTrigger>
-          <TabsTrigger value="usuarios" className="whitespace-nowrap text-xs sm:text-sm px-3 py-1.5">
-            Usuários
-          </TabsTrigger>
-          <TabsTrigger value="modulos" className="whitespace-nowrap text-xs sm:text-sm px-3 py-1.5">
-            Módulos
-          </TabsTrigger>
-          {isModuloAtivoLocal('whatsapp') && (
-            <TabsTrigger value="webhook" className="whitespace-nowrap text-xs sm:text-sm px-3 py-1.5">
-              Integrações &amp; WhatsApp
+        <div className="bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl p-1.5 shadow-sm">
+          <TabsList className="w-full flex flex-wrap sm:flex-nowrap items-center justify-start gap-1 bg-transparent h-auto p-0 border-none">
+            <TabsTrigger
+              value="motoboys"
+              className="flex-1 sm:flex-none gap-2 px-4 py-2.5 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all duration-300"
+            >
+              <Users className="w-4 h-4" />
+              <span className="hidden sm:inline">Motoboys</span>
+              <span className="sm:hidden">Motos</span>
             </TabsTrigger>
-          )}
-          {user?.role === 'admin_franquia' && (
-            <TabsTrigger value="financeiro" className="whitespace-nowrap text-xs sm:text-sm px-3 py-1.5">
-              Financeiro
+
+            <TabsTrigger
+              value="usuarios"
+              className="flex-1 sm:flex-none gap-2 px-4 py-2.5 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all duration-300"
+            >
+              <Settings2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Usuários</span>
+              <span className="sm:hidden">Users</span>
             </TabsTrigger>
-          )}
-        </TabsList>
+
+            <TabsTrigger
+              value="modulos"
+              className="flex-1 sm:flex-none gap-2 px-4 py-2.5 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all duration-300"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Módulos</span>
+              <span className="sm:hidden">Mods</span>
+            </TabsTrigger>
+
+            {isModuloAtivoLocal('controle_maquininhas') && (
+              <TabsTrigger
+                value="maquininhas"
+                className="flex-1 sm:flex-none gap-2 px-4 py-2.5 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all duration-300"
+              >
+                <Smartphone className="w-4 h-4" />
+                <span className="hidden sm:inline">Maquininhas</span>
+                <span className="sm:hidden">Maqs</span>
+              </TabsTrigger>
+            )}
+
+            {isModuloAtivoLocal('whatsapp') && (
+              <TabsTrigger
+                value="webhook"
+                className="flex-1 sm:flex-none gap-2 px-4 py-2.5 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all duration-300"
+              >
+                <Globe className="w-4 h-4" />
+                <span className="hidden sm:inline">Intetrações</span>
+                <span className="sm:hidden">WhatsApp</span>
+              </TabsTrigger>
+            )}
+
+            {user?.role === 'admin_franquia' && (
+              <TabsTrigger
+                value="financeiro"
+                className="flex-1 sm:flex-none gap-2 px-4 py-2.5 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all duration-300"
+              >
+                <CreditCard className="w-4 h-4" />
+                <span className="hidden sm:inline">Financeiro</span>
+                <span className="sm:hidden">$</span>
+              </TabsTrigger>
+            )}
+          </TabsList>
+        </div>
 
         <TabsContent value="motoboys" className="space-y-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -1133,6 +1173,10 @@ export default function Config() {
             )}
             <ModulosConfig />
           </div>
+        </TabsContent>
+
+        <TabsContent value="maquininhas" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <MaquininhaManagement />
         </TabsContent>
 
         <TabsContent value="webhook">

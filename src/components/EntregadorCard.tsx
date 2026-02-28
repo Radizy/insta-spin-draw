@@ -2,7 +2,8 @@ import { Entregador } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { StatusBadge } from './StatusBadge';
 import { UnitBadge } from './UnitSelector';
-import { Phone, User, Edit, Trash2, ToggleLeft, ToggleRight, Volume2 } from 'lucide-react';
+import { Phone, User, Edit, Trash2, ToggleLeft, ToggleRight, Volume2, Clock } from 'lucide-react';
+import { format } from 'date-fns';
 
 interface EntregadorCardProps {
   entregador: Entregador;
@@ -54,6 +55,21 @@ export function EntregadorCard({
             {!entregador.ativo && (
               <span className="text-xs text-destructive font-medium px-2 py-0.5 bg-destructive/10 rounded">
                 Inativo
+              </span>
+            )}
+            {entregador.hora_saida && entregador.ativo && (
+              <span className="inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                <Clock className="w-3 h-3" />
+                {(() => {
+                  try {
+                    // Tenta formatar se for ISO, senão mostra bruto
+                    return entregador.hora_saida.includes('T')
+                      ? format(new Date(entregador.hora_saida), 'HH:mm')
+                      : entregador.hora_saida;
+                  } catch (e) {
+                    return entregador.hora_saida;
+                  }
+                })()}
               </span>
             )}
             {entregador.tts_voice_path && (
