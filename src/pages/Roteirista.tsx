@@ -289,6 +289,7 @@ export default function Roteirista() {
         await createHistoricoEntrega({
           entregador_id: selectedEntregador.id,
           unidade: selectedUnit,
+          unidade_id: user?.unidadeId,
           tipo_bag: bagName,
         });
         queryClient.invalidateQueries({ queryKey: ['saidas-dia', selectedUnit] });

@@ -58,6 +58,7 @@ export interface HistoricoEntrega {
   id: string;
   entregador_id: string;
   unidade: string;
+  unidade_id?: string | null;
   hora_saida: string;
   hora_retorno?: string;
   tipo_bag?: TipoBag;
@@ -363,6 +364,7 @@ export async function fetchHistoricoEntregas(filters: {
 export async function createHistoricoEntrega(data: {
   entregador_id: string;
   unidade: string;
+  unidade_id?: string | null;
   tipo_bag?: TipoBag;
 }): Promise<HistoricoEntrega> {
   const { data: result, error } = await supabase
@@ -370,6 +372,7 @@ export async function createHistoricoEntrega(data: {
     .insert({
       entregador_id: data.entregador_id,
       unidade: data.unidade,
+      unidade_id: data.unidade_id,
       hora_saida: new Date().toISOString(),
       tipo_bag: data.tipo_bag || 'normal',
     })
