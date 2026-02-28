@@ -1002,7 +1002,64 @@ export async function fetchSystemUpdates(): Promise<SystemUpdate[]> {
     throw new Error('Failed to fetch system updates: ' + error.message);
   }
 
-  return (data || []) as unknown as SystemUpdate[];
+  const manualUpdates: SystemUpdate[] = [
+    {
+      id: 'm1',
+      titulo: 'Módulo Controle de Maquininhas',
+      tipo: 'NOVO RECURSO',
+      status: 'lancado',
+      data_publicacao: '2026-02-28',
+      ordem: -10,
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 'm2',
+      titulo: 'Busca Inteligente no Controle de Maquininhas',
+      tipo: 'MELHORIAS',
+      status: 'lancado',
+      data_publicacao: '2026-02-28',
+      ordem: -9,
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 'm3',
+      titulo: 'Novo Fluxo de Atribuição (Dual-Mode)',
+      tipo: 'MELHORIAS',
+      status: 'lancado',
+      data_publicacao: '2026-02-28',
+      ordem: -8,
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 'm4',
+      titulo: 'Exibição de Check-in no Card do Motoboy',
+      tipo: 'MELHORIAS',
+      status: 'lancado',
+      data_publicacao: '2026-02-28',
+      ordem: -7,
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 'm5',
+      titulo: 'Correção na Chamada de TV (Sequência de Áudio)',
+      tipo: 'MELHORIAS',
+      status: 'lancado',
+      data_publicacao: '2026-02-27',
+      ordem: -6,
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 'm6',
+      titulo: 'Novo Menu de Configurações (Premium UI)',
+      tipo: 'MELHORIAS',
+      status: 'lancado',
+      data_publicacao: '2026-02-27',
+      ordem: -5,
+      created_at: new Date().toISOString()
+    }
+  ];
+
+  return [...manualUpdates, ...(data || [])] as unknown as SystemUpdate[];
 }
 
 export async function createSystemUpdate(data: Partial<SystemUpdate>): Promise<SystemUpdate> {
