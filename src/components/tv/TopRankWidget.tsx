@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchEntregadores, Unidade, Entregador } from '@/lib/api';
-import { Trophy, Zap, Star, Package, Clock, Bike, User } from 'lucide-react';
+import { Trophy, Zap, Star } from 'lucide-react';
+import { QueueSidebarWidget } from './QueueSidebarWidget';
 
 interface TopRankWidgetProps {
     unidadeId: string;
@@ -202,87 +203,11 @@ export function TopRankWidget({ unidadeId, availableQueue = [], deliveringQueue 
             <div className="w-px bg-white/8 self-stretch my-8 flex-shrink-0" />
 
             {/* ===== COLUNA DIREITA: STATUS DA FILA ===== */}
-            <div className="w-[340px] flex-shrink-0 flex flex-col gap-4 px-6 py-10 z-10 overflow-hidden">
-
-                {/* ---- PRÓXIMO DA FILA ---- */}
-                <div>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                        <Clock className="w-3.5 h-3.5" />
-                        Próximo a Ser Chamado
-                    </p>
-                    {nextInQueue ? (
-                        <div className="bg-primary/10 border border-primary/30 rounded-2xl px-5 py-4 flex items-center gap-4 shadow-lg animate-slide-in-right">
-                            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                                <span className="text-xl font-black text-primary font-mono">1</span>
-                            </div>
-                            <div className="min-w-0">
-                                <p className="text-xl font-bold text-white truncate">{nextInQueue.nome}</p>
-                                <p className="text-xs text-primary/80 font-mono mt-0.5">Na fila · aguardando</p>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-slate-500 text-sm font-medium">
-                            Fila vazia
-                        </div>
-                    )}
-                </div>
-
-                {/* ---- FILA DISPONÍVEL (demais) ---- */}
-                {availableQueue.length > 1 && (
-                    <div>
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                            <User className="w-3.5 h-3.5" />
-                            Fila de Espera ({availableQueue.length - 1})
-                        </p>
-                        <div className="flex flex-col gap-1.5">
-                            {availableQueue.slice(1).map((e, i) => (
-                                <div key={e.id} className="flex items-center gap-3 bg-white/5 border border-white/8 rounded-xl px-4 py-2.5">
-                                    <span className="text-sm font-bold text-slate-400 font-mono w-5 text-center">{i + 2}</span>
-                                    <span className="text-sm font-semibold text-slate-200 truncate">{e.nome}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* ---- EM ENTREGA / PISTA ---- */}
-                {deliveringQueue.length > 0 && (
-                    <div>
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                            <Bike className="w-3.5 h-3.5" />
-                            Em Pista ({deliveringQueue.length})
-                        </p>
-                        <div className="flex flex-col gap-1.5">
-                            {deliveringQueue.map((e, i) => (
-                                <div key={e.id} className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-2.5">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
-                                    <span className="text-sm font-semibold text-emerald-200 truncate">{e.nome}</span>
-                                    {e.tipo_bag && (
-                                        <Package className="w-3.5 h-3.5 text-emerald-500/70 flex-shrink-0 ml-auto" />
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* ---- ÚLTIMO CHAMADO ---- */}
-                {lastCalled && (
-                    <div className="mt-auto">
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                            <Zap className="w-3.5 h-3.5 text-amber-400" />
-                            Último Chamado
-                        </p>
-                        <div className="bg-amber-500/10 border border-amber-500/25 rounded-2xl px-5 py-3.5 flex items-center gap-3 shadow-lg">
-                            <Zap className="w-5 h-5 text-amber-400 flex-shrink-0 animate-pulse" />
-                            <div className="min-w-0">
-                                <p className="text-lg font-bold text-amber-200 truncate">{lastCalled.nome}</p>
-                                <p className="text-xs text-amber-500/80 font-mono">Chamado recentemente</p>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
+            <QueueSidebarWidget
+                availableQueue={availableQueue}
+                deliveringQueue={deliveringQueue}
+                lastCalled={lastCalled}
+            />
 
             <style dangerouslySetInnerHTML={{
                 __html: `

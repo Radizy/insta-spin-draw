@@ -30,6 +30,7 @@ interface PlaylistItem {
 export function TvPlaylistManager({ franquiaId, unidadeId }: TvPlaylistManagerProps) {
     const queryClient = useQueryClient();
     const [cidadeClima, setCidadeClima] = useState<string>('');
+    const [exibirFilaTv, setExibirFilaTv] = useState<boolean>(false);
 
     // Busca a tabela 'unidades' para pegar a cidade atual
     const { data: unidadeData, isLoading: loadingUnidade } = useQuery({
@@ -38,33 +39,34 @@ export function TvPlaylistManager({ franquiaId, unidadeId }: TvPlaylistManagerPr
             if (!unidadeId) return null;
             const { data, error } = await supabase
                 .from('unidades')
-                .select('id, cidade_clima')
+                .select('id, cidade_clima, exibir_fila_tv')
                 .eq('id', unidadeId)
                 .single();
             if (error) throw error;
             if (data) {
                 setCidadeClima(data.cidade_clima || '');
+                setExibirFilaTv(data.exibir_fila_tv || false);
             }
             return data;
         },
         enabled: !!unidadeId,
     });
 
-    const saveCidadeMutation = useMutation({
-        mutationFn: async (cidade: string) => {
+    const saveSettingsMutation = useMutation({
+        mutationFn: async ({ cidade, exibirFila }: { cidade: string; exibirFila: boolean }) => {
             if (!unidadeData?.id) return;
             const { error } = await supabase
                 .from('unidades')
-                .update({ cidade_clima: cidade })
+                .update({ cidade_clima: cidade, exibir_fila_tv: exibirFila })
                 .eq('id', unidadeData.id);
             if (error) throw error;
         },
         onSuccess: () => {
-            toast.success('Cidade do Clima atualizada com sucesso!');
+            toast.success('Configurações da TV atualizadas com sucesso!');
             queryClient.invalidateQueries({ queryKey: ['unidade-cidade-clima-config', unidadeId] });
             queryClient.invalidateQueries({ queryKey: ['unidade-cidade-clima', unidadeId] }); // para a TV att
         },
-        onError: () => toast.error('Erro ao salvar cidade do clima.'),
+        onError: () => toast.error('Erro ao salvar configurações da TV.'),
     });
 
     // Busca a fila da playlist usando a unidade_id (neste caso, obtemos do unidadeData)
@@ -202,26 +204,44 @@ export function TvPlaylistManager({ franquiaId, unidadeId }: TvPlaylistManagerPr
                 do Slide começa a rodar após 15s sem movimentos do mouse.
             </p>
 
-            {/* Bloco 1: Configurar Cidade do Clima */}
-            <div className="bg-muted/40 border border-border rounded-lg p-5 flex flex-col sm:flex-row items-end gap-3">
-                <div className="flex-1 space-y-2 w-full">
-                    <Label>Cidade Base para a Previsão (Para a unidade atual)</Label>
-                    <Input
-                        placeholder="Ex: Sao Paulo, BR ou Itaquaquecetuba"
-                        value={cidadeClima}
-                        onChange={(e) => setCidadeClima(e.target.value)}
-                    />
-                    <p className="text-[11px] text-muted-foreground">
-                        Sintaxe City, Country. Preencha apenas se for usar Slides de Clima no painel. Respeite caracteres nativos do OpenWeatherMap.
-                    </p>
+            {/* Bloco 1: Configurações Gerais da TV */}
+            <div className="bg-muted/40 border border-border rounded-lg p-5 flex flex-col gap-5">
+                <div className="flex flex-col sm:flex-row items-end gap-3">
+                    <div className="flex-1 space-y-2 w-full">
+                        <Label>Cidade Base para a Previsão (Para a unidade atual)</Label>
+                        <Input
+                            placeholder="Ex: Sao Paulo, BR ou Itaquaquecetuba"
+                            value={cidadeClima}
+                            onChange={(e) => setCidadeClima(e.target.value)}
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                            Sintaxe City, Country. Preencha apenas se for usar Slides de Clima no painel. Respeite caracteres nativos do OpenWeatherMap.
+                        </p>
+                    </div>
                 </div>
-                <Button
-                    disabled={loadingUnidade || saveCidadeMutation.isPending}
-                    onClick={() => saveCidadeMutation.mutate(cidadeClima)}
-                    className="w-full sm:w-auto"
-                >
-                    {saveCidadeMutation.isPending ? 'Salvando...' : 'Salvar Cidade'}
-                </Button>
+
+                <div className="flex items-center justify-between border-t border-border pt-4">
+                    <div className="space-y-1">
+                        <Label>Sempre exibir Fila Lateral?</Label>
+                        <p className="text-xs text-muted-foreground">
+                            Ative para mostrar a fila (Próximos a ser chamados, Em Pista) por cima de todos os slides (Vídeos, Imagens, etc).
+                        </p>
+                    </div>
+                    <Switch
+                        checked={exibirFilaTv}
+                        onCheckedChange={(val) => setExibirFilaTv(val)}
+                    />
+                </div>
+
+                <div className="flex justify-end pt-2">
+                    <Button
+                        disabled={loadingUnidade || saveSettingsMutation.isPending}
+                        onClick={() => saveSettingsMutation.mutate({ cidade: cidadeClima, exibirFila: exibirFilaTv })}
+                        className="w-full sm:w-auto"
+                    >
+                        {saveSettingsMutation.isPending ? 'Salvando...' : 'Salvar Configurações'}
+                    </Button>
+                </div>
             </div>
 
             {/* Bloco 2: Adicionar um Item na Fila */}

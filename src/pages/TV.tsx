@@ -24,6 +24,7 @@ import { CheckinModal } from '@/components/CheckinModal';
 import { TVCallAnimation } from '@/components/TVCallAnimation';
 import { WeatherSlide } from '@/components/WeatherSlide';
 import { TopRankWidget } from '@/components/tv/TopRankWidget';
+import { QueueSidebarWidget } from '@/components/tv/QueueSidebarWidget';
 import { supabase } from '@/integrations/supabase/client';
 
 const DEFAULT_CALL_AUDIO_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
@@ -119,7 +120,7 @@ export default function TV() {
     queryKey: ['unidade-cidade-clima', user?.unidadeId],
     queryFn: async () => {
       if (!user?.unidadeId) return null;
-      const { data, error } = await supabase.from('unidades').select('cidade_clima').eq('id', user.unidadeId).maybeSingle();
+      const { data, error } = await supabase.from('unidades').select('cidade_clima, exibir_fila_tv').eq('id', user.unidadeId).maybeSingle();
       if (error) return null;
       return data;
     },
@@ -534,13 +535,37 @@ export default function TV() {
   const renderPlaylistSlide = (isActive: boolean) => {
     const slide = tvPlaylist[currentSlideIndex];
     if (!slide) return null;
-    switch (slide.tipo) {
-      case 'clima': return <WeatherSlide cidadeInput={unidadeData?.cidade_clima} />;
-      case 'top_rank': return <TopRankWidget unidadeId={selectedUnit as string} availableQueue={availableQueue} deliveringQueue={deliveringQueue} lastCalled={calledEntregadores[0] || deliveringQueue[0] || null} />;
-      case 'imagem': return <img src={slide.url || ''} className="w-full h-full object-cover" />;
-      case 'video': return <video src={slide.url || ''} loop className="w-full h-full object-cover" ref={el => { if (el) { el.volume = (slide.volume || 0) / 100; el.muted = !slide.volume || !isActive; if (isActive) el.play().catch(() => { }); else el.pause(); } }} />;
-      default: return null;
+
+    const renderMedia = () => {
+      switch (slide.tipo) {
+        case 'clima': return <WeatherSlide cidadeInput={unidadeData?.cidade_clima} />;
+        case 'top_rank': return <TopRankWidget unidadeId={selectedUnit as string} availableQueue={availableQueue} deliveringQueue={deliveringQueue} lastCalled={calledEntregadores[0] || deliveringQueue[0] || null} />;
+        case 'imagem': return <img src={slide.url || ''} className="w-full h-full object-cover" />;
+        case 'video': return <video src={slide.url || ''} loop className="w-full h-full object-cover" ref={el => { if (el) { el.volume = (slide.volume || 0) / 100; el.muted = !slide.volume || !isActive; if (isActive) el.play().catch(() => { }); else el.pause(); } }} />;
+        default: return null;
+      }
+    };
+
+    const media = renderMedia();
+
+    // Se exibir_fila_tv estiver ativo e não for o slide nativo de rank, mescla a fila lateral
+    if (unidadeData?.exibir_fila_tv && slide.tipo !== 'top_rank') {
+      return (
+        <div className="w-full h-full bg-slate-950 flex text-slate-50 relative overflow-hidden">
+          <div className="flex-1 overflow-hidden relative">
+            {media}
+          </div>
+          <div className="w-px bg-white/10 self-stretch flex-shrink-0 z-20" />
+          <QueueSidebarWidget
+            availableQueue={availableQueue}
+            deliveringQueue={deliveringQueue}
+            lastCalled={calledEntregadores[0] || deliveringQueue[0] || null}
+          />
+        </div>
+      );
     }
+
+    return media;
   };
 
   const handleReturn = async (e: Entregador) => {
