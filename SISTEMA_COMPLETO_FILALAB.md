@@ -14,10 +14,10 @@
 O sistema conta com restrição de funcionalidades por pacote comercial baseada em módulos.
 Os 5 módulos principais são:
 1. **WhatsApp Avançado (`whatsapp`)**: Controla abas de configuração da Evolution API e envio de disparo de mensagens diretas do sistema para o entregador.
-2. **TV Premium (`tv_avancada`)**: Destrava customizações exclusivas como upload de fundo e customização de toques e vozes de AI da tela de TV de espera.
+2. **TV Premium (`tv_avancada`)**: Destrava customizações exclusivas como upload de fundo e customização de toques e vozes de AI da tela de TV de espera. Inclui sistema de rediscagem automática de 10s e caminhos de áudio otimizados por franquia.
 3. **Integração Planilha (`planilha`)**: Habilita o webhook do Google Sheets no painel de Histórico permitindo exportação autônoma de dados.
 4. **Fila de Pagamento (`fila_pagamento`)**: Libera o uso da tela `/fila-pagamento` para o gerenciamento de senhas (cash-out financeiro dos motoqueiros).
-5. **Analytics Pro (`analytics_pro`)**: Habilita um dashboard avançado dentro da aba de histórico contendo Estatísticas, Recordes, Entregas/Hora e Gráficos Gerenciais (com precisão exata de Data e Hora).
+5. **Analytics Pro (`analytics_pro`)**: Habilita um dashboard avançado dentro da aba de histórico contendo Estatísticas, Recordes, Entregas/Hora e Gráficos Gerenciais. Totalmente retrocompatível com registros legados baseados em nome de unidade.
 6. **Modo Treinamento (FilaLab Academy)**: Treinamento simulado em memória local, guiado passo a passo para novos operadores (`isTrainingMode`).
 
 Esses módulos podem ser geridos livremente pelo painel Super Admin na visualização e edição de uma franquia.
@@ -1715,6 +1715,12 @@ ORDER BY valor_final DESC;
 ---
 
 ## 📝 CHANGELOG
+
+### v1.3.0 (2026-02-28)
+- ✅ **Estabilidade da TV (Redescagem):** Implementado sistema de rediscagem automática de 10 segundos entre tentativas (máximo 3) com aviso por voz em caso de falha persistente.
+- ✅ **Áudios de BAG/Bebida:** Caminhos de áudio agora são construídos dinamicamente no Storage (`[franquiaId]/bags/[bagId].mp3`), resolvendo silêncios nas chamadas.
+- ✅ **Conserto Analytics Pro:** Implementada retrocompatibilidade na RPC de métricas. Novos registros agora salvam `unidade_id` corretamente para precisão estatística.
+- ✅ **Limpeza Automática:** Adicionado rotina de limpeza de cache diário (localStorage) na tela de TV para manutenção de performance.
 
 ### v1.2.0 (2026-02-26)
 - ✅ **Atualização Mobile Base Real:** Adicionado plano diretor para refatoração completa do layout e usabilidade mobile do sistema, contemplando menu Drawer global e Drawer operacional logado, empilhamento intuitivo de cards na aba Disponíveis, Fila e Histórico, além de responsividade dedicada ao Roteirista e Analytics Pro. Documentado em `Atualizacao_Mobile_Base_Sistema_Real.md`.
