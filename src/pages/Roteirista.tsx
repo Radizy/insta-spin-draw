@@ -1054,16 +1054,15 @@ export default function Roteirista() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal "Não Apareceu" */}
       <NotAppearedModal
         open={notAppearedOpen}
         entregador={calledEntregador}
+        selectedUnit={selectedUnit as string}
         onClose={() => {
           setNotAppearedOpen(false);
           setCalledEntregador(null);
         }}
         onNotAppeared={handleNotAppeared}
-        autoCloseMs={5000}
       />
 
       {/* Novos Modais */}

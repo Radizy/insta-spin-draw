@@ -46,18 +46,6 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated, user, isLoading: isAuthLoading, logout } = useAuth();
   const location = useLocation();
 
-  if (isAuthLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-muted-foreground text-sm">
-        Verificando sessão...
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/" replace />;
-  }
-
   const { data: franquia, isLoading } = useQuery<FranquiaStatus | null>({
     queryKey: ['franquia-status', user?.franquiaId],
     enabled: !!user?.franquiaId && user.role !== 'super_admin',
@@ -71,6 +59,18 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
       return data as FranquiaStatus | null;
     },
   });
+
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-muted-foreground text-sm">
+        Verificando sessão...
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
 
   if (isLoading) {
     return (

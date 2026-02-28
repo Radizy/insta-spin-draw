@@ -5,15 +5,16 @@ import { useUnit } from '@/contexts/UnitContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Unidade } from '@/lib/api';
 import { UnitSelector } from './UnitSelector';
-import { Settings, Users, Tv, UserCheck, Pizza, ArrowLeft, LogOut, Ticket, History } from 'lucide-react';
+import {
+  Settings, Users, Tv, UserCheck, Pizza, ArrowLeft, LogOut, Ticket, History,
+  CreditCard, X as XIcon, MessageSquare, Menu, X
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { UnitSwitcher } from './UnitSwitcher';
-import { MessageSquare } from 'lucide-react';
 import { SystemUpdatesWidget } from './SystemUpdatesWidget';
 import { useTraining } from '@/contexts/TrainingContext';
 import { TrainingOverlay } from './TrainingOverlay';
-import { Menu, X } from 'lucide-react';
 
 const whatsappNumber = "5511954545985";
 const whatsappMessage = encodeURIComponent("Olá! Gostaria de suporte no sistema FilaLab.");
@@ -39,6 +40,7 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
   const { isTrainingMode, stopTraining } = useTraining();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [maquinhaOpen, setMaquinhaOpen] = useState(false);
 
   const canChangeUnit = user?.role === 'super_admin' || user?.role === 'admin_franquia';
 
@@ -254,8 +256,74 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
 
       <SystemUpdatesWidget />
 
-      {/* Floating WhatsApp Button */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-4 items-end">
+      {maquinhaOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center"
+          onClick={() => setMaquinhaOpen(false)}
+        >
+          <div
+            className="relative bg-gradient-to-br from-violet-900/95 to-indigo-900/95 border border-violet-500/30 rounded-2xl shadow-2xl p-8 max-w-sm w-[90vw] flex flex-col items-center text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setMaquinhaOpen(false)}
+              className="absolute top-4 right-4 text-white/40 hover:text-white transition-colors"
+            >
+              <XIcon className="w-5 h-5" />
+            </button>
+            <div className="w-16 h-16 rounded-2xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center mb-4">
+              {/* POS Terminal SVG */}
+              <svg className="w-9 h-9 text-violet-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="5" y="2" width="14" height="20" rx="2" />
+                <rect x="7" y="4" width="10" height="5" rx="1" />
+                <line x1="7" y1="12" x2="9" y2="12" />
+                <line x1="11" y1="12" x2="13" y2="12" />
+                <line x1="15" y1="12" x2="17" y2="12" />
+                <line x1="7" y1="15" x2="9" y2="15" />
+                <line x1="11" y1="15" x2="13" y2="15" />
+                <line x1="15" y1="15" x2="17" y2="15" />
+                <line x1="7" y1="18" x2="9" y2="18" />
+                <line x1="11" y1="18" x2="13" y2="18" />
+                <line x1="15" y1="18" x2="17" y2="18" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-white mb-2">Módulo de Pagamentos</h2>
+            <p className="text-sm text-slate-400 mb-5">Gestão de maquininha, recebimentos e controle financeiro dos motoboys.</p>
+            <span className="inline-flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/25 uppercase tracking-wider">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              Em Desenvolvimento
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Maquininha: posicionado acima do changelog (bell em bottom-[104px]) */}
+      <button
+        onClick={() => setMaquinhaOpen(true)}
+        className="fixed bottom-[168px] right-6 w-14 h-14 bg-violet-600 hover:bg-violet-700 text-white rounded-full shadow-xl flex items-center justify-center z-50 transition-all hover:scale-110 group"
+        title="Módulo de Pagamentos"
+      >
+        {/* POS Terminal SVG */}
+        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="5" y="2" width="14" height="20" rx="2" />
+          <rect x="7" y="4" width="10" height="5" rx="1" />
+          <line x1="7" y1="12" x2="9" y2="12" />
+          <line x1="11" y1="12" x2="13" y2="12" />
+          <line x1="15" y1="12" x2="17" y2="12" />
+          <line x1="7" y1="15" x2="9" y2="15" />
+          <line x1="11" y1="15" x2="13" y2="15" />
+          <line x1="15" y1="15" x2="17" y2="15" />
+          <line x1="7" y1="18" x2="9" y2="18" />
+          <line x1="11" y1="18" x2="13" y2="18" />
+        </svg>
+        <div className="absolute right-full mr-4 top-1/2 -translate-y-1/2 px-3 py-2 bg-slate-800 text-slate-200 text-sm font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg flex items-center gap-2 border border-slate-700">
+          Módulo de Pagamentos
+          <div className="absolute top-1/2 right-[-4px] -translate-y-1/2 w-2 h-2 bg-slate-800 rotate-45 border-t border-r border-slate-700" />
+        </div>
+      </button>
+
+      {/* WhatsApp */}
+      <div className="fixed bottom-6 right-6 z-50">
         <a
           href={whatsappLink}
           target="_blank"
@@ -264,10 +332,9 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
           style={{ animationDuration: '3s' }}
         >
           <MessageSquare className="w-7 h-7" />
-
           <div className="absolute right-full mr-4 top-1/2 -translate-y-1/2 px-3 py-2 bg-slate-800 text-slate-200 text-sm font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg flex items-center border border-slate-700">
             Suporte via WhatsApp
-            <div className="absolute top-1/2 right-[-4px] -translate-y-1/2 w-2 h-2 bg-slate-800 rotate-45 border-t border-r border-slate-700"></div>
+            <div className="absolute top-1/2 right-[-4px] -translate-y-1/2 w-2 h-2 bg-slate-800 rotate-45 border-t border-r border-slate-700" />
           </div>
         </a>
       </div>
