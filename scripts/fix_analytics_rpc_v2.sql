@@ -6,7 +6,8 @@ DROP FUNCTION IF EXISTS get_analytics_pro_metrics(UUID, TIMESTAMP WITH TIME ZONE
 CREATE OR REPLACE FUNCTION get_analytics_pro_metrics(
     p_unidade_id UUID,
     datetime_inicio TIMESTAMP WITH TIME ZONE,
-    datetime_fim TIMESTAMP WITH TIME ZONE
+    datetime_fim TIMESTAMP WITH TIME ZONE,
+    p_unidade_nome TEXT DEFAULT NULL
 ) RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -22,7 +23,14 @@ DECLARE
     v_result JSONB;
 BEGIN
     -- Get the unit name for backward compatibility
-    SELECT nome_loja INTO v_unidade_nome FROM unidades WHERE id = p_unidade_id;
+    IF p_unidade_id IS NOT NULL THEN
+        SELECT nome_loja INTO v_unidade_nome FROM unidades WHERE id = p_unidade_id;
+    END IF;
+
+    -- Use provided name if ID didn't work
+    IF v_unidade_nome IS NULL THEN
+        v_unidade_nome := p_unidade_nome;
+    END IF;
 
     -- A) Total de Entregas
     SELECT COUNT(*) INTO v_total_entregas

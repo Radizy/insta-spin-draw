@@ -43,12 +43,18 @@ export function AnalyticsDashboard({ dataInicio, dataFim }: AnalyticsDashboardPr
     const { data: metrics, isLoading, isError } = useQuery({
         queryKey: ['analytics_pro_metrics', user?.unidadeId, dataInicio.toISOString(), dataFim.toISOString()],
         queryFn: async () => {
-            if (!user?.unidadeId) throw new Error('Unidade não encontrada');
+            console.log('[Analytics] Chamando RPC com:', {
+                p_unidade_id: user.unidadeId,
+                datetime_inicio: dataInicio.toISOString(),
+                datetime_fim: dataFim.toISOString(),
+                unidade_nome: user.unidade
+            });
 
             const { data, error } = await supabase.rpc('get_analytics_pro_metrics', {
                 p_unidade_id: user.unidadeId,
                 datetime_inicio: dataInicio.toISOString(),
                 datetime_fim: dataFim.toISOString(),
+                p_unidade_nome: user.unidade
             });
 
             if (error) {
@@ -56,6 +62,7 @@ export function AnalyticsDashboard({ dataInicio, dataFim }: AnalyticsDashboardPr
                 throw error;
             }
 
+            console.log('[Analytics] Dados recebidos:', data);
             return data as unknown as MetricResult;
         },
         enabled: !!user?.unidade,
