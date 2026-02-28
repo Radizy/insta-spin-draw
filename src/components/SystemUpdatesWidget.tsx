@@ -32,8 +32,21 @@ export function SystemUpdatesWidget() {
         refetchInterval: 300000, // 5 min
     });
 
-    const releasedUpdates = updates.filter(u => u.status === 'lancado');
-    const plannedUpdates = updates.filter(u => u.status === 'planejado');
+    const releasedUpdates = updates
+        .filter(u => u.status === 'lancado')
+        .sort((a, b) => {
+            const dateA = new Date(a.data_publicacao).getTime();
+            const dateB = new Date(b.data_publicacao).getTime();
+            return dateB - dateA;
+        });
+
+    const plannedUpdates = updates
+        .filter(u => u.status === 'planejado')
+        .sort((a, b) => {
+            const dateA = new Date(a.data_publicacao).getTime();
+            const dateB = new Date(b.data_publicacao).getTime();
+            return dateB - dateA;
+        });
 
     const handleSendSuggestion = () => {
         if (!suggestion.trim()) return;
@@ -88,12 +101,6 @@ export function SystemUpdatesWidget() {
 
             <DialogContent className="max-w-[95vw] md:max-w-6xl h-[85vh] p-0 gap-0 bg-[#1e2230] border-slate-700 overflow-hidden rounded-2xl flex flex-col">
                 <DialogHeader className="p-6 border-b border-white/5 bg-slate-900/50 flex-none relative">
-                    <button
-                        onClick={() => setIsOpen(false)}
-                        className="absolute right-6 top-6 text-slate-400 hover:text-white transition-colors"
-                    >
-                        <X className="w-6 h-6" />
-                    </button>
                     <DialogTitle className="text-2xl font-bold flex items-center gap-3 text-white">
                         <Sparkles className="w-6 h-6 text-indigo-400" /> FilaLab Changelog
                     </DialogTitle>

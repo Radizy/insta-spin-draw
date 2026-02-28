@@ -23,8 +23,9 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useUnit } from '@/contexts/UnitContext';
 import { toast } from 'sonner';
-import { Loader2, CreditCard, UserCheck, ArrowRightLeft, Clock, CheckCircle2, History } from 'lucide-react';
+import { Loader2, CreditCard, UserCheck, ArrowRightLeft, Clock, CheckCircle2, History, Search, XCircle } from 'lucide-react';
 import { format, differenceInMinutes, differenceInSeconds } from 'date-fns';
+import { Input } from '@/components/ui/input';
 
 interface MaquininhaControlModalProps {
     open: boolean;
@@ -36,6 +37,8 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
     const { selectedUnit } = useUnit();
     const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState('atrelar');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedMotoboyId, setSelectedMotoboyId] = useState<string | null>(null);
 
     // Queries
     const { data: entregadores = [], isLoading: isLoadingEntregadores } = useQuery({
@@ -88,10 +91,22 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
     const motoboysElegiveis = entregadores.filter(e => {
         const isAtivo = e.ativo;
         const hasActiveMachine = vinculosAtivos.some(v => v.motoboy_id === e.id);
-        return isAtivo && !hasActiveMachine;
+        const matchesSearch = e.nome.toLowerCase().includes(searchTerm.toLowerCase());
+        return isAtivo && !hasActiveMachine && matchesSearch;
     });
 
-    const maquininhasLivres = maquininhas.filter(m => m.status === 'livre' && m.ativo);
+    const maquininhasLivres = maquininhas.filter(m => {
+        const isLivre = m.status === 'livre' && m.ativo;
+        const matchesSearch = m.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (m.numero_serie && m.numero_serie.toLowerCase().includes(searchTerm.toLowerCase()));
+        return isLivre && matchesSearch;
+    });
+
+    const vinculosFiltrados = vinculosAtivos.filter(v => {
+        const matchesSearch = v.entregador?.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            v.maquininha?.nome.toLowerCase().includes(searchTerm.toLowerCase());
+        return matchesSearch;
+    });
 
     const formatUsageTime = (startTime: string) => {
         const now = new Date();
@@ -149,6 +164,25 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-primary/10 hover:scrollbar-thumb-primary/20">
+                        {/* Search Bar */}
+                        <div className="mb-6 relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Input
+                                placeholder={activeTab === 'atrelar' ? "Pesquisar motoboy ou maquininha..." : "Pesquisar por entregador ou máquina..."}
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10 h-11 bg-muted/20 border-border/50 rounded-xl focus:ring-primary/20"
+                            />
+                            {searchTerm && (
+                                <button
+                                    onClick={() => setSearchTerm('')}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                    <XCircle className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+
                         <TabsContent value="atrelar" className="m-0 space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {/* Coluna Motoboys */}
@@ -175,17 +209,24 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                                     ) : (
                                         <div className="grid grid-cols-1 gap-2">
                                             {motoboysElegiveis.map(motoboy => (
-                                                <div key={motoboy.id} className="p-3 rounded-xl border border-border/50 bg-card/50 hover:bg-muted/50 transition-all cursor-default group">
+                                                <button
+                                                    key={motoboy.id}
+                                                    onClick={() => setSelectedMotoboyId(selectedMotoboyId === motoboy.id ? null : motoboy.id)}
+                                                    className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer group ${selectedMotoboyId === motoboy.id
+                                                        ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                                                        : 'border-border/50 bg-card/50 hover:bg-muted/50'
+                                                        }`}
+                                                >
                                                     <div className="flex items-center justify-between">
-                                                        <span className="font-semibold text-sm group-hover:text-primary transition-colors">{motoboy.nome}</span>
+                                                        <span className={`font-semibold text-sm transition-colors ${selectedMotoboyId === motoboy.id ? 'text-primary' : 'group-hover:text-primary'}`}>{motoboy.nome}</span>
                                                         <div className="flex flex-col items-end">
                                                             <span className="text-[10px] text-muted-foreground">Check-in</span>
-                                                            <span className="text-[11px] font-mono font-bold text-primary/70">
+                                                            <span className={`text-[11px] font-mono font-bold ${selectedMotoboyId === motoboy.id ? 'text-primary' : 'text-primary/70'}`}>
                                                                 {motoboy.hora_saida ? format(new Date(motoboy.hora_saida), 'HH:mm') : '--:--'}
                                                             </span>
                                                         </div>
                                                     </div>
-                                                </div>
+                                                </button>
                                             ))}
                                         </div>
                                     )}
@@ -217,43 +258,71 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                                             {maquininhasLivres.map(machine => (
                                                 <div
                                                     key={machine.id}
-                                                    className="p-4 rounded-xl border border-border/50 bg-card/50 hover:border-primary/30 hover:shadow-md transition-all group relative overflow-hidden"
+                                                    className={`p-4 rounded-xl border transition-all group relative overflow-hidden ${selectedMotoboyId ? 'border-primary/30 shadow-sm' : 'border-border/50 bg-card/50 hover:border-primary/30 hover:shadow-md'
+                                                        }`}
                                                 >
                                                     <div className="absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 bg-primary/5 rounded-full" />
                                                     <div className="flex flex-col gap-3 relative z-10">
-                                                        <div>
-                                                            <p className="font-bold text-base group-hover:text-primary transition-colors">{machine.nome}</p>
-                                                            <p className="text-xs text-muted-foreground font-mono">{machine.numero_serie || 'S/N'}</p>
+                                                        <div className="flex items-center justify-between">
+                                                            <div>
+                                                                <p className="font-bold text-base group-hover:text-primary transition-colors">{machine.nome}</p>
+                                                                <p className="text-xs text-muted-foreground font-mono">{machine.numero_serie || 'S/N'}</p>
+                                                            </div>
+                                                            {selectedMotoboyId && (
+                                                                <Button
+                                                                    size="sm"
+                                                                    className="h-8 gap-2 rounded-lg"
+                                                                    onClick={() => {
+                                                                        const motoboy = motoboysElegiveis.find(m => m.id === selectedMotoboyId);
+                                                                        if (!motoboy) return;
+                                                                        atrelarMutation.mutate({
+                                                                            motoboy_id: motoboy.id,
+                                                                            maquininha_id: machine.id,
+                                                                            unidade_id: user!.unidadeId!,
+                                                                            franquia_id: user!.franquiaId!,
+                                                                            horario_checkin: motoboy.hora_saida,
+                                                                            unidade_nome: selectedUnit,
+                                                                            motoboy_nome: motoboy.nome,
+                                                                            maquininha_nome: machine.nome
+                                                                        });
+                                                                        setSelectedMotoboyId(null);
+                                                                    }}
+                                                                >
+                                                                    Atrelar Selecionado
+                                                                </Button>
+                                                            )}
                                                         </div>
 
-                                                        <div className="w-full">
-                                                            <select
-                                                                className="w-full bg-muted/50 border border-border/10 rounded-lg p-2.5 text-xs font-medium focus:ring-2 focus:ring-primary/20 outline-none transition-all appearance-none cursor-pointer"
-                                                                onChange={(e) => {
-                                                                    const motoboyId = e.target.value;
-                                                                    if (!motoboyId) return;
-                                                                    const motoboy = motoboysElegiveis.find(m => m.id === motoboyId);
-                                                                    if (!motoboy) return;
+                                                        {!selectedMotoboyId && (
+                                                            <div className="w-full">
+                                                                <select
+                                                                    className="w-full bg-muted/50 border border-border/10 rounded-lg p-2.5 text-xs font-medium focus:ring-2 focus:ring-primary/20 outline-none transition-all appearance-none cursor-pointer"
+                                                                    onChange={(e) => {
+                                                                        const motoboyId = e.target.value;
+                                                                        if (!motoboyId) return;
+                                                                        const motoboy = motoboysElegiveis.find(m => m.id === motoboyId);
+                                                                        if (!motoboy) return;
 
-                                                                    atrelarMutation.mutate({
-                                                                        motoboy_id: motoboy.id,
-                                                                        maquininha_id: machine.id,
-                                                                        unidade_id: user!.unidadeId!,
-                                                                        franquia_id: user!.franquiaId!,
-                                                                        horario_checkin: motoboy.hora_saida,
-                                                                        unidade_nome: selectedUnit,
-                                                                        motoboy_nome: motoboy.nome,
-                                                                        maquininha_nome: machine.nome
-                                                                    });
-                                                                }}
-                                                                value=""
-                                                            >
-                                                                <option value="" disabled>Selecione o Motoboy para Atrelar...</option>
-                                                                {motoboysElegiveis.map(m => (
-                                                                    <option key={m.id} value={m.id}>{m.nome}</option>
-                                                                ))}
-                                                            </select>
-                                                        </div>
+                                                                        atrelarMutation.mutate({
+                                                                            motoboy_id: motoboy.id,
+                                                                            maquininha_id: machine.id,
+                                                                            unidade_id: user!.unidadeId!,
+                                                                            franquia_id: user!.franquiaId!,
+                                                                            horario_checkin: motoboy.hora_saida,
+                                                                            unidade_nome: selectedUnit,
+                                                                            motoboy_nome: motoboy.nome,
+                                                                            maquininha_nome: machine.nome
+                                                                        });
+                                                                    }}
+                                                                    value=""
+                                                                >
+                                                                    <option value="" disabled>Selecione o Motoboy para Atrelar...</option>
+                                                                    {motoboysElegiveis.map(m => (
+                                                                        <option key={m.id} value={m.id}>{m.nome}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             ))}
@@ -280,7 +349,7 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 gap-4">
-                                    {vinculosAtivos.map(vinculo => (
+                                    {vinculosFiltrados.map(vinculo => (
                                         <div
                                             key={vinculo.id}
                                             className="p-5 rounded-2xl border border-border/50 bg-card hover:border-primary/20 transition-all shadow-sm group overflow-hidden relative"
