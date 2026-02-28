@@ -222,7 +222,7 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                                                         <div className="flex flex-col items-end">
                                                             <span className="text-[10px] text-muted-foreground">Check-in</span>
                                                             <span className={`text-[11px] font-mono font-bold ${selectedMotoboyId === motoboy.id ? 'text-primary' : 'text-primary/70'}`}>
-                                                                {motoboy.hora_saida ? format(new Date(motoboy.hora_saida), 'HH:mm') : '--:--'}
+                                                                {motoboy.fila_posicao ? format(new Date(motoboy.fila_posicao), 'HH:mm') : '--:--'}
                                                             </span>
                                                         </div>
                                                     </div>
@@ -280,7 +280,7 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                                                                             maquininha_id: machine.id,
                                                                             unidade_id: user!.unidadeId!,
                                                                             franquia_id: user!.franquiaId!,
-                                                                            horario_checkin: motoboy.hora_saida,
+                                                                            horario_checkin: motoboy.fila_posicao || new Date().toISOString(),
                                                                             unidade_nome: selectedUnit,
                                                                             motoboy_nome: motoboy.nome,
                                                                             maquininha_nome: machine.nome
@@ -308,7 +308,7 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                                                                             maquininha_id: machine.id,
                                                                             unidade_id: user!.unidadeId!,
                                                                             franquia_id: user!.franquiaId!,
-                                                                            horario_checkin: motoboy.hora_saida,
+                                                                            horario_checkin: motoboy.fila_posicao || new Date().toISOString(),
                                                                             unidade_nome: selectedUnit,
                                                                             motoboy_nome: motoboy.nome,
                                                                             maquininha_nome: machine.nome
