@@ -23,13 +23,15 @@ Os 5 módulos principais são:
 Esses módulos podem ser geridos livremente pelo painel Super Admin na visualização e edição de uma franquia.
 
 ### Versão do Sistema
-- **Versão Atual**: `2.4.0` (Fev 2026)
+- **Versão Atual**: `2.4.0` (Fev/Março 2026)
 - **Últimas Implementações**:
     - Redesign do menu de configurações (Premium UI).
     - Módulo de Inventário de Maquininhas.
     - Busca inteligente no Controle de Maquininhas.
     - Exibição de horário de check-in no card do motoboy.
-    - Correções no Changelog (Ordenação e Botão fechar).
+    - Fila lateral dinâmica na TV para todos os slides configurado via `exibir_fila_tv`.
+    - Correção de lógica híbrida do "Último Chamado" na TV guiado por `hora_saida`.
+    - Refatoração de cache PWA (Service Worker) para modo *NetworkFirst* evitando telas em branco de erro 404 de assets HTML/CSS desatualizados (desabilitando Stale-While-Revalidate bruto para o index.html).
 
 ---
 
@@ -154,6 +156,7 @@ CREATE TABLE unidades (
   config_whatsapp JSONB,
   config_sheets_url TEXT,
   cidade_clima TEXT,
+  exibir_fila_tv BOOLEAN DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 ```
@@ -538,9 +541,11 @@ CREATE TABLE tv_playlist (
 ```
 
 **Funcionalidades:**
-- Suporta playlists e vídeos independentes de YouTube
-- Executa nativamente sem sobrecarregar servidor
-- Conta com controle de volume deslizante e tempo por mídia
+- Suporta playlists e vídeos independentes de YouTube.
+- Renderização paralela da Fila (`QueueSidebarWidget`) habilitável em todas as mídias da playlist via DB (`unidades.exibir_fila_tv`).
+- Cálculo preciso do "Último Chamado" analisando a propriedade `hora_saida` (recente).
+- Executa nativamente sem sobrecarregar servidor.
+- Conta com controle de volume deslizante e tempo por mídia.
 
 **RLS Policies:**
 ```sql
