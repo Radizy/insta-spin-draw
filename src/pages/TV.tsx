@@ -532,6 +532,13 @@ export default function TV() {
   const calledEntregadores = activeEntregadores.filter((e) => e.status === 'chamado');
   const deliveringQueue = activeEntregadores.filter((e) => e.status === 'entregando');
 
+  const recentlyDelivering = [...deliveringQueue].sort((a, b) => {
+    if (!a.hora_saida) return 1;
+    if (!b.hora_saida) return -1;
+    return new Date(b.hora_saida).getTime() - new Date(a.hora_saida).getTime();
+  });
+  const recentCall = calledEntregadores[0] || recentlyDelivering[0] || null;
+
   const renderPlaylistSlide = (isActive: boolean) => {
     const slide = tvPlaylist[currentSlideIndex];
     if (!slide) return null;
@@ -539,7 +546,7 @@ export default function TV() {
     const renderMedia = () => {
       switch (slide.tipo) {
         case 'clima': return <WeatherSlide cidadeInput={unidadeData?.cidade_clima} />;
-        case 'top_rank': return <TopRankWidget unidadeId={selectedUnit as string} availableQueue={availableQueue} deliveringQueue={deliveringQueue} lastCalled={calledEntregadores[0] || deliveringQueue[0] || null} />;
+        case 'top_rank': return <TopRankWidget unidadeId={selectedUnit as string} availableQueue={availableQueue} deliveringQueue={deliveringQueue} lastCalled={recentCall} />;
         case 'imagem': return <img src={slide.url || ''} className="w-full h-full object-cover" />;
         case 'video': return <video src={slide.url || ''} loop className="w-full h-full object-cover" ref={el => { if (el) { el.volume = (slide.volume || 0) / 100; el.muted = !slide.volume || !isActive; if (isActive) el.play().catch(() => { }); else el.pause(); } }} />;
         default: return null;
@@ -559,7 +566,7 @@ export default function TV() {
           <QueueSidebarWidget
             availableQueue={availableQueue}
             deliveringQueue={deliveringQueue}
-            lastCalled={calledEntregadores[0] || deliveringQueue[0] || null}
+            lastCalled={recentCall}
           />
         </div>
       );
