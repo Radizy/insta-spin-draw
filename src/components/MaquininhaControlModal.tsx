@@ -183,10 +183,10 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                             )}
                         </div>
 
-                        <TabsContent value="atrelar" className="flex-1 m-0 min-h-0 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
-                            <div className="flex flex-col md:flex-row gap-6 flex-1 min-h-0">
+                        <TabsContent value="atrelar" className="flex-1 h-full m-0 min-h-0 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <div className="flex flex-col md:flex-row gap-6 flex-1 min-h-0 h-full">
                                 {/* Coluna Motoboys */}
-                                <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-card/40 rounded-2xl border border-border/50 overflow-hidden shadow-sm">
+                                <div className="flex-1 flex flex-col min-w-0 min-h-0 h-full bg-card/40 rounded-2xl border border-border/50 overflow-hidden shadow-sm">
                                     <div className="flex items-center justify-between p-4 bg-muted/30 border-b border-border/50 shrink-0">
                                         <Label className="text-xs font-bold flex items-center gap-2 text-foreground/80 uppercase tracking-wider">
                                             Motoboys Elegíveis
@@ -235,7 +235,7 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                                 </div>
 
                                 {/* Coluna Maquininhas */}
-                                <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-card/40 rounded-2xl border border-border/50 overflow-hidden shadow-sm">
+                                <div className="flex-1 flex flex-col min-w-0 min-h-0 h-full bg-card/40 rounded-2xl border border-border/50 overflow-hidden shadow-sm">
                                     <div className="flex items-center justify-between p-4 bg-muted/30 border-b border-border/50 shrink-0">
                                         <Label className="text-xs font-bold flex items-center gap-2 text-foreground/80 uppercase tracking-wider">
                                             Maquininhas Livres

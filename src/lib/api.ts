@@ -1426,7 +1426,7 @@ export async function atrelarMaquininha(params: {
           id_vinculo: vinculo_id,
           motoboy: params.motoboy_nome,
           maquininha: params.maquininha_nome,
-          checkin: params.horario_checkin,
+          checkin: now,
           retirada: now,
           unidade: params.unidade_nome
         })
