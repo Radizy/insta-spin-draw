@@ -181,11 +181,13 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                                     <XCircle className="w-4 h-4" />
                                 </button>
                             )}
-                        </div>                        <TabsContent value="atrelar" className="flex-1 m-0 min-h-0 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        </div>
+
+                        <TabsContent value="atrelar" className="flex-1 m-0 min-h-0 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
                             <div className="flex flex-col md:flex-row gap-6 flex-1 min-h-0">
                                 {/* Coluna Motoboys */}
                                 <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-card/40 rounded-2xl border border-border/50 overflow-hidden shadow-sm">
-                                    <div className="flex items-center justify-between p-4 bg-muted/30 border-b border-border/50">
+                                    <div className="flex items-center justify-between p-4 bg-muted/30 border-b border-border/50 shrink-0">
                                         <Label className="text-xs font-bold flex items-center gap-2 text-foreground/80 uppercase tracking-wider">
                                             Motoboys Elegíveis
                                             <span className="bg-primary/15 text-primary px-2.5 py-0.5 rounded-full text-[11px]">
@@ -205,13 +207,13 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                                             <p className="text-sm text-muted-foreground font-medium">Nenhum motoboy disponível agora</p>
                                         </div>
                                     ) : (
-                                        <div className="flex-1 overflow-y-auto p-3 scrollbar-thin scrollbar-thumb-primary/10 hover:scrollbar-thumb-primary/20 scrollbar-track-transparent">
+                                        <div className="flex-1 overflow-y-auto p-3 scrollbar-thin scrollbar-thumb-primary/10 hover:scrollbar-thumb-primary/20 scrollbar-track-transparent min-h-0">
                                             <div className="flex flex-col gap-2 pb-2">
                                                 {motoboysElegiveis.map(motoboy => (
                                                     <button
                                                         key={motoboy.id}
                                                         onClick={() => setSelectedMotoboyId(selectedMotoboyId === motoboy.id ? null : motoboy.id)}
-                                                        className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer group ${selectedMotoboyId === motoboy.id
+                                                        className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer group shrink-0 ${selectedMotoboyId === motoboy.id
                                                             ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
                                                             : 'border-border/50 bg-card/50 hover:bg-muted/50'
                                                             }`}
@@ -234,7 +236,7 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
 
                                 {/* Coluna Maquininhas */}
                                 <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-card/40 rounded-2xl border border-border/50 overflow-hidden shadow-sm">
-                                    <div className="flex items-center justify-between p-4 bg-muted/30 border-b border-border/50">
+                                    <div className="flex items-center justify-between p-4 bg-muted/30 border-b border-border/50 shrink-0">
                                         <Label className="text-xs font-bold flex items-center gap-2 text-foreground/80 uppercase tracking-wider">
                                             Maquininhas Livres
                                             <span className="bg-green-500/15 text-green-500 px-2.5 py-0.5 rounded-full text-[11px]">
@@ -254,12 +256,12 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                                             <p className="text-sm text-muted-foreground font-medium">Sem maquininhas livres</p>
                                         </div>
                                     ) : (
-                                        <div className="flex-1 overflow-y-auto p-3 scrollbar-thin scrollbar-thumb-primary/10 hover:scrollbar-thumb-primary/20 scrollbar-track-transparent">
+                                        <div className="flex-1 overflow-y-auto p-3 scrollbar-thin scrollbar-thumb-primary/10 hover:scrollbar-thumb-primary/20 scrollbar-track-transparent min-h-0">
                                             <div className="flex flex-col gap-3 pb-2">
                                                 {maquininhasLivres.map(machine => (
                                                     <div
                                                         key={machine.id}
-                                                        className={`p-4 rounded-xl border transition-all group relative overflow-hidden ${selectedMotoboyId ? 'border-primary/30 shadow-sm' : 'border-border/50 bg-card/50 hover:border-primary/30 hover:shadow-md'
+                                                        className={`p-4 rounded-xl border transition-all group relative overflow-hidden shrink-0 ${selectedMotoboyId ? 'border-primary/30 shadow-sm' : 'border-border/50 bg-card/50 hover:border-primary/30 hover:shadow-md'
                                                             }`}
                                                     >
                                                         <div className="absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 bg-primary/5 rounded-full" />
@@ -390,5 +392,3 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
         </Dialog>
     );
 }
-
-
