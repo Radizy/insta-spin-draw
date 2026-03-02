@@ -142,7 +142,7 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                     defaultValue="atrelar"
                     value={activeTab}
                     onValueChange={setActiveTab}
-                    className="flex-1 flex flex-col min-h-0"
+                    className="flex-1 w-full h-full flex flex-col min-h-0"
                 >
                     <div className="px-6 py-2 bg-muted/30 border-b border-border/5 shrink-0">
                         <TabsList className="grid w-full grid-cols-2 bg-secondary/50 p-1 rounded-lg">
@@ -163,7 +163,7 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                         </TabsList>
                     </div>
 
-                    <div className="flex-1 flex flex-col min-h-0 p-6 overflow-hidden">
+                    <div className="flex-1 w-full h-full overflow-hidden flex flex-col p-6 min-h-0">
                         {/* Search Bar */}
                         <div className="mb-6 relative shrink-0">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -183,10 +183,10 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                             )}
                         </div>
 
-                        <TabsContent value="atrelar" className="flex-1 h-full m-0 min-h-0 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
-                            <div className="flex flex-col md:flex-row gap-6 flex-1 min-h-0 h-full">
+                        <TabsContent value="atrelar" className="flex-1 w-full h-full m-0 min-h-0 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <div className="flex flex-col md:flex-row gap-6 flex-1 w-full h-full min-h-0">
                                 {/* Coluna Motoboys */}
-                                <div className="flex-1 flex flex-col min-w-0 min-h-0 h-full bg-card/40 rounded-2xl border border-border/50 overflow-hidden shadow-sm">
+                                <div className="flex-1 w-full h-full flex flex-col min-h-0 bg-card/40 rounded-2xl border border-border/50 overflow-hidden shadow-sm">
                                     <div className="flex items-center justify-between p-4 bg-muted/30 border-b border-border/50 shrink-0">
                                         <Label className="text-xs font-bold flex items-center gap-2 text-foreground/80 uppercase tracking-wider">
                                             Motoboys Elegíveis
@@ -235,7 +235,7 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                                 </div>
 
                                 {/* Coluna Maquininhas */}
-                                <div className="flex-1 flex flex-col min-w-0 min-h-0 h-full bg-card/40 rounded-2xl border border-border/50 overflow-hidden shadow-sm">
+                                <div className="flex-1 w-full h-full flex flex-col min-w-0 min-h-0 bg-card/40 rounded-2xl border border-border/50 overflow-hidden shadow-sm">
                                     <div className="flex items-center justify-between p-4 bg-muted/30 border-b border-border/50 shrink-0">
                                         <Label className="text-xs font-bold flex items-center gap-2 text-foreground/80 uppercase tracking-wider">
                                             Maquininhas Livres
@@ -306,28 +306,28 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                             </div>
                         </TabsContent>
 
-                        <TabsContent value="devolver" className="flex-1 min-h-0 flex flex-col m-0 animate-in fade-in slide-in-from-bottom-2 duration-300 data-[state=inactive]:hidden">
-                            <div className="flex-1 min-h-0 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-primary/10 hover:scrollbar-thumb-primary/20 pb-4 space-y-4">
-                                {isLoadingVinculos ? (
-                                    <div className="flex items-center justify-center py-20">
-                                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                        <TabsContent value="devolver" className="flex-1 w-full h-full m-0 min-h-0 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            {isLoadingVinculos ? (
+                                <div className="flex items-center justify-center py-20">
+                                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                                </div>
+                            ) : vinculosAtivos.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+                                    <div className="p-6 bg-muted/10 rounded-full">
+                                        <CheckCircle2 className="w-12 h-12 text-muted-foreground/30" />
                                     </div>
-                                ) : vinculosAtivos.length === 0 ? (
-                                    <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-                                        <div className="p-6 bg-muted/10 rounded-full">
-                                            <CheckCircle2 className="w-12 h-12 text-muted-foreground/30" />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-lg font-bold text-muted-foreground">Tudo em ordem!</p>
-                                            <p className="text-sm text-muted-foreground/60 max-w-[250px]">Nenhuma maquininha em uso no momento.</p>
-                                        </div>
+                                    <div className="space-y-1">
+                                        <p className="text-lg font-bold text-muted-foreground">Tudo em ordem!</p>
+                                        <p className="text-sm text-muted-foreground/60 max-w-[250px]">Nenhuma maquininha em uso no momento.</p>
                                     </div>
-                                ) : (
-                                    <div className="grid grid-cols-1 gap-4">
+                                </div>
+                            ) : (
+                                <div className="flex-1 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-primary/10 hover:scrollbar-thumb-primary/20 min-h-0">
+                                    <div className="grid grid-cols-1 gap-4 pb-2">
                                         {vinculosFiltrados.map(vinculo => (
                                             <div
                                                 key={vinculo.id}
-                                                className="p-5 rounded-2xl border border-border/50 bg-card hover:border-primary/20 transition-all shadow-sm group overflow-hidden relative"
+                                                className="p-5 rounded-2xl border border-border/50 bg-card hover:border-primary/20 transition-all shadow-sm group overflow-hidden relative shrink-0"
                                             >
                                                 <div className="absolute top-0 right-0 h-full w-1 bg-primary/20" />
                                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
@@ -383,8 +383,8 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                                             </div>
                                         ))}
                                     </div>
-                                )}
-                            </div>
+                                </div>
+                            )}
                         </TabsContent>
                     </div>
                 </Tabs>

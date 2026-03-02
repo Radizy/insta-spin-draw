@@ -709,7 +709,7 @@ export default function TV() {
       const now = new Date();
       let primeiroCheckin = e.primeiro_checkin;
 
-      // Se nÃ£o tiver primeiro check-in, ou se for de um dia anterior, define agora
+      // Se não tiver primeiro check-in, ou se for de um dia anterior, define agora
       if (!primeiroCheckin) {
         primeiroCheckin = now.toISOString();
       } else {
@@ -719,7 +719,26 @@ export default function TV() {
         }
       }
 
-      await updateMutation.mutateAsync({ id: e.id, data: { ativo: true, status: 'disponivel', fila_posicao: now.toISOString(), primeiro_checkin: primeiroCheckin } });
+      let checkinDiario = (e as any).checkin_diario;
+      if (checkinDiario) {
+        const checkinDate = new Date(checkinDiario);
+        if (checkinDate.toDateString() !== now.toDateString()) {
+          checkinDiario = now.toISOString();
+        }
+      } else {
+        checkinDiario = now.toISOString();
+      }
+
+      await updateMutation.mutateAsync({
+        id: e.id,
+        data: {
+          ativo: true,
+          status: 'disponivel',
+          fila_posicao: now.toISOString(),
+          primeiro_checkin: primeiroCheckin,
+          checkin_diario: checkinDiario
+        } as any
+      });
       toast.success(`${e.nome} entrou na fila!`); setCheckinOpen(false); refetch();
     } catch { toast.error('Erro ao fazer check-in'); }
   };

@@ -29,6 +29,7 @@ serve(async (req) => {
       .update({
         ativo: false,
         hora_saida: null,
+        checkin_diario: null,
       });
 
     if (unidadeId) {
