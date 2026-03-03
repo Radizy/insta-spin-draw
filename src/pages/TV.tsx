@@ -55,6 +55,64 @@ interface CalledEntregadorInfo {
   hasBebida: boolean;
 }
 
+/**
+ * Converte qualquer URL do YouTube para uma URL de embed segura.
+ * Suporta: vídeos normais, lives, youtu.be, playlists, e shorts.
+ * Usa youtube-nocookie.com para reduzir restrições de bloqueio de iframe.
+ */
+function getYouTubeEmbedUrl(rawUrl: string): string | null {
+  if (!rawUrl) return null;
+  try {
+    const url = new URL(rawUrl);
+    const hostname = url.hostname.replace('www.', '');
+    let videoId: string | null = null;
+    let playlistId: string | null = url.searchParams.get('list');
+
+    if (hostname === 'youtu.be') {
+      videoId = url.pathname.slice(1).split('?')[0];
+    } else if (hostname === 'youtube.com' || hostname === 'youtube-nocookie.com') {
+      const path = url.pathname;
+      if (path.startsWith('/embed/')) {
+        // Já é url de embed, retorna ajustada
+        const base = `https://www.youtube-nocookie.com${path}`;
+        const params = new URLSearchParams(url.search);
+        params.set('autoplay', '1');
+        params.set('mute', '1');
+        params.set('loop', '1');
+        params.set('controls', '0');
+        params.set('modestbranding', '1');
+        params.set('rel', '0');
+        if (videoId) params.set('playlist', videoId);
+        return `${base}?${params.toString()}`;
+      } else if (path.startsWith('/shorts/')) {
+        videoId = path.split('/shorts/')[1]?.split('?')[0];
+      } else if (path.startsWith('/live/')) {
+        videoId = path.split('/live/')[1]?.split('?')[0];
+      } else {
+        videoId = url.searchParams.get('v');
+      }
+    }
+
+    if (!videoId && !playlistId) return null;
+
+    const params = new URLSearchParams({
+      autoplay: '1',
+      mute: '1',
+      controls: '0',
+      modestbranding: '1',
+      rel: '0',
+      loop: '1',
+    });
+    if (videoId) params.set('playlist', videoId); // loop exige playlist=videoId
+    if (playlistId) { params.set('list', playlistId); params.delete('loop'); } // playlists nativas já avançam
+
+    const embedId = videoId || 'videoseries';
+    return `https://www.youtube-nocookie.com/embed/${embedId}?${params.toString()}`;
+  } catch {
+    return null;
+  }
+}
+
 const getExpedientePeriod = () => {
   const now = new Date();
   const currentHour = now.getHours();
@@ -549,6 +607,25 @@ export default function TV() {
         case 'top_rank': return <TopRankWidget unidadeId={selectedUnit as string} availableQueue={availableQueue} deliveringQueue={deliveringQueue} lastCalled={recentCall} />;
         case 'imagem': return <img src={slide.url || ''} className="w-full h-full object-cover" />;
         case 'video': return <video src={slide.url || ''} loop className="w-full h-full object-cover" ref={el => { if (el) { el.volume = (slide.volume || 0) / 100; el.muted = !slide.volume || !isActive; if (isActive) el.play().catch(() => { }); else el.pause(); } }} />;
+        case 'youtube': {
+          const embedUrl = getYouTubeEmbedUrl(slide.url || '');
+          if (!embedUrl) return (
+            <div className="w-full h-full flex items-center justify-center bg-black text-white text-xl">
+              URL do YouTube inválida
+            </div>
+          );
+          return (
+            <iframe
+              key={embedUrl}
+              src={embedUrl}
+              className="w-full h-full"
+              style={{ border: 'none', pointerEvents: 'none' }}
+              allow="autoplay; encrypted-media; picture-in-picture"
+              allowFullScreen
+              title="YouTube Screensaver"
+            />
+          );
+        }
         default: return null;
       }
     };
