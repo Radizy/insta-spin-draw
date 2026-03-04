@@ -25,12 +25,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { TermosDeUsoModal } from '@/components/TermosDeUsoModal';
+import { PoliticaDePrivacidadeModal } from '@/components/PoliticaDePrivacidadeModal';
 
 export default function Index() {
   const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedModule, setSelectedModule] = useState<any>(null);
+  const [isTermsOpen, setIsTermsOpen] = useState(false);
+  const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
 
   const modulesData = [
     {
@@ -392,8 +396,8 @@ export default function Index() {
           <div className="border-t border-border pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
             <p>© {new Date().getFullYear()} FilaLab. Todos os direitos reservados.</p>
             <div className="flex gap-4">
-              <a href="#" className="hover:text-foreground transition-colors">Termos de Uso</a>
-              <a href="#" className="hover:text-foreground transition-colors">Política de Privacidade</a>
+              <button onClick={() => setIsTermsOpen(true)} className="hover:text-foreground transition-colors">Termos de Uso</button>
+              <button onClick={() => setIsPrivacyOpen(true)} className="hover:text-foreground transition-colors">Política de Privacidade</button>
             </div>
           </div>
         </div>
@@ -410,6 +414,9 @@ export default function Index() {
       >
         <MessageSquare className="w-7 h-7" />
       </a>
+
+      <TermosDeUsoModal open={isTermsOpen} onOpenChange={setIsTermsOpen} />
+      <PoliticaDePrivacidadeModal open={isPrivacyOpen} onOpenChange={setIsPrivacyOpen} />
     </div>
   );
 }
