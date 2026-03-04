@@ -23,15 +23,13 @@ Os 5 módulos principais são:
 Esses módulos podem ser geridos livremente pelo painel Super Admin na visualização e edição de uma franquia.
 
 ### Versão do Sistema
-- **Versão Atual**: `2.4.0` (Fev/Março 2026)
+- **Versão Atual**: `2.5.0` (Março 2026)
 - **Últimas Implementações**:
-    - Redesign do menu de configurações (Premium UI).
-    - Módulo de Inventário de Maquininhas.
-    - Busca inteligente no Controle de Maquininhas.
-    - Exibição de horário de check-in no card do motoboy.
-    - Fila lateral dinâmica na TV para todos os slides configurado via `exibir_fila_tv`.
-    - Correção de lógica híbrida do "Último Chamado" na TV guiado por `hora_saida`.
-    - Refatoração de cache PWA (Service Worker) para modo *NetworkFirst* evitando telas em branco de erro 404 de assets HTML/CSS desatualizados (desabilitando Stale-While-Revalidate bruto para o index.html).
+    - Mapa Dinâmico do Roteirista (`/mapa`): Permite busca nativa baseada na Google/OSM UI com PIN dinâmico que puxa da `unidades.endereco`.
+    - Controle de Endereço Inteligente (`/config`): Super Admins e Admins de Franquia agora cadastram o CEP/Endereço que abastecem `latitude` e `longitude` para centrar o mapa automaticamente.
+    - Sistema de Check-in Diário (`checkin_diario`): Nova trigger `trg_log_checkin_diario` no Supabase garante a estabilidade de registro da entrada. É imutável, e o script noturno `/functions/reset-daily` cuida do expurgo.
+    - Integração Sheets (`webhook_url`): Recebe pontualmente e com prioridade a data ancorada do primeiro log de entrada para facilitar fechamentos e DRE de Motoboy.
+    - Refatoração do layout de controle de Maquininhas 100% responsivo ocupando altura de pop-ups com base no scroll independente.
 
 ---
 
@@ -153,6 +151,9 @@ CREATE TABLE unidades (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   franquia_id UUID NOT NULL REFERENCES franquias(id) ON DELETE CASCADE,
   nome_loja TEXT NOT NULL,
+  endereco TEXT,
+  latitude NUMERIC(10,8),
+  longitude NUMERIC(11,8),
   config_whatsapp JSONB,
   config_sheets_url TEXT,
   cidade_clima TEXT,
@@ -321,11 +322,15 @@ CREATE TABLE entregadores (
   dias_trabalho JSONB DEFAULT '{"seg":true,"ter":true,"qua":true,"qui":true,"sex":true,"sab":true,"dom":true}',
   fila_posicao TIMESTAMP WITH TIME ZONE DEFAULT now(),
   hora_saida TIMESTAMP WITH TIME ZONE,
+  checkin_diario TIMESTAMP WITH TIME ZONE, -- Registra apenas uma vez no dia com trigger inteligente
   tts_voice_path TEXT, -- Caminho do arquivo de voz no storage
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 ```
+
+**Trigger: Checkin Diário Inteligente**
+Tabela associada possui uma Trigger `func_log_checkin_diario()` para fixar apenas o *primeiro* registro. Limpeza de campo ocorre via Cloud Function Noturna (`/functions/reset-daily`).
 
 **Exemplos de Motoboys Cadastrados (Unidade ITAQUA):**
 
