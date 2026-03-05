@@ -39,6 +39,7 @@ export interface Entregador {
   lat?: number;
   lng?: number;
   last_location_time?: string;
+  primeiro_checkin?: string | null;
 }
 
 
@@ -196,7 +197,7 @@ export async function fetchEntregadores(filters?: {
 }): Promise<Entregador[]> {
   let query = supabase
     .from('entregadores')
-    .select('id, nome, telefone, status, unidade, ativo, created_at, updated_at, fila_posicao, dias_trabalho, usar_turno_padrao, turno_inicio, turno_fim, hora_saida, tipo_bag, tts_voice_path, whatsapp_ativo, lat, lng, last_location_time')
+    .select('id, nome, telefone, status, unidade, ativo, created_at, updated_at, fila_posicao, primeiro_checkin, dias_trabalho, usar_turno_padrao, turno_inicio, turno_fim, hora_saida, tipo_bag, tts_voice_path, whatsapp_ativo, lat, lng, last_location_time')
     .order('fila_posicao', { ascending: true });
 
   if (filters?.unidade) {

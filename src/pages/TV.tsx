@@ -664,7 +664,20 @@ export default function TV() {
 
   const handleCheckin = async (e: Entregador) => {
     try {
-      await updateMutation.mutateAsync({ id: e.id, data: { ativo: true, status: 'disponivel', fila_posicao: new Date().toISOString() } });
+      const now = new Date();
+      let primeiroCheckin = e.primeiro_checkin;
+
+      // Se não tiver primeiro check-in, ou se for de um dia anterior, define agora
+      if (!primeiroCheckin) {
+        primeiroCheckin = now.toISOString();
+      } else {
+        const dataCheckinAntigo = new Date(primeiroCheckin);
+        if (dataCheckinAntigo.getDate() !== now.getDate() || dataCheckinAntigo.getMonth() !== now.getMonth() || dataCheckinAntigo.getFullYear() !== now.getFullYear()) {
+          primeiroCheckin = now.toISOString();
+        }
+      }
+
+      await updateMutation.mutateAsync({ id: e.id, data: { ativo: true, status: 'disponivel', fila_posicao: now.toISOString(), primeiro_checkin: primeiroCheckin } });
       toast.success(`${e.nome} entrou na fila!`); setCheckinOpen(false); refetch();
     } catch { toast.error('Erro ao fazer check-in'); }
   };
