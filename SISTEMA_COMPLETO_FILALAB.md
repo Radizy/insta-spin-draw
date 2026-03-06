@@ -322,6 +322,7 @@ CREATE TABLE entregadores (
   dias_trabalho JSONB DEFAULT '{"seg":true,"ter":true,"qua":true,"qui":true,"sex":true,"sab":true,"dom":true}',
   fila_posicao TIMESTAMP WITH TIME ZONE DEFAULT now(),
   hora_saida TIMESTAMP WITH TIME ZONE,
+  primeiro_checkin TEXT, -- Armazena o timestamp do primeiro checkin diário (preservado após retornos)
   checkin_diario TIMESTAMP WITH TIME ZONE, -- Registra apenas uma vez no dia com trigger inteligente
   tts_voice_path TEXT, -- Caminho do arquivo de voz no storage
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
