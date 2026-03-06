@@ -980,16 +980,25 @@ export async function atenderSenhaPagamento(senhaId: string) {
 }
 
 export async function resetDaily(unidade?: string, unidadeId?: string): Promise<void> {
-  const { data, error } = await supabase.functions.invoke('reset-daily', {
-    body: { unidade, unidadeId },
+  let query = supabase.from('entregadores').update({
+    ativo: false,
+    status: 'disponivel',
+    hora_saida: null
   });
 
-  if (error) {
-    throw error;
+  if (unidadeId) {
+    query = query.eq('unidade_id', unidadeId);
+  } else if (unidade) {
+    query = query.eq('unidade', unidade);
+  } else {
+    throw new Error('Parâmetro unidade ou unidadeId é obrigatório para o reset');
   }
 
-  if (data && typeof data === 'object' && 'success' in data && (data as any).success === false) {
-    throw new Error((data as any).error || 'Falha ao executar reset diário');
+  const { error } = await query;
+
+  if (error) {
+    console.error('Erro no resetDaily:', error);
+    throw new Error('Falha ao executar reset diário');
   }
 }
 

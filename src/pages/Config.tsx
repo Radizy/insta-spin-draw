@@ -266,7 +266,7 @@ export default function Config() {
         queryClient.invalidateQueries({ queryKey: ['saidas-dia'] });
       }
       setResetDialogOpen(false);
-      toast.success('Reset de expediente executado para esta unidade: motoboys disponíveis e ativos.');
+      toast.success('Reset de expediente concluído: motoboys agora estão inativos e aguardando o próximo turno.');
     },
     onError: () => {
       toast.error('Erro ao executar reset diário. Tente novamente.');

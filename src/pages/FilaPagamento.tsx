@@ -240,7 +240,7 @@ export default function FilaPagamento() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['senhas-pagamento'] });
       queryClient.invalidateQueries({ queryKey: ['entregadores-pagamento'] });
-      toast.success('Reset diário executado para esta unidade: motoboys desativados e histórico limpo.');
+      toast.success('Reset diário executado para esta unidade: motoboys desativados para o próximo turno.');
     },
     onError: () => {
       toast.error('Erro ao executar reset diário. Tente novamente.');
