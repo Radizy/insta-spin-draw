@@ -202,6 +202,52 @@ export default function Roteirista() {
     },
   });
 
+  // ======= NOVO: Fila em Tempo Real do SISFOOD =======
+  const [entregasNaFila, setEntregasNaFila] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!selectedUnit) return;
+
+    // 1. Busca inicial
+    const fetchFilaInicial = async () => {
+      const { data, error } = await supabase
+        .from('unidades')
+        .select('entregas_na_fila')
+        .eq('nome', selectedUnit as string)
+        .maybeSingle();
+
+      if (!error && data) {
+        setEntregasNaFila(data.entregas_na_fila ?? 0);
+      }
+    };
+    fetchFilaInicial();
+
+    // 2. Inscrição Realtime (Ouve modificações feitas pelo Webhook)
+    const channel = supabase
+      .channel(`rt_fila_${selectedUnit}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'unidades',
+          filter: `nome=eq.${selectedUnit}`,
+        },
+        (payload) => {
+          if (payload.new && payload.new.entregas_na_fila !== undefined) {
+            setEntregasNaFila(payload.new.entregas_na_fila);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedUnit]);
+  // ====================================================
+
+
   // Configurações da franquia para checar módulos ativos
   const { data: franquiaConfig } = useQuery<{ config_pagamento: any | null }>({
     queryKey: ['franquia-config-roteirista', user?.franquiaId],
@@ -558,9 +604,17 @@ export default function Roteirista() {
             Controle da fila de entregas •{' '}
             <span className="font-semibold text-foreground">{selectedUnit}</span>
           </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Saídas aproximadas hoje: <span className="font-mono font-semibold">{saidasHoje?.count ?? 0}</span>
-          </p>
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-sm font-semibold tracking-wide text-muted-foreground">
+              ENTREGAS NA FILA : <span className="font-mono text-foreground">{entregasNaFila !== null ? entregasNaFila : '...'}</span>
+            </span>
+            {entregasNaFila !== null && (
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" title="Ao vivo (Sisfood)"></span>
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-col sm:flex-row w-full sm:w-auto items-stretch sm:items-center gap-3">
