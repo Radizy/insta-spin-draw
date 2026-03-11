@@ -232,6 +232,19 @@ export default function SuperAdmin() {
     },
   });
 
+  const { data: pacotesComerciais = [] } = useQuery({
+    queryKey: ['pacotes-comerciais'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('pacotes_comerciais')
+        .select('id, nome, codigo, preco_total, plano_id')
+        .eq('ativo', true)
+        .order('preco_total', { ascending: true });
+      if (error) throw error;
+      return data as { id: string; nome: string; codigo: string; preco_total: number; plano_id: string | null }[];
+    },
+  });
+
   const { data: unidadesPlanos = [] } = useQuery<UnidadePlano[]>({
     queryKey: ['unidade-planos'],
     queryFn: async () => {
@@ -1047,10 +1060,17 @@ export default function SuperAdmin() {
                       className="bg-primary hover:bg-primary/90"
                       onClick={async () => {
                         if (selectedAdminUnit === 'MASTER') return;
-                        const slug = mapNomeLojaToUnidadeSlug(selectedAdminUnit);
-                        await changeUnit(slug as any);
-                        setSelectedUnit(slug as any);
-                        navigate('/roteirista');
+                        
+                        // Encontra a unidade completa baseada no nome da loja selecionada (selectedAdminUnit guarda o nome da loja)
+                        const unidadeSelecionada = quickAccessUnits.find((u) => u.nome_loja === selectedAdminUnit);
+                        
+                        if (unidadeSelecionada) {
+                          const slug = mapNomeLojaToUnidadeSlug(selectedAdminUnit);
+                          // Passa o slug (nome), unidadeId e franquiaId
+                          await changeUnit(slug as any, unidadeSelecionada.id, unidadeSelecionada.franquia_id);
+                          setSelectedUnit(slug as any);
+                          navigate('/roteirista');
+                        }
                       }}
                     >
                       Entrar na loja
@@ -1524,7 +1544,7 @@ export default function SuperAdmin() {
 
       {/* Dialog de criação/edição de franquia */}
       <Dialog open={isFranquiaDialogOpen} onOpenChange={setIsFranquiaDialogOpen}>
-        <DialogContent className="sm:max-w-3xl">
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-mono">
               {editingFranquia ? 'Editar franquia' : 'Nova franquia'}
@@ -1634,9 +1654,9 @@ export default function SuperAdmin() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="__none__">Sem plano vinculado</SelectItem>
-                          {planos.map((p) => (
-                            <SelectItem key={p.id} value={p.id}>
-                              {p.nome} ({p.tipo})
+                          {pacotesComerciais.map((p) => (
+                            <SelectItem key={p.id} value={p.plano_id || p.id}>
+                              {p.nome} (R$ {p.preco_total.toFixed(2)})
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -1912,7 +1932,7 @@ export default function SuperAdmin() {
 
       {/* Dialog de criação/edição de plano */}
       <Dialog open={isPlanoDialogOpen} onOpenChange={setIsPlanoDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-mono">
               {editingPlano ? 'Editar plano' : 'Novo plano'}
@@ -2015,7 +2035,7 @@ export default function SuperAdmin() {
 
       {/* Dialog de criação/edição de loja */}
       <Dialog open={isLojaDialogOpen} onOpenChange={setIsLojaDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-mono">
               {editingLoja ? 'Editar loja' : 'Nova loja'}
@@ -2149,7 +2169,7 @@ export default function SuperAdmin() {
 
       {/* Dialog de desconto da franquia */}
       <Dialog open={isDescontoDialogOpen} onOpenChange={setIsDescontoDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-mono text-sm">
               {descontoContext === 'recorrente'

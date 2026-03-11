@@ -105,7 +105,7 @@ export interface SystemUpdate {
   id: string;
   titulo: string;
   tipo: string; // 'MELHORIAS', 'NOVO RECURSO'
-  status: 'lancado' | 'planejado';
+  status: 'lancado' | 'planejado' | 'em_desenvolvimento' | 'ideia_enviada';
   data_publicacao: string;
   ordem: number;
   created_at: string;

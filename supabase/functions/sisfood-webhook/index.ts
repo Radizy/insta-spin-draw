@@ -39,7 +39,7 @@ serve(async (req) => {
             query = query.eq('id', unidade_id);
         } else {
             // Using ilike or eq for name match, adjust based on how FilaLab names units 
-            query = query.ilike('nome', `%${loja}%`);
+            query = query.ilike('nome_loja', `%${loja}%`);
         }
 
         const { error } = await query;

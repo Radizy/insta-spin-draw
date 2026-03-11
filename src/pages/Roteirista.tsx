@@ -202,47 +202,62 @@ export default function Roteirista() {
     },
   });
 
-  // ======= NOVO: Fila em Tempo Real do SISFOOD =======
+  // ======= Fila em Tempo Real do SISFOOD =======
   const [entregasNaFila, setEntregasNaFila] = useState<number | null>(null);
 
   useEffect(() => {
+    // Só liga a integração em realtime se a franquia tiver o módulo habilitado (verificado pelo render, mas mantemos o básico ativo)
     if (!selectedUnit) return;
 
-    // 1. Busca inicial
+    let channel: any = null;
+
+    // 1. Busca inicial e registro no socket com o nome da unidade
     const fetchFilaInicial = async () => {
+      console.log("[FILALAB] Buscando fila inicial para a unidade Nome:", selectedUnit);
+      
+      // O selectedUnit vem como string (ex: "ITAQUA"), precisamos achar no banco usando a coluna correta (nome_loja) com curingas (%)
       const { data, error } = await supabase
         .from('unidades')
-        .select('entregas_na_fila')
-        .eq('nome', selectedUnit as string)
+        .select('*')
+        .ilike('nome_loja', `%${selectedUnit}%`) 
         .maybeSingle();
 
-      if (!error && data) {
-        setEntregasNaFila(data.entregas_na_fila ?? 0);
+      if (error) {
+         console.error("[FILALAB] Erro ao buscar unidade no Supabase:", error);
+      } else if (data) {
+        console.log("[FILALAB] Dados da Unidade Carregados:", data.nome_loja);
+        console.log("[FILALAB] Quantidade na Fila (Banco):", (data as any).entregas_na_fila);
+        setEntregasNaFila((data as any).entregas_na_fila ?? 0);
+
+        const dbNomeLoja = data.nome_loja;
+
+        // 2. Inscrição Realtime (Ouve modificações feitas pelo Webhook)
+        // Escutando especificamente pelo nome verdadeiro da loja no DB
+        channel = supabase
+          .channel(`rt_fila_${dbNomeLoja}`)
+          .on(
+            'postgres_changes' as any,
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'unidades',
+              filter: `nome_loja=eq.${dbNomeLoja}`, 
+            },
+            (payload: any) => {
+              if (payload.new && payload.new.entregas_na_fila !== undefined) {
+                setEntregasNaFila(payload.new.entregas_na_fila);
+              }
+            }
+          )
+          .subscribe();
       }
     };
     fetchFilaInicial();
 
-    // 2. Inscrição Realtime (Ouve modificações feitas pelo Webhook)
-    const channel = supabase
-      .channel(`rt_fila_${selectedUnit}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'unidades',
-          filter: `nome=eq.${selectedUnit}`,
-        },
-        (payload) => {
-          if (payload.new && payload.new.entregas_na_fila !== undefined) {
-            setEntregasNaFila(payload.new.entregas_na_fila);
-          }
-        }
-      )
-      .subscribe();
-
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
   }, [selectedUnit]);
   // ====================================================

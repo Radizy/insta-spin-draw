@@ -1,13 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Entregador } from '@/lib/api';
 
 // Ícone customizado baseado no status do motoboy
 const createCustomIcon = (status: string) => {
-    // Entregando: Verde | Chamado: Amarelo | Disponível na Fila: Azul
     const color = status === 'entregando' ? '#22c55e' : (status === 'chamado' ? '#eab308' : '#3b82f6');
     return L.divIcon({
         className: 'bg-transparent border-none',
@@ -26,36 +24,96 @@ interface MotoboyMapModalProps {
 
 export function MotoboyMapModal({ open, onOpenChange, entregadores }: MotoboyMapModalProps) {
     const [activeMotoboys, setActiveMotoboys] = useState<Entregador[]>([]);
-    const [center, setCenter] = useState<[number, number]>([-23.55052, -46.633308]); // Padrão: SP Capital
+    const [center, setCenter] = useState<[number, number]>([-23.55052, -46.633308]);
+    const [renderMap, setRenderMap] = useState(false);
+    
+    const mapRef = useRef<HTMLDivElement>(null);
+    const mapInstance = useRef<L.Map | null>(null);
+    const markersRef = useRef<L.Marker[]>([]);
 
+    // Processamento dos motoboys ativos e cálculo do centro
     useEffect(() => {
         if (open) {
-            // Filtrar apenas motoboys que têm lat/lng e cuja localização foi atualizada a menos de 30 minutos
             const active = entregadores.filter(e => {
                 if (!e.lat || !e.lng || !e.last_location_time) return false;
-
                 const lastTime = new Date(e.last_location_time).getTime();
                 const now = new Date().getTime();
                 const diffMinutes = (now - lastTime) / (1000 * 60);
-
-                // Exibir até 60 minutos de atraso (podem estar off-line/background freeze)
                 return diffMinutes <= 60;
             });
-
             setActiveMotoboys(active);
 
             if (active.length > 0) {
-                // Calcular o centro geográfico a partir da média dos pontos ativos para câmera inicial
-                // Supabase retorna NUMERIC como string, então precisamos de Number()
-                const avgLat = active.reduce((sum, e) => sum + (Number(e.lat) || 0), 0) / active.length;
-                const avgLng = active.reduce((sum, e) => sum + (Number(e.lng) || 0), 0) / active.length;
+                let validLats = 0;
+                let validLngs = 0;
+                let validCount = 0;
 
-                if (!isNaN(avgLat) && !isNaN(avgLng)) {
-                    setCenter([avgLat, avgLng]);
+                active.forEach(e => {
+                    const lat = parseFloat(String(e.lat).replace(',', '.'));
+                    const lng = parseFloat(String(e.lng).replace(',', '.'));
+                    if (!isNaN(lat) && !isNaN(lng)) {
+                        validLats += lat;
+                        validLngs += lng;
+                        validCount++;
+                    }
+                });
+
+                if (validCount > 0) {
+                    setCenter([validLats / validCount, validLngs / validCount]);
                 }
             }
         }
     }, [open, entregadores]);
+
+    // Delay de montagem para não brigar com animação do Radix Modal
+    useEffect(() => {
+        if (open) {
+            const timer = setTimeout(() => setRenderMap(true), 300);
+            return () => clearTimeout(timer);
+        } else {
+            setRenderMap(false);
+            if (mapInstance.current) {
+                mapInstance.current.remove();
+                mapInstance.current = null;
+            }
+        }
+    }, [open]);
+
+    // Lógica principal do Leaflet Puro (Vanilla)
+    useEffect(() => {
+        if (renderMap && mapRef.current && !mapInstance.current) {
+            mapInstance.current = L.map(mapRef.current).setView(center, 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(mapInstance.current);
+        }
+
+        if (mapInstance.current) {
+            // Atualiza centro se mudar
+            mapInstance.current.setView(center, mapInstance.current.getZoom() || 13);
+
+            // Limpa marcadores antigos
+            markersRef.current.forEach(marker => marker.remove());
+            markersRef.current = [];
+
+            // Adiciona novos marcadores
+            activeMotoboys.forEach(e => {
+                const latNum = parseFloat(String(e.lat).replace(',', '.'));
+                const lngNum = parseFloat(String(e.lng).replace(',', '.'));
+                if (!isNaN(latNum) && !isNaN(lngNum)) {
+                    const marker = L.marker([latNum, lngNum], {
+                        icon: createCustomIcon(e.status)
+                    });
+                    
+                    const filaText = e.status === 'disponivel' && e.fila_posicao ? `<br />Fila: #${e.fila_posicao}` : '';
+                    marker.bindPopup(`<div class="font-mono text-sm"><strong>${e.nome}</strong><br />Status: ${e.status}${filaText}</div>`);
+                    
+                    marker.addTo(mapInstance.current!);
+                    markersRef.current.push(marker);
+                }
+            });
+        }
+    }, [renderMap, center, activeMotoboys]);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -64,38 +122,13 @@ export function MotoboyMapModal({ open, onOpenChange, entregadores }: MotoboyMap
                     <DialogTitle className="font-mono text-xl">Mapa de Entregadores em Tempo Real</DialogTitle>
                 </DialogHeader>
 
-                <div className="flex-1 w-full rounded-md overflow-hidden border border-border mt-2">
-                    {open && (
-                        <MapContainer
-                            center={center}
-                            zoom={13}
-                            style={{ height: '100%', width: '100%', zIndex: 0 }}
-                            key={center.join(',')} // Força o MapContainer a re-renderizar caso o centro mude
-                        >
-                            <TileLayer
-                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                            />
-                            {activeMotoboys.map((e) => {
-                                const latNum = Number(e.lat);
-                                const lngNum = Number(e.lng);
-                                if (isNaN(latNum) || isNaN(lngNum)) return null;
-
-                                return (
-                                    <Marker
-                                        key={e.id}
-                                        position={[latNum, lngNum]}
-                                        icon={createCustomIcon(e.status)}
-                                    >
-                                        <Popup className="font-mono text-sm">
-                                            <strong>{e.nome}</strong><br />
-                                            Status: {e.status}<br />
-                                            {e.status === 'disponivel' && e.fila_posicao ? `Fila: #${e.fila_posicao}` : ''}
-                                        </Popup>
-                                    </Marker>
-                                );
-                            })}
-                        </MapContainer>
+                <div className="flex-1 w-full rounded-md overflow-hidden border border-border mt-2 bg-secondary/20 relative">
+                    {renderMap ? (
+                        <div ref={mapRef} style={{ height: '100%', width: '100%', zIndex: 0 }} />
+                    ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground animate-pulse font-mono">
+                            Inicializando terreno...
+                        </div>
                     )}
                 </div>
 
