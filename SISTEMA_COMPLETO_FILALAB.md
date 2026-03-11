@@ -17,7 +17,8 @@ Os 5 módulos principais são:
 2. **TV Premium (`tv_avancada`)**: Destrava customizações exclusivas como upload de fundo e customização de toques e vozes de AI da tela de TV de espera. Inclui sistema de rediscagem automática de 10s e caminhos de áudio otimizados por franquia.
 3. **Integração Planilha (`planilha`)**: Habilita o webhook do Google Sheets no painel de Histórico permitindo exportação autônoma de dados.
 4. **Fila de Pagamento (`fila_pagamento`)**: Libera o uso da tela `/fila-pagamento` para o gerenciamento de senhas (cash-out financeiro dos motoqueiros).
-6. **Controle de Maquininhas (`controle_maquininhas`)**: Módulo para gestão de estoque e atribuição de máquinas de cartão para motoboys. Inclui aba de inventário nas configurações e modal flutuante para atrelar/devolver máquinas com busca inteligente e fluxo dual (por máquina ou por motoboy).
+5. **Controle de Maquininhas (`controle_maquininhas`)**: Módulo definitivo para gestão de estoque e atribuição de máquinas de cartão para motoboys.
+6. **Integração SISFOOD (`sisfood_integration`)**: Habita o painel de tutorial na aba Integrações, disparando webhooks do caixa para alimentar a Fila do Roteirista sem falhas. 
 7. **Modo Treinamento (FilaLab Academy)**: Treinamento simulado em memória local, guiado passo a passo para novos operadores (`isTrainingMode`).
 
 Esses módulos podem ser geridos livremente pelo painel Super Admin na visualização e edição de uma franquia.

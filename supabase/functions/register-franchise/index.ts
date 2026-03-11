@@ -170,7 +170,7 @@ serve(async (req) => {
       .insert({
         username: username,
         password_hash: passwordHash,
-        role: 'admin',
+        role: 'admin_franquia',
         franquia_id: franquia.id,
         unidade_id: unidade.id,
         unidade: nomeLoja,
@@ -219,6 +219,24 @@ serve(async (req) => {
       if (unidadePlanoError) {
         console.error('Error linking plano to unidade:', unidadePlanoError);
         // Continuar mesmo com erro, não é crítico
+      }
+    }
+
+    // 6. Ativar os módulos inclusos na unidade recém criada
+    const modulosAtivos = pacote.modulos_inclusos as string[] || [];
+    if (modulosAtivos.length > 0) {
+      const inserts = modulosAtivos.map((moduloCodigo: string) => ({
+        unidade_id: unidade.id,
+        modulo_codigo: moduloCodigo,
+        ativo: true,
+      }));
+      
+      const { error: modulosError } = await supabase
+        .from('unidade_modulos')
+        .insert(inserts);
+        
+      if (modulosError) {
+        console.error('Error linking modules to unidade:', modulosError);
       }
     }
 

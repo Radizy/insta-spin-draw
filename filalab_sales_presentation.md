@@ -51,7 +51,7 @@ Uma plataforma **All-in-One** (Tudo-em-Um) focada em otimizar operações logís
   </div>
 </div>
 
-<div class="box center mt-4" style="margin-top: 20px; width: 50%; margin-left: auto; margin-right: auto;">
+<div class="box center mt-4">
   <h3>🏍️ Motoboy</h3>
   <p>Portal dedicado no celular para check-in e acompanhamento de senhas.</p>
 </div>
@@ -121,11 +121,11 @@ O momento mais crítico e cansativo do dia agora é organizado e eficiente.
 
 <span class="highlight">Visão Comercial: "Cresça sem perder o controle."</span>
 
-Um painel `Super Admin` projetado para escalar a sua marca.
+Um painel `Gerencial` projetado para escalar a sua marca.
 
-- **Visão Centralizada:** Faturamento, número de motoboys ativos e status de cada loja.
-- **Controle de Inadimplência:** Bloqueie o sistema de lojas inativas ou com faturas em aberto.
-- **Gestão de Módulos In-App:** Ligue ou desligue funcionalidades (Toggles de Módulos) instantaneamente para criar novos planos e pacotes.
+- **Visão Centralizada:** Acompanhe o status e faturamento de todas as suas unidades em tempo real.
+- **Métricas e Tempos:** Visualize o tempo médio dos motoboys em cada loja para otimizar sua velocidade de entrega.
+- **Comparação de Lojas:** Analise e compare o desempenho entre as suas unidades para escalar sua operação com inteligência.
 
 ---
 
@@ -153,11 +153,15 @@ Um painel `Super Admin` projetado para escalar a sua marca.
   </div>
 </div>
 
-<div class="box center mt-4" style="margin-top: 20px; border-color: #f472b6;">
-  <h3 style="color: #f472b6">Pacote Completo (Enterprise) 💎</h3>
-  <p style="font-size: 1.1rem; margin-top: 10px;">
+---
+
+## 💎 O Plano Definitivo
+
+<div class="box center mt-4" style="border-color: #f472b6; padding: 2rem;">
+  <h3 style="color: #f472b6; font-size: 2rem;">Pacote Completo (Enterprise) 💎</h3>
+  <p style="font-size: 1.3rem; margin-top: 20px;">
     Tudo do Pro <b>+</b> Automação no WhatsApp <b>+</b> Exportação direta pro Google Sheets!
-    <br/><br/><b>R$ 249,90 / mês</b>
+    <br/><br/><b style="font-size: 1.8rem;">R$ 249,90 / mês</b>
   </p>
 </div>
 

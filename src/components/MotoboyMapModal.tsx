@@ -27,22 +27,52 @@ const createStoreIcon = () => {
     });
 };
 
+const createFilaIcon = () => {
+    return L.divIcon({
+        className: 'bg-transparent border-none',
+        html: `<div style="background-color: #f97316; width: 28px; height: 28px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 14px; color: white;">📦</div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+        popupAnchor: [0, -14],
+    });
+};
+
 interface MotoboyMapModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     entregadores: Entregador[];
     storeLat?: number | null;
     storeLng?: number | null;
+    storeCity?: string;
+    storeState?: string;
+    pedidosFila?: any[];
 }
 
-export function MotoboyMapModal({ open, onOpenChange, entregadores, storeLat, storeLng }: MotoboyMapModalProps) {
+export function MotoboyMapModal({ open, onOpenChange, entregadores, storeLat, storeLng, storeCity, storeState, pedidosFila }: MotoboyMapModalProps) {
     const [activeMotoboys, setActiveMotoboys] = useState<Entregador[]>([]);
+    const [geocodedFila, setGeocodedFila] = useState<any[]>([]);
     const [center, setCenter] = useState<[number, number]>([-23.55052, -46.633308]);
     const [renderMap, setRenderMap] = useState(false);
     
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstance = useRef<L.Map | null>(null);
     const markersRef = useRef<L.Marker[]>([]);
+
+    // Limpeza de Cache de Geocodificação Diária
+    useEffect(() => {
+        const today = new Date().toDateString();
+        const lastCleared = localStorage.getItem('FilaLab_Geocode_LastCleared');
+        
+        if (lastCleared !== today) {
+            console.log("[FILALAB] Iniciando nova diária. Limpando cache local de geodiodificaçã de rotas...");
+            Object.keys(localStorage).forEach(key => {
+                if (key.startsWith('FilaLab_Geocode_')) {
+                    localStorage.removeItem(key);
+                }
+            });
+            localStorage.setItem('FilaLab_Geocode_LastCleared', today);
+        }
+    }, []);
 
     // Processamento dos motoboys ativos e cálculo do centro
     useEffect(() => {
@@ -80,6 +110,74 @@ export function MotoboyMapModal({ open, onOpenChange, entregadores, storeLat, st
             }
         }
     }, [open, entregadores, storeLat, storeLng]);
+
+    // Geocodificação dos pedidos em fila
+    useEffect(() => {
+        if (!open || !pedidosFila || pedidosFila.length === 0) {
+            setGeocodedFila([]);
+            return;
+        }
+        
+        // Filtramos pra garantir que seja um endereço razoavelmente válido ("Retirada", "Balcão" não vão pro mapa)
+        const validPedidos = pedidosFila.filter(p => typeof p.endereco === 'string' && p.endereco.trim().length > 5 && !p.endereco.toLowerCase().includes('retirada') && !p.endereco.toLowerCase().includes('balcão'));
+
+        const processAddress = async () => {
+            const resolved = [];
+            
+            for (const pedido of validPedidos) {
+                // Remove traços/bairros mal formatados para melhorar hit-rate no Nominatim
+                let rawAddress = pedido.endereco.split('-')[0].trim();
+                const cacheKey = `FilaLab_Geocode_${rawAddress}`;
+                const cached = localStorage.getItem(cacheKey);
+                
+                if (cached) {
+                    resolved.push({ ...pedido, coords: JSON.parse(cached) });
+                } else {
+                    try {
+                        let locationContext = 'Brasil';
+                        if (storeCity && storeState) {
+                            locationContext = `${storeCity}, ${storeState}, Brasil`;
+                        } else if (storeCity) {
+                            locationContext = `${storeCity}, Brasil`;
+                        }
+
+                        const query = encodeURIComponent(`${rawAddress}, ${locationContext}`);
+                        let apiUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${query}`;
+                        
+                        // Otimização de proximidade: se a loja tem coordenada, diz pra API priorizar resultados num raio de ~15km ao redor
+                        if (storeLat && storeLng && !isNaN(storeLat) && !isNaN(storeLng)) {
+                            // 1 grau latitude/longitude é ~111km. 0.15 é aprox 16km
+                            const left = storeLng - 0.15;
+                            const bottom = storeLat - 0.15;
+                            const right = storeLng + 0.15;
+                            const top = storeLat + 0.15;
+                            // formato do viewbox no nominatim: x1,y1,x2,y2 (left,top,right,bottom)
+                            const viewbox = `${left},${top},${right},${bottom}`;
+                            apiUrl += `&viewbox=${viewbox}&bounded=1`;
+                        }
+
+                        const res = await fetch(apiUrl);
+                        const data = await res.json();
+                        
+                        if (data && data.length > 0) {
+                            const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+                            localStorage.setItem(cacheKey, JSON.stringify(coords));
+                            resolved.push({ ...pedido, coords });
+                        }
+                        
+                        // Previdente do Rate Limit do Nominatim OS (1 chamada por segundo recomendedo)
+                        await new Promise(r => setTimeout(r, 1100));
+                    } catch (e) {
+                        console.error("Erro ao geocodificar pedido da fila", pedido.endereco, e);
+                    }
+                }
+            }
+            
+            setGeocodedFila(resolved);
+        };
+        
+        processAddress();
+    }, [pedidosFila, open]);
 
     // Delay de montagem para não brigar com animação do Radix Modal
     useEffect(() => {
@@ -140,8 +238,22 @@ export function MotoboyMapModal({ open, onOpenChange, entregadores, storeLat, st
                     markersRef.current.push(marker);
                 }
             });
+
+            // Adiciona marcadores de Fila
+            geocodedFila.forEach(pedido => {
+                if (pedido.coords && !isNaN(pedido.coords.lat) && !isNaN(pedido.coords.lng)) {
+                    const marker = L.marker([pedido.coords.lat, pedido.coords.lng], {
+                        icon: createFilaIcon(),
+                        zIndexOffset: 500
+                    });
+                    
+                    marker.bindPopup(`<div class="font-mono text-sm leading-tight text-center"><strong>Pedido #${pedido.id}</strong><br />Cliente: ${pedido.cliente}<br />📦 Na Fila (Produção)</div>`);
+                    marker.addTo(mapInstance.current!);
+                    markersRef.current.push(marker);
+                }
+            });
         }
-    }, [renderMap, center, activeMotoboys, storeLat, storeLng]);
+    }, [renderMap, center, activeMotoboys, geocodedFila, storeLat, storeLng]);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -160,10 +272,11 @@ export function MotoboyMapModal({ open, onOpenChange, entregadores, storeLat, st
                     )}
                 </div>
 
-                <div className="flex gap-4 items-center justify-center pt-2 text-xs font-mono text-muted-foreground">
+                <div className="flex gap-4 items-center justify-center pt-2 text-xs font-mono text-muted-foreground flex-wrap">
                     <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-blue-500"></div> Disponível</div>
                     <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-yellow-500"></div> Chamado</div>
                     <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-green-500"></div> Entregando</div>
+                    <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-orange-500 flex items-center justify-center text-[8px] text-white">📦</div> Pedido na Fila</div>
                 </div>
             </DialogContent>
         </Dialog>

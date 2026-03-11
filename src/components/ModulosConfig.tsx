@@ -191,66 +191,108 @@ export function ModulosConfig() {
     );
   }
 
+  const modulosContratados = modulos.filter((m) => modulosAtivos.includes(m.codigo));
+  const modulosDisponiveis = modulos.filter((m) => !modulosAtivos.includes(m.codigo));
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Package className="w-5 h-5" />
-          Módulos opcionais
-        </CardTitle>
-        <CardDescription>
-          Visualize os módulos ativos para sua franquia e ajuste as mensagens do módulo de TV.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="space-y-4">
-          {modulos.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Nenhum módulo opcional disponível no momento.
-            </p>
-          ) : (
-            modulos.map((m) => {
-              const ativo = modulosAtivos.includes(m.codigo);
-              const preco = (m as any).preco_mensal || 0;
+    <div className="space-y-6">
+      {user?.role !== 'admin_franquia' && (
+        <Card className="border-border/50 shadow-sm mt-2">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-xl font-bold">
+            <Package className="w-5 h-5 text-primary" />
+            Módulos Optionais
+          </CardTitle>
+          <CardDescription>
+            Visualize os módulos contratados para sua franquia e explore novas funcionalidades.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-8">
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold text-primary uppercase tracking-widest flex items-center gap-2">
+              Módulos Contratados
+              <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-[10px]">
+                {modulosContratados.length}
+              </span>
+            </h3>
+            
+            {modulosContratados.length === 0 ? (
+              <div className="p-6 border border-dashed rounded-xl bg-muted/10 text-center">
+                <p className="text-sm text-muted-foreground">Nenhum módulo opcional contratado no momento.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {modulosContratados.map((m) => {
+                  const preco = (m as any).preco_mensal || 0;
+                  return (
+                    <div key={m.id} className="relative flex flex-col p-4 border border-primary/20 bg-primary/5 rounded-xl transition-all hover:bg-primary/10 hover:border-primary/30 group">
+                      <div className="absolute top-3 right-3">
+                        <div className="flex items-center gap-1.5 px-2 py-1 bg-green-500/10 text-green-500 rounded-md text-[10px] font-bold uppercase tracking-wider border border-green-500/20">
+                          <Check className="w-3 h-3" />
+                          Ativo
+                        </div>
+                      </div>
+                      <Label className="font-bold text-sm pr-16">{m.nome}</Label>
+                      <p className="text-xs text-muted-foreground/80 mt-1 mb-3 line-clamp-2 min-h-[32px]">{m.descricao}</p>
+                      <div className="mt-auto pt-3 border-t border-primary/10 flex items-center justify-between">
+                        <span className="text-[10px] text-muted-foreground font-mono bg-background/50 px-2 py-0.5 rounded-md">{m.codigo}</span>
+                        {Number(preco) > 0 && (
+                          <span className="text-xs font-bold text-primary">R$ {Number(preco).toFixed(2)}</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
-              return (
-                <div
-                  key={m.id}
-                  className="flex items-center justify-between border border-border rounded-lg p-4"
-                >
-                  <div className="flex-1">
-                    <Label className="font-semibold">{m.nome}</Label>
-                    {m.descricao && (
-                      <p className="text-xs text-muted-foreground mt-1">{m.descricao}</p>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Código: {m.codigo} • Valor mensal: R$ {Number(preco).toFixed(2)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-sm ${ativo ? 'text-green-600' : 'text-muted-foreground'}`}>
-                      {ativo ? 'Ativo' : 'Inativo'}
-                    </span>
-                    <Switch
-                      checked={ativo}
-                      disabled={toggleModuloMutation.isPending}
-                      onCheckedChange={(checked) => {
-                        if (!user || user.role !== 'super_admin') {
-                          toast.info(
-                            'Para ativar ou desativar módulos, entre em contato com o suporte para mudar seu pacote.',
-                          );
-                          return;
-                        }
-                        toggleModuloMutation.mutate({ codigo: m.codigo, ativo: checked });
-                      }}
-                    />
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+              Disponíveis para Contratar
+              <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded-full text-[10px]">
+                {modulosDisponiveis.length}
+              </span>
+            </h3>
+            
+            {modulosDisponiveis.length === 0 ? (
+              <p className="text-sm text-muted-foreground pl-1">Você já possui todos os módulos disponíveis!</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {modulosDisponiveis.map((m) => {
+                  const preco = (m as any).preco_mensal || 0;
+                  return (
+                    <div key={m.id} className="flex flex-col p-4 border border-border/50 bg-card rounded-xl transition-all hover:border-border/80">
+                      <Label className="font-bold text-sm text-foreground/80">{m.nome}</Label>
+                      <p className="text-xs text-muted-foreground mt-1 mb-3 line-clamp-2 min-h-[32px]">{m.descricao}</p>
+                      <div className="mt-auto pt-3 border-t border-border/30 flex items-center justify-between">
+                        <span className="text-xs font-bold text-muted-foreground">
+                          {Number(preco) > 0 ? `R$ ${Number(preco).toFixed(2)}/mês` : 'Gratuito'}
+                        </span>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-7 text-[11px] px-3 bg-muted/50 hover:bg-muted"
+                          onClick={() => {
+                            if (user && user.role === 'super_admin') {
+                              toggleModuloMutation.mutate({ codigo: m.codigo, ativo: true });
+                            } else {
+                              toast.info('Entre em contato com nosso time (WhatsApp) para contratar este módulo.');
+                            }
+                          }}
+                        >
+                          Saber mais
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+      )}
         {/* Configuração de voz da chamada (TTS) */}
         {user?.franquiaId && (
           <TvTtsConfigSection franquiaId={user.franquiaId} initialConfig={tvTtsConfig} />
@@ -425,8 +467,7 @@ export function ModulosConfig() {
             </Button>
           </div>
         )}
-      </CardContent>
-    </Card>
+    </div>
   );
 }
 

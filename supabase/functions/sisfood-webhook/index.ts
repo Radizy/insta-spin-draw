@@ -18,7 +18,7 @@ serve(async (req) => {
         );
 
         const data = await req.json();
-        const { loja, fila, sistema, unidade_id } = data;
+        const { loja, fila, pedidos_fila, sistema, unidade_id } = data;
 
         // We can match by ID (preferred) or by name
         if (!unidade_id && !loja) {
@@ -28,12 +28,18 @@ serve(async (req) => {
             });
         }
 
+        const updatePayload: any = {
+            entregas_na_fila: fila,
+            entregas_na_fila_atualizado_em: new Date().toISOString()
+        };
+
+        if (pedidos_fila !== undefined) {
+             updatePayload.sisfood_pedidos_fila = pedidos_fila;
+        }
+
         let query = supabaseClient
             .from('unidades')
-            .update({
-                entregas_na_fila: fila,
-                entregas_na_fila_atualizado_em: new Date().toISOString()
-            });
+            .update(updatePayload);
 
         if (unidade_id) {
             query = query.eq('id', unidade_id);

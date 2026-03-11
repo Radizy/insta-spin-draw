@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Package, Check, X, Plus, ShoppingCart, Loader2 } from 'lucide-react';
+import { Package, Check, X, Plus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { isModuloAtivo, ativarModulo, desativarModulo } from '@/lib/api';
 
@@ -36,7 +36,6 @@ export function FranquiaPlanoManager() {
   const { user } = useAuth();
   const { selectedUnit } = useUnit();
   const queryClient = useQueryClient();
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
 
   const unidadeId = user?.unidadeId;
   const franquiaId = user?.franquiaId;
@@ -146,129 +145,109 @@ export function FranquiaPlanoManager() {
         </CardContent>
       </Card>
 
-      {/* ── Recursos / Funcionalidades ── */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-            Recursos da Franquia
-          </h3>
-          <Button size="sm" variant="outline" onClick={() => setAddDialogOpen(true)}>
-            <Plus className="w-4 h-4 mr-1" /> Adicionar Produto
-          </Button>
-        </div>
-
-        {(loadingModulos || loadingUnit) ? (
-          <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
-            <Loader2 className="w-4 h-4 animate-spin mr-2" /> Carregando...
-          </div>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {allModulos.map((m) => {
-              const isActive = activeCodes.has(m.codigo);
-              return (
-                <Badge
-                  key={m.id}
-                  variant={isActive ? 'default' : 'outline'}
-                  className={`cursor-pointer text-xs py-1.5 px-3 gap-1.5 transition-all ${
-                    isActive
-                      ? 'bg-green-600 hover:bg-green-700 text-white border-green-600'
-                      : 'text-muted-foreground hover:bg-muted'
-                  }`}
-                  onClick={() => toggleModuleMutation.mutate({ codigo: m.codigo, activate: !isActive })}
-                >
-                  {isActive ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
-                  {m.nome}
-                  <span className="text-[10px] uppercase ml-1 opacity-75">
-                    {isActive ? 'HABILITADO' : 'DESABILITADO'}
-                  </span>
-                </Badge>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* ── Módulos ativos (detalhes) ── */}
-      {unitModulos.length > 0 && (
-        <div>
-          <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">
-            Produtos Ativos
-          </h3>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {unitModulos.map((um) => {
-              const mod = allModulos.find((m) => m.codigo === um.modulo_codigo);
-              return (
-                <Card key={um.id} className="border-primary/30">
-                  <CardContent className="pt-4 pb-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-sm">{mod?.nome || um.modulo_codigo}</span>
-                      <Badge className="text-[10px] bg-green-600 text-white">ATIVO</Badge>
-                    </div>
-                    {mod?.descricao && <p className="text-xs text-muted-foreground">{mod.descricao}</p>}
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">
-                        {mod?.preco_mensal ? `R$ ${mod.preco_mensal.toFixed(2)}/mês` : 'Incluído'}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-6 text-[11px] text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                        onClick={() => toggleModuleMutation.mutate({ codigo: um.modulo_codigo, activate: false })}
-                      >
-                        Desativar
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ── Dialog: Adicionar Produto ── */}
-      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ShoppingCart className="w-5 h-5" /> Adicionar Produto
-            </DialogTitle>
-          </DialogHeader>
-          {inactiveModulos.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              Todos os módulos já estão ativados!
-            </p>
-          ) : (
-            <div className="grid gap-3 max-h-[60vh] overflow-y-auto">
-              {inactiveModulos.map((m) => (
-                <Card key={m.id} className="border-border hover:border-primary/40 transition-colors">
-                  <CardContent className="pt-4 pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1 flex-1">
-                        <p className="font-medium text-sm">{m.nome}</p>
-                        {m.descricao && <p className="text-xs text-muted-foreground">{m.descricao}</p>}
-                        <p className="text-sm font-bold text-primary">
-                          {m.preco_mensal ? `R$ ${m.preco_mensal.toFixed(2)}/mês` : 'Grátis'}
-                        </p>
+      {/* ── Módulos da Franquia (UI Nova) ── */}
+      <Card className="border-border/50 shadow-sm mt-6">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-xl font-bold">
+            <Package className="w-5 h-5 text-primary" />
+            Módulos da Unidade
+          </CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            Gerencie as funcionalidades ativas para esta unidade.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-8">
+          
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold text-primary uppercase tracking-widest flex items-center gap-2">
+              Módulos Contratados
+              <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-[10px]">
+                {activeCodes.size}
+              </span>
+            </h3>
+            
+            {loadingUnit || loadingModulos ? (
+               <div className="flex items-center justify-center py-6 text-muted-foreground text-sm">
+                 <Loader2 className="w-4 h-4 animate-spin mr-2" /> Carregando...
+               </div>
+            ) : activeCodes.size === 0 ? (
+              <div className="p-6 border border-dashed rounded-xl bg-muted/10 text-center">
+                <p className="text-sm text-muted-foreground">Nenhum módulo ativo no momento.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {unitModulos.map((um) => {
+                  const m = allModulos.find(mod => mod.codigo === um.modulo_codigo);
+                  if (!m) return null;
+                  return (
+                    <div key={um.id} className="relative flex flex-col p-4 border border-primary/20 bg-primary/5 rounded-xl transition-all hover:bg-primary/10 hover:border-primary/30 group">
+                      <div className="absolute top-3 right-3">
+                        <div className="flex items-center gap-1.5 px-2 py-1 bg-green-500/10 text-green-500 rounded-md text-[10px] font-bold uppercase tracking-wider border border-green-500/20">
+                          <Check className="w-3 h-3" />
+                          Ativo
+                        </div>
                       </div>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          toggleModuleMutation.mutate({ codigo: m.codigo, activate: true });
-                          setAddDialogOpen(false);
-                        }}
-                        disabled={toggleModuleMutation.isPending}
-                      >
-                        <Plus className="w-4 h-4 mr-1" /> Adicionar
-                      </Button>
+                      <span className="font-bold text-sm pr-16 block">{m.nome}</span>
+                      <p className="text-xs text-muted-foreground/80 mt-1 mb-3 line-clamp-2 min-h-[32px]">{m.descricao}</p>
+                      <div className="mt-auto pt-3 border-t border-primary/10 flex items-center justify-between">
+                        <span className="text-[10px] text-muted-foreground font-mono bg-background/50 px-2 py-0.5 rounded-md">{m.codigo}</span>
+                        <Button
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-7 text-[11px] px-3 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => toggleModuleMutation.mutate({ codigo: um.modulo_codigo, activate: false })}
+                          disabled={toggleModuleMutation.isPending}
+                        >
+                          Desativar
+                        </Button>
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+              Disponíveis para Contratar
+              <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded-full text-[10px]">
+                {inactiveModulos.length}
+              </span>
+            </h3>
+            
+            {inactiveModulos.length === 0 ? (
+              <p className="text-sm text-muted-foreground pl-1">Você já ativou todos os módulos disponíveis!</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {inactiveModulos.map((m) => {
+                  return (
+                    <div key={m.id} className="flex flex-col p-4 border border-border/50 bg-card rounded-xl transition-all hover:border-border/80">
+                      <span className="font-bold text-sm text-foreground/80 block">{m.nome}</span>
+                      <p className="text-xs text-muted-foreground mt-1 mb-3 line-clamp-2 min-h-[32px]">{m.descricao}</p>
+                      <div className="mt-auto pt-3 border-t border-border/30 flex items-center justify-between">
+                        <span className="text-xs font-bold text-muted-foreground">
+                          {m.preco_mensal ? `R$ ${m.preco_mensal.toFixed(2)}/mês` : 'Gratuito'}
+                        </span>
+                        <Button 
+                          variant="secondary" 
+                          size="sm" 
+                          className="h-7 text-[11px] px-3 hover:bg-primary hover:text-primary-foreground"
+                          onClick={() => toggleModuleMutation.mutate({ codigo: m.codigo, activate: true })}
+                          disabled={toggleModuleMutation.isPending}
+                        >
+                          <Plus className="w-3 h-3 mr-1" /> Adicionar
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+        </CardContent>
+      </Card>
     </div>
   );
 }

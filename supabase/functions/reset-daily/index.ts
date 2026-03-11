@@ -68,6 +68,29 @@ serve(async (req) => {
       throw resetStatusError;
     }
 
+    // ------------------------------------------------------------
+    // FILALAB x SISFOOD: ZERAR FILA NA MADRUGADA
+    // Limpa entregas congeladas na interface quando vira o dia
+    // ------------------------------------------------------------
+    let resetFilaQuery = supabase
+      .from('unidades')
+      .update({
+        entregas_na_fila: 0,
+        sisfood_pedidos_fila: []
+      });
+      
+    if (unidadeId) {
+       resetFilaQuery = resetFilaQuery.eq('id', unidadeId);
+    } else if (unidade) {
+       resetFilaQuery = resetFilaQuery.ilike('nome_loja', `%${unidade}%`);
+    }
+
+    const { error: resetFilaError } = await resetFilaQuery;
+    if (resetFilaError) {
+       console.error('Erro ao zerar dados da Fila Sisfood:', resetFilaError);
+       // Não throw error aqui para não quebrar o reset de motoboys se a loja não tiver o campo configurado.
+    }
+
     console.log('Reset de expediente concluído com sucesso!');
 
     return new Response(

@@ -220,6 +220,7 @@ export default function Roteirista() {
 
   // ======= Fila em Tempo Real do SISFOOD =======
   const [entregasNaFila, setEntregasNaFila] = useState<number | null>(null);
+  const [pedidosFila, setPedidosFila] = useState<any[]>([]);
 
   useEffect(() => {
     // Só liga a integração em realtime se a franquia tiver o módulo habilitado (verificado pelo render, mas mantemos o básico ativo)
@@ -244,6 +245,9 @@ export default function Roteirista() {
         console.log("[FILALAB] Dados da Unidade Carregados:", data.nome_loja);
         console.log("[FILALAB] Quantidade na Fila (Banco):", (data as any).entregas_na_fila);
         setEntregasNaFila((data as any).entregas_na_fila ?? 0);
+        
+        const pedidosBanco = (data as any).sisfood_pedidos_fila;
+        setPedidosFila(Array.isArray(pedidosBanco) ? pedidosBanco : []);
 
         const dbNomeLoja = data.nome_loja;
 
@@ -260,8 +264,13 @@ export default function Roteirista() {
               filter: `nome_loja=eq.${dbNomeLoja}`, 
             },
             (payload: any) => {
-              if (payload.new && payload.new.entregas_na_fila !== undefined) {
-                setEntregasNaFila(payload.new.entregas_na_fila);
+              if (payload.new) {
+                if (payload.new.entregas_na_fila !== undefined) {
+                   setEntregasNaFila(payload.new.entregas_na_fila);
+                }
+                if (payload.new.sisfood_pedidos_fila !== undefined) {
+                   setPedidosFila(Array.isArray(payload.new.sisfood_pedidos_fila) ? payload.new.sisfood_pedidos_fila : []);
+                }
               }
             }
           )
@@ -1176,6 +1185,9 @@ export default function Roteirista() {
         entregadores={entregadores}
         storeLat={(systemConfig as any)?.latitude ? parseFloat((systemConfig as any).latitude) : null}
         storeLng={(systemConfig as any)?.longitude ? parseFloat((systemConfig as any).longitude) : null}
+        storeCity={(systemConfig as any)?.cidade}
+        storeState={(systemConfig as any)?.estado}
+        pedidosFila={pedidosFila}
       />
     </Layout>
   );

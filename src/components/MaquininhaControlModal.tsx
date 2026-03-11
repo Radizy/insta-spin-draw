@@ -131,8 +131,8 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                         </div>
                         <div>
                             <DialogTitle className="text-xl font-bold tracking-tight">Controle de Maquininhas</DialogTitle>
-                            <DialogDescription className="text-sm font-medium text-primary/60 animate-pulse">
-                                STATUS: FASE BETA
+                            <DialogDescription className="text-sm font-medium text-primary/60">
+                                Gerencie a distribuição de equipamentos
                             </DialogDescription>
                         </div>
                     </div>
