@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Loader2, Store, MapPin } from 'lucide-react';
+import { FranquiaBagsSection } from './FranquiaBagsSection';
 
 export function DadosDaLoja() {
   const { selectedUnit } = useUnit();
@@ -304,6 +305,12 @@ export function DadosDaLoja() {
           </Button>
         </div>
       </div>
+
+      {user?.franquiaId && (
+        <div className="mt-8">
+          <FranquiaBagsSection franquiaId={user.franquiaId} />
+        </div>
+      )}
     </div>
   );
 }

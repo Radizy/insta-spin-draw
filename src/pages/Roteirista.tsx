@@ -77,7 +77,7 @@ export default function Roteirista() {
   const [mapModalOpen, setMapModalOpen] = useState(false);
 
   // Tipos de BAG configurados para a franquia da unidade atual
-  const { data: franquiaBagTipos = [], isLoading: isLoadingBags } = useQuery<{ id: string; nome: string; descricao: string | null; ativo: boolean; franquia_id: string }[]>({
+  const { data: franquiaBagTipos = [], isLoading: isLoadingBags } = useQuery<{ id: string; nome: string; descricao: string | null; ativo: boolean; franquia_id: string; icone_url: string | null; }[]>({
     queryKey: ['franquia-bag-tipos', user?.franquiaId],
     queryFn: async () => {
       if (!user?.franquiaId) {
@@ -85,7 +85,7 @@ export default function Roteirista() {
       }
       const { data, error } = await supabase
         .from('franquia_bag_tipos')
-        .select('id, nome, descricao, ativo, franquia_id')
+        .select('id, nome, descricao, ativo, franquia_id, icone_url')
         .eq('franquia_id', user.franquiaId)
         .eq('ativo', true)
         .order('created_at', { ascending: true });
@@ -96,10 +96,10 @@ export default function Roteirista() {
   });
 
   const bagOptions = franquiaBagTipos.length
-    ? franquiaBagTipos.map((b) => ({ id: b.id, label: b.nome, value: b.id }))
+    ? franquiaBagTipos.map((b) => ({ id: b.id, label: b.nome, value: b.id, icone_url: b.icone_url }))
     : [
-      { id: 'normal', label: 'BAG Normal', value: 'BAG Normal' },
-      { id: 'metro', label: 'BAG Metro', value: 'BAG Metro' },
+      { id: 'normal', label: 'BAG Normal', value: 'BAG Normal', icone_url: null },
+      { id: 'metro', label: 'BAG Metro', value: 'BAG Metro', icone_url: null },
     ];
 
   // Config da unidade para pegar as coordenadas da loja
@@ -1007,7 +1007,11 @@ export default function Roteirista() {
                           className="flex-1 cursor-pointer p-4 border-2 rounded-lg hover:border-primary transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/10"
                         >
                           <div className="text-center">
-                            <span className="text-2xl">🎒</span>
+                            {bag.icone_url ? (
+                               <img src={bag.icone_url} alt={bag.label} className="w-10 h-10 mx-auto object-cover rounded-md" />
+                            ) : (
+                               <span className="text-2xl">🎒</span>
+                            )}
                             <p className="font-semibold mt-1">{bag.label}</p>
                           </div>
                         </Label>

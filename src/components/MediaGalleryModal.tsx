@@ -14,6 +14,7 @@ import {
     Music,
     Upload,
     Trash2,
+    Pencil,
     Check,
     Loader2,
     FileAudio,
@@ -142,6 +143,23 @@ export function MediaGalleryModal({
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['franquia-media', user?.franquiaId] });
             toast.success("Arquivo removido da galeria");
+        }
+    });
+
+    const renameMutation = useMutation({
+        mutationFn: async ({ oldName, newName }: { oldName: string, newName: string }) => {
+            if (!user?.franquiaId) throw new Error("Sem acesso");
+            const { error } = await supabase.storage
+                .from('motoboy_voices')
+                .move(`${user.franquiaId}/${oldName}`, `${user.franquiaId}/${newName}`);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['franquia-media', user?.franquiaId] });
+            toast.success("Arquivo renomeado com sucesso!");
+        },
+        onError: (error) => {
+            toast.error("Erro ao renomear arquivo: " + error.message);
         }
     });
 
@@ -282,6 +300,24 @@ export function MediaGalleryModal({
                                                         <Check className="w-4 h-4" /> Selecionar
                                                     </Button>
                                                 )}
+                                                <Button
+                                                    size="icon"
+                                                    variant="secondary"
+                                                    className="h-9 w-9 bg-white/20 hover:bg-white/40 text-white"
+                                                    title="Renomear"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const baseName = item.name.split('.').slice(0, -1).join('.') || item.name;
+                                                        const ext = item.name.split('.').pop();
+                                                        const newName = window.prompt("A T E N Ç Ã O: Se este arquivo já estiver vinculado em algum lugar (ícone ou áudio), o vínculo será quebrado!\n\nNovo nome (sem extensão):", baseName);
+                                                        if (newName && newName.trim() !== "" && newName.trim() !== baseName) {
+                                                            const safeName = newName.trim().replace(/[^a-zA-Z0-9.-_ ]/g, '_');
+                                                            renameMutation.mutate({ oldName: item.name, newName: `${safeName}.${ext}` });
+                                                        }
+                                                    }}
+                                                >
+                                                    <Pencil className="w-4 h-4" />
+                                                </Button>
                                                 <Button
                                                     size="icon"
                                                     variant="destructive"

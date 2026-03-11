@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Trash2, Pencil, Mic, Loader2, X, UploadCloud, Link2 } from 'lucide-react';
+import { Trash2, Pencil, Mic, Loader2, X, UploadCloud, Link2, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { MediaGalleryModal } from './MediaGalleryModal';
 
@@ -21,6 +21,7 @@ interface FranquiaBagTipoRow {
   descricao: string | null;
   ativo: boolean;
   audio_url?: string | null;
+  icone_url?: string | null;
 }
 
 export const FranquiaBagsSection: React.FC<FranquiaBagsSectionProps> = ({ franquiaId }) => {
@@ -35,7 +36,7 @@ export const FranquiaBagsSection: React.FC<FranquiaBagsSectionProps> = ({ franqu
     queryFn: async () => {
       const { data, error } = await supabase
         .from('franquia_bag_tipos')
-        .select('id, franquia_id, nome, descricao, ativo, audio_url')
+        .select('id, franquia_id, nome, descricao, ativo, audio_url, icone_url')
         .eq('franquia_id', franquiaId)
       if (error) throw error;
       return data as any;
@@ -113,6 +114,20 @@ export const FranquiaBagsSection: React.FC<FranquiaBagsSectionProps> = ({ franqu
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['franquia-bag-tipos', franquiaId] });
       toast.success('Áudio da galeria vinculado à bolsa.');
+    }
+  });
+
+  const saveUrlIconeMutation = useMutation({
+    mutationFn: async ({ bagId, url }: { bagId: string, url: string | null }) => {
+      const { error } = await supabase
+        .from('franquia_bag_tipos')
+        .update({ icone_url: url })
+        .eq('id', bagId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['franquia-bag-tipos', franquiaId] });
+      toast.success('Ícone vinculado à bolsa com sucesso.');
     }
   });
 
@@ -275,9 +290,40 @@ export const FranquiaBagsSection: React.FC<FranquiaBagsSectionProps> = ({ franqu
                     key={bag.id}
                     className="flex flex-col sm:flex-row sm:items-center justify-between rounded-lg border border-border px-4 py-3 text-sm gap-4"
                   >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">{bag.nome}</p>
+                    <div className="flex items-center gap-3">
+                      {bag.icone_url ? (
+                        <div className="relative w-12 h-12 rounded-md overflow-hidden bg-muted border flex items-center justify-center shrink-0">
+                          <img src={bag.icone_url} alt={bag.nome} className="w-full h-full object-cover" />
+                          <button 
+                            type="button"
+                            onClick={() => saveUrlIconeMutation.mutate({ bagId: bag.id, url: null })}
+                            className="absolute -top-1 -right-1 bg-destructive/90 text-white rounded-full p-0.5 hover:bg-destructive shadow-sm"
+                            title="Remover Ícone"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <MediaGalleryModal
+                          acceptedTypes={['image']}
+                          title="Galeria de Ícones"
+                          onSelect={(url) => saveUrlIconeMutation.mutate({ bagId: bag.id, url })}
+                          triggerButton={
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="w-12 h-12 border-dashed bg-muted/20 text-muted-foreground hover:bg-muted/50 hover:text-foreground shrink-0"
+                              title="Adicionar Ícone"
+                            >
+                              <ImageIcon className="w-5 h-5 opacity-50" />
+                            </Button>
+                          }
+                        />
+                      )}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{bag.nome}</p>
                         {hasAudio && !bag.audio_url && (
                           <span className="inline-flex items-center gap-1 text-[10px] bg-green-500/10 text-green-500 px-2 py-0.5 rounded-full font-medium" title="Gravado no Microfone">
                             <Mic className="w-3 h-3" /> Áudio Gravado
@@ -294,8 +340,9 @@ export const FranquiaBagsSection: React.FC<FranquiaBagsSectionProps> = ({ franqu
                         <p className="text-xs text-muted-foreground">{bag.descricao}</p>
                       )}
                     </div>
+                  </div>
 
-                    <div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
+                  <div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
                       <span className="text-xs text-muted-foreground mr-1">
                         {bag.ativo ? 'Ativo' : 'Inativo'}
                       </span>

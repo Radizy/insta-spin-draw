@@ -32,6 +32,8 @@ Esses módulos podem ser geridos livremente pelo painel Super Admin na visualiza
     - Sistema de Check-in Diário (`checkin_diario`): Nova trigger `trg_log_checkin_diario` no Supabase garante a estabilidade de registro da entrada. É imutável, e o script noturno `/functions/reset-daily` cuida do expurgo.
     - Integração Sheets (`webhook_url`): Recebe pontualmente e com prioridade a data ancorada do primeiro log de entrada para facilitar fechamentos e DRE de Motoboy.
     - Refatoração do layout de controle de Maquininhas 100% responsivo ocupando altura de pop-ups com base no scroll independente.
+    - **UI Premium de Módulos & Auto-Ativação**: A aba de Configurações exibe as métricas de forma separada ("Módulos Contratados" e "Disponíveis"). Paralelamente, a Edge Function do Supabase foi aprimorada para, ao criar uma conta Trial, vincular o perfil imediatamente com privilégio de Admin Franquia e ativar incondicionalmente os módulos base do pacote comercial.
+    - **Gestão de Tipos de BAG e Ícones Visuais**: Transferência do painel CRUD de BAGs da aba do Sistema de Franquias (Painel Root) diretamente para "Dados da Loja", permitindo aos franqueados autonomia. Adicionamos sistema de suporte a uploade de Ícone por bolsa via Cloud Storage na Gallery, refletindo no painel Roteirização.
 
 ---
 
