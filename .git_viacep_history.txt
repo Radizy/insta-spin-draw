@@ -1,0 +1,4 @@
+﻿200e0c6 docs: update SISTEMA_COMPLETO_FILALAB.md with latest map and checkin features
+M	SISTEMA_COMPLETO_FILALAB.md
+ce2e18f feat: enforce GPS tracking on MeuLugar and add Map to Roteirista
+M	src/pages/MeuLugar.tsx

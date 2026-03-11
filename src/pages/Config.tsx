@@ -18,6 +18,7 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ModulosConfig } from '@/components/ModulosConfig';
+import { DadosDaLoja } from '@/components/DadosDaLoja';
 import { FranquiaPlanoManager } from '@/components/FranquiaPlanoManager';
 import { FranquiaFinanceiroPanel } from '@/components/FranquiaFinanceiroPanel';
 import { isModuloAtivo } from '@/lib/api';
@@ -56,7 +57,7 @@ import {
   DiasTrabalho,
   TURNO_PADRAO,
 } from '@/lib/api';
-import { Trash2, AlertCircle, Volume2, Plus, Clock, Save, Edit, RefreshCw, LogOut, Download, Mic, Upload, Users, Loader2, Filter, RotateCcw, Smartphone, Settings2, Globe, CreditCard } from 'lucide-react';
+import { Trash2, AlertCircle, Volume2, Plus, Clock, Save, Edit, RefreshCw, LogOut, Download, Mic, Upload, Users, Loader2, Filter, RotateCcw, Smartphone, Settings2, Globe, CreditCard, Store } from 'lucide-react';
 import { toast } from 'sonner';
 import { Navigate, useSearchParams, useNavigate } from 'react-router-dom';
 import { useTraining } from '@/contexts/TrainingContext';
@@ -814,6 +815,15 @@ export default function Config() {
               <span className="sm:hidden">Mods</span>
             </TabsTrigger>
 
+            <TabsTrigger
+              value="loja"
+              className="flex-1 sm:flex-none gap-2 px-4 py-2.5 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all duration-300"
+            >
+              <Store className="w-4 h-4" />
+              <span className="hidden sm:inline">Dados da Loja</span>
+              <span className="sm:hidden">Loja</span>
+            </TabsTrigger>
+
             {isModuloAtivoLocal('controle_maquininhas') && (
               <TabsTrigger
                 value="maquininhas"
@@ -1144,6 +1154,10 @@ export default function Config() {
 
         <TabsContent value="usuarios">
           <UsersManagement />
+        </TabsContent>
+
+        <TabsContent value="loja">
+          <DadosDaLoja />
         </TabsContent>
 
         <TabsContent value="modulos">

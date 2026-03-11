@@ -102,6 +102,22 @@ export default function Roteirista() {
       { id: 'metro', label: 'BAG Metro', value: 'BAG Metro' },
     ];
 
+  // Config da unidade para pegar as coordenadas da loja
+  const { data: systemConfig } = useQuery({
+    queryKey: ['system-config', selectedUnit],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('system_config')
+        .select('*')
+        .eq('unidade', selectedUnit)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    },
+    enabled: !!selectedUnit,
+  });
+
   // selectedUnit é usado apenas na renderização condicional mais abaixo para evitar erros de hooks
 
 
@@ -1158,6 +1174,8 @@ export default function Roteirista() {
         open={mapModalOpen}
         onOpenChange={setMapModalOpen}
         entregadores={entregadores}
+        storeLat={(systemConfig as any)?.latitude ? parseFloat((systemConfig as any).latitude) : null}
+        storeLng={(systemConfig as any)?.longitude ? parseFloat((systemConfig as any).longitude) : null}
       />
     </Layout>
   );

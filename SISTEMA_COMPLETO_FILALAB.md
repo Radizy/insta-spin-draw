@@ -25,8 +25,9 @@ Esses módulos podem ser geridos livremente pelo painel Super Admin na visualiza
 ### Versão do Sistema
 - **Versão Atual**: `2.5.0` (Março 2026)
 - **Últimas Implementações**:
-    - Mapa Dinâmico do Roteirista (`/mapa`): Permite busca nativa baseada na Google/OSM UI com PIN dinâmico que puxa da `unidades.endereco`.
-    - Controle de Endereço Inteligente (`/config`): Super Admins e Admins de Franquia agora cadastram o CEP/Endereço que abastecem `latitude` e `longitude` para centrar o mapa automaticamente.
+    - **Integração SISFOOD (Webhook Oculto)**: Scripts isolados Tampermonkey V7 por filial para contagem assíncrona da fila do Sisfood (interceptando solicitações `/listarJson`). Eles batem em uma *Edge Function* Supabase (`sisfood-webhook`) que atualiza `unidades.entregas_na_fila` e realimenta o Roteirista via *Supabase Realtime* sem delay.
+    - Mapa Dinâmico do Roteirista (`/mapa`): Permite busca nativa baseada na Google/OSM UI com PIN dinâmico que puxa da `system_config.endereco`. Resolve conflitos Vanilla Leaflet x React Context (bypassa `react-leaflet`). Agora exibe o PIN 🏠 da Loja (Base) via Auto-Geocode.
+    - Controle de Endereço Inteligente (`/config`): Super Admins e Admins de Franquia agora têm a aba **"Dados da Loja"** integrada ao ViaCEP e Nominatim API (OpenStreetMap) para busca de Latitude/Longitude com base no endereço e número, alimentando a centralização do Mapa do entregador de forma persistente.
     - Sistema de Check-in Diário (`checkin_diario`): Nova trigger `trg_log_checkin_diario` no Supabase garante a estabilidade de registro da entrada. É imutável, e o script noturno `/functions/reset-daily` cuida do expurgo.
     - Integração Sheets (`webhook_url`): Recebe pontualmente e com prioridade a data ancorada do primeiro log de entrada para facilitar fechamentos e DRE de Motoboy.
     - Refatoração do layout de controle de Maquininhas 100% responsivo ocupando altura de pop-ups com base no scroll independente.

@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Entregador } from '@/lib/api';
+import { Home } from 'lucide-react';
 
 // Ícone customizado baseado no status do motoboy
 const createCustomIcon = (status: string) => {
@@ -16,13 +17,25 @@ const createCustomIcon = (status: string) => {
     });
 };
 
+const createStoreIcon = () => {
+    return L.divIcon({
+        className: 'bg-transparent border-none',
+        html: `<div style="background-color: #ef4444; width: 32px; height: 32px; border-radius: 8px; border: 3px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white;">🏠</div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 32],
+        popupAnchor: [0, -32],
+    });
+};
+
 interface MotoboyMapModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     entregadores: Entregador[];
+    storeLat?: number | null;
+    storeLng?: number | null;
 }
 
-export function MotoboyMapModal({ open, onOpenChange, entregadores }: MotoboyMapModalProps) {
+export function MotoboyMapModal({ open, onOpenChange, entregadores, storeLat, storeLng }: MotoboyMapModalProps) {
     const [activeMotoboys, setActiveMotoboys] = useState<Entregador[]>([]);
     const [center, setCenter] = useState<[number, number]>([-23.55052, -46.633308]);
     const [renderMap, setRenderMap] = useState(false);
@@ -43,7 +56,10 @@ export function MotoboyMapModal({ open, onOpenChange, entregadores }: MotoboyMap
             });
             setActiveMotoboys(active);
 
-            if (active.length > 0) {
+            // Se tem a coordenada da loja, sempre centraliza nela
+            if (storeLat != null && storeLng != null && !isNaN(storeLat) && !isNaN(storeLng)) {
+                setCenter([storeLat, storeLng]);
+            } else if (active.length > 0) {
                 let validLats = 0;
                 let validLngs = 0;
                 let validCount = 0;
@@ -63,7 +79,7 @@ export function MotoboyMapModal({ open, onOpenChange, entregadores }: MotoboyMap
                 }
             }
         }
-    }, [open, entregadores]);
+    }, [open, entregadores, storeLat, storeLng]);
 
     // Delay de montagem para não brigar com animação do Radix Modal
     useEffect(() => {
@@ -96,6 +112,18 @@ export function MotoboyMapModal({ open, onOpenChange, entregadores }: MotoboyMap
             markersRef.current.forEach(marker => marker.remove());
             markersRef.current = [];
 
+            // Adiciona marcador da loja
+            if (storeLat != null && storeLng != null && !isNaN(storeLat) && !isNaN(storeLng)) {
+                const storeMarker = L.marker([storeLat, storeLng], {
+                    icon: createStoreIcon(),
+                    zIndexOffset: 1000 // A loja sempre fica por cima
+                })
+                .bindPopup('<div class="font-bold">Sua Loja</div>')
+                .addTo(mapInstance.current);
+                
+                markersRef.current.push(storeMarker);
+            }
+
             // Adiciona novos marcadores
             activeMotoboys.forEach(e => {
                 const latNum = parseFloat(String(e.lat).replace(',', '.'));
@@ -113,7 +141,7 @@ export function MotoboyMapModal({ open, onOpenChange, entregadores }: MotoboyMap
                 }
             });
         }
-    }, [renderMap, center, activeMotoboys]);
+    }, [renderMap, center, activeMotoboys, storeLat, storeLng]);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
