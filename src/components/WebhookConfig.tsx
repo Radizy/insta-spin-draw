@@ -12,8 +12,7 @@ export function WebhookConfig() {
   const { selectedUnit } = useUnit();
   const [copied, setCopied] = useState(false);
 
-  // Busca config da franquia
-  const { data: franquiaConfig, isLoading } = useQuery({
+  const { data: franquiaConfig } = useQuery({
     queryKey: ['franquia-config', user?.franquiaId],
     queryFn: async () => {
       if (!user?.franquiaId) return null;
@@ -26,9 +25,10 @@ export function WebhookConfig() {
       return data;
     },
     enabled: !!user?.franquiaId,
+    staleTime: 10 * 60 * 1000,
   });
 
-  if (!user || isLoading) {
+  if (!user) {
     return (
       <div className="flex items-center justify-center p-10">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
