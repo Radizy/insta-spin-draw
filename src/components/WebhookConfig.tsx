@@ -9,12 +9,31 @@ import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
+import { AlertTriangle, ListFilter, Search, Clock, User, Hash } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 
-export function WebhookConfig() {
+interface WebhookConfigProps {
+  overrideUnidadeId?: string;
+}
+
+export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
   const { user } = useAuth();
   const { selectedUnit } = useUnit();
   const [copied, setCopied] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isQueueModalOpen, setIsQueueModalOpen] = useState(false);
   const queryClient = useQueryClient();
+
+  const unidadeId = overrideUnidadeId || user?.unidadeId;
 
   const { data: franquiaConfig } = useQuery({
     queryKey: ['franquia-config', user?.franquiaId],
@@ -34,25 +53,43 @@ export function WebhookConfig() {
 
   // Query para verificar se o módulo está ativo para esta unidade específica
   const { data: unidadeModulo, isLoading: loadingUnidadeModulo } = useQuery({
-    queryKey: ['unidade-modulo-sisfood', user?.unidadeId],
+    queryKey: ['unidade-modulo-sisfood', unidadeId],
     queryFn: async () => {
-      if (!user?.unidadeId) return null;
+      if (!unidadeId) return null;
       const { data, error } = await supabase
         .from('unidade_modulos')
         .select('*')
-        .eq('unidade_id', user.unidadeId)
+        .eq('unidade_id', unidadeId)
         .eq('modulo_codigo', 'sisfood_integration')
         .maybeSingle();
       
       if (error) throw error;
       return data;
     },
-    enabled: !!user?.unidadeId,
+    enabled: !!unidadeId,
+  });
+
+  // Query para monitorar a fila em tempo real (para os alertas de atraso)
+  const { data: unitFullData } = useQuery({
+    queryKey: ['unidade-fila-sisfood', selectedUnit],
+    queryFn: async () => {
+      if (!selectedUnit) return null;
+      const { data, error } = await supabase
+        .from('unidades')
+        .select('sisfood_pedidos_fila')
+        .eq('nome_loja', selectedUnit)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedUnit,
+    refetchInterval: 30000, // Atualiza a cada 30 segundos
   });
 
   const toggleMutation = useMutation({
     mutationFn: async (ativo: boolean) => {
-      if (!user?.unidadeId) return;
+      if (!unidadeId) return;
 
       if (unidadeModulo) {
         const { error } = await supabase
@@ -64,7 +101,7 @@ export function WebhookConfig() {
         const { error } = await supabase
           .from('unidade_modulos')
           .insert({
-            unidade_id: user.unidadeId,
+            unidade_id: unidadeId,
             modulo_codigo: 'sisfood_integration',
             ativo,
           });
@@ -72,7 +109,7 @@ export function WebhookConfig() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['unidade-modulo-sisfood', user?.unidadeId] });
+      queryClient.invalidateQueries({ queryKey: ['unidade-modulo-sisfood', unidadeId] });
       toast.success('Configuração da unidade atualizada!');
     },
     onError: (error) => {
@@ -81,7 +118,7 @@ export function WebhookConfig() {
     }
   });
 
-  if (!user) {
+  if (!user || !unidadeId) {
     return (
       <div className="flex items-center justify-center p-10">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -92,6 +129,46 @@ export function WebhookConfig() {
   const modulosAtivos = franquiaConfig?.modulos_ativos || [];
   const isSisfoodGlobalAtivo = modulosAtivos.includes('sisfood_integration');
   const isSisfoodUnidadeAtivo = unidadeModulo?.ativo ?? false;
+
+  const pedidosFilaRaw = ((unitFullData as any)?.sisfood_pedidos_fila as any[]) || [];
+  
+  // Lógica de pedidos atrasados (20 min)
+  const hasDelayedOrders = pedidosFilaRaw.some((p: any) => {
+    // Tentamos pegar o timestamp do ID (formato: idinterno-timestamp) ou created_at
+    let timestamp = Date.now();
+    if (p.id && String(p.id).includes('-')) {
+        const parts = String(p.id).split('-');
+        const ts = parseInt(parts[parts.length - 1]);
+        if (!isNaN(ts)) timestamp = ts;
+    } else if (p.created_at) {
+        timestamp = new Date(p.created_at).getTime();
+    }
+    
+    const diffMin = (Date.now() - timestamp) / 60000;
+    return diffMin >= 20;
+  });
+
+  const filteredPedidos = pedidosFilaRaw
+    .filter((p: any) => {
+      const search = searchQuery.toLowerCase().trim();
+      if (!search) return true;
+      return (
+        String(p.comanda || '').toLowerCase().includes(search) ||
+        String(p.cliente || '').toLowerCase().includes(search) ||
+        String(p.id_interno || '').toLowerCase().includes(search)
+      );
+    })
+    .sort((a: any, b: any) => {
+      const getTime = (p: any) => {
+        if (p.id && String(p.id).includes('-')) {
+            const parts = String(p.id).split('-');
+            const ts = parseInt(parts[parts.length - 1]);
+            return isNaN(ts) ? 0 : ts;
+        }
+        return a.created_at ? new Date(a.created_at).getTime() : 0;
+      };
+      return getTime(a) - getTime(b);
+    });
 
   const copyScript = (codigo: string) => {
     navigator.clipboard.writeText(codigo);
@@ -340,18 +417,115 @@ export function WebhookConfig() {
 
       {isSisfoodGlobalAtivo && (
         <div className="bg-gradient-to-br from-card to-card/50 border border-primary/20 rounded-2xl p-6 md:p-8 space-y-6 shadow-xl shadow-primary/5">
-          <div className="flex items-center justify-between p-4 bg-primary/5 rounded-xl border border-primary/10 mb-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-primary/5 rounded-xl border border-primary/10 gap-4">
             <div className="space-y-0.5">
               <Label className="text-base font-bold">Uso por Unidade</Label>
               <p className="text-sm text-muted-foreground">
                 Habilite esta opção para permitir que a unidade "{selectedUnit}" utilize a integração.
               </p>
             </div>
-            <Switch
-              checked={isSisfoodUnidadeAtivo}
-              onCheckedChange={(checked) => toggleMutation.mutate(checked)}
-              disabled={toggleMutation.isPending}
-            />
+            
+            <div className="flex items-center gap-4">
+              {isSisfoodUnidadeAtivo && (
+                <div className="relative">
+                  <Dialog open={isQueueModalOpen} onOpenChange={setIsQueueModalOpen}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className={`gap-2 h-10 px-4 transition-all ${
+                          hasDelayedOrders ? 'border-destructive text-destructive hover:bg-destructive/10 bg-destructive/5' : 'border-primary/30'
+                        }`}
+                      >
+                        <ListFilter className="w-4 h-4" />
+                        Acompanhar Fila
+                        {hasDelayedOrders && (
+                          <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-destructive text-white text-[10px] font-bold rounded-full animate-bounce shadow-lg whitespace-nowrap">
+                            PEDIDOS ATRASADOS
+                          </div>
+                        )}
+                        {hasDelayedOrders && <AlertTriangle className="w-4 h-4 ml-1 animate-pulse" />}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden border-border/50 shadow-2xl">
+                      <DialogHeader className="p-6 pb-2 border-b border-border/10 bg-muted/20">
+                        <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+                          <ListFilter className="w-5 h-5 text-primary" />
+                          Fila Sisfood - {selectedUnit}
+                        </DialogTitle>
+                      </DialogHeader>
+                      
+                      <div className="p-6 pt-4 space-y-4 flex-1 flex flex-col min-h-0">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input 
+                            placeholder="Buscar por comanda ou cliente..." 
+                            className="pl-9 bg-muted/30 border-border/30"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                          />
+                        </div>
+
+                        <ScrollArea className="flex-1 -mx-2 px-2">
+                          <div className="space-y-3 pb-4">
+                            {filteredPedidos.length === 0 ? (
+                              <div className="text-center py-10 text-muted-foreground">
+                                <p>Nenhum pedido encontrado na fila.</p>
+                              </div>
+                            ) : (
+                              filteredPedidos.map((p: any, idx: number) => {
+                                const entries = p.id?.split('-') || [];
+                                const timestamp = entries.length > 1 ? parseInt(entries[1]) : Date.now();
+                                const diffMin = Math.floor((Date.now() - timestamp) / 60000);
+                                const isDelayed = diffMin >= 20;
+
+                                return (
+                                  <div key={idx} className={`p-4 rounded-xl border border-border/50 bg-card/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:border-primary/30 ${isDelayed ? 'border-destructive/30 bg-destructive/5' : ''}`}>
+                                    <div className="space-y-1">
+                                      <div className="flex items-center gap-2">
+                                        <Badge variant="outline" className="font-mono text-[10px] uppercase font-bold py-0 h-5">
+                                          #{p.comanda}
+                                        </Badge>
+                                        <h4 className="font-bold text-sm">{p.cliente}</h4>
+                                      </div>
+                                      <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                                        <span className="flex items-center gap-1">
+                                          <Clock className={`w-3 h-3 ${isDelayed ? 'text-destructive font-bold' : ''}`} />
+                                          {isDelayed ? (
+                                            <span className="text-destructive font-bold">Atrasado: {diffMin} min</span>
+                                          ) : (
+                                            <span>Há {diffMin} min</span>
+                                          )}
+                                        </span>
+                                        {p.telefone && (
+                                          <span className="flex items-center gap-1">
+                                            <User className="w-3 h-3" />
+                                            {p.telefone}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="text-[10px] font-mono p-2 bg-muted/50 rounded-lg max-w-[200px] truncate text-muted-foreground opacity-60">
+                                      ID: {p.id_interno}
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              )}
+              
+              <Switch
+                checked={isSisfoodUnidadeAtivo}
+                onCheckedChange={(checked) => toggleMutation.mutate(checked)}
+                disabled={toggleMutation.isPending}
+              />
+            </div>
           </div>
 
           {isSisfoodUnidadeAtivo && (

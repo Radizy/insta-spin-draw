@@ -32,12 +32,16 @@ interface UnidadeModuloRow {
   data_ativacao: string | null;
 }
 
-export function FranquiaPlanoManager() {
+interface FranquiaPlanoManagerProps {
+  overrideUnidadeId?: string;
+}
+
+export function FranquiaPlanoManager({ overrideUnidadeId }: FranquiaPlanoManagerProps) {
   const { user } = useAuth();
   const { selectedUnit } = useUnit();
   const queryClient = useQueryClient();
 
-  const unidadeId = user?.unidadeId;
+  const unidadeId = overrideUnidadeId || user?.unidadeId;
   const franquiaId = user?.franquiaId;
 
   // All available modules (active globally)

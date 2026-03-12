@@ -116,6 +116,25 @@ export default function Config() {
     turno_fim: TURNO_PADRAO.fim.slice(0, 5),
   });
 
+  // Query para resolver o ID da unidade a partir do nome selecionado (essencial para admin_franquia)
+  const { data: currentUnitData, isLoading: isLoadingUnitId } = useQuery({
+    queryKey: ['unidade-detalhes', selectedUnit],
+    queryFn: async () => {
+      if (!selectedUnit) return null;
+      const { data, error } = await supabase
+        .from('unidades')
+        .select('id, nome_loja')
+        .ilike('nome_loja', `%${selectedUnit}%`)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedUnit,
+  });
+
+  const resolvedUnidadeId = currentUnitData?.id;
+
   // Filtros
   const [filterStatus, setFilterStatus] = useState<'all' | 'ativo' | 'inativo'>('all');
   const [filterTurno, setFilterTurno] = useState<'all' | 'padrao' | 'custom'>('all');
@@ -150,9 +169,10 @@ export default function Config() {
 
   // Check if tv_avancada module is active
   useEffect(() => {
-    if (!user?.unidadeId) return;
-    isModuloAtivo(user.unidadeId, 'tv_avancada').then(setTvCallModuleActive);
-  }, [user?.unidadeId]);
+    const targetUnitId = resolvedUnidadeId || user?.unidadeId;
+    if (!targetUnitId) return;
+    isModuloAtivo(targetUnitId, 'tv_avancada').then(setTvCallModuleActive);
+  }, [resolvedUnidadeId, user?.unidadeId]);
 
   const isModuloAtivoLocal = (modulo: string) => {
     return (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes(modulo);
@@ -1163,7 +1183,11 @@ export default function Config() {
         <TabsContent value="modulos">
           <div className="space-y-6">
             {/* Gerenciador de Plano (admin_franquia) */}
-            {user?.role === 'admin_franquia' && <FranquiaPlanoManager />}
+            {user?.role === 'admin_franquia' && (
+              <FranquiaPlanoManager 
+                overrideUnidadeId={resolvedUnidadeId} 
+              />
+            )}
 
             {/* TV Config - gated behind configurar_chamadas_tv module */}
             {tvCallModuleActive && (
@@ -1195,7 +1219,7 @@ export default function Config() {
 
         <TabsContent value="webhook">
           <div className="space-y-6">
-            <WebhookConfig />
+            <WebhookConfig overrideUnidadeId={resolvedUnidadeId} />
             {isModuloAtivoLocal('whatsapp') && <WhatsAppTemplates />}
           </div>
         </TabsContent>
