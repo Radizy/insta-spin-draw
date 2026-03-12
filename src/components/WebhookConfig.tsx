@@ -50,8 +50,8 @@ export function WebhookConfig() {
     return `// ==UserScript==
 // @name         Integração SISFOOD x FilaLab (${selectedUnit || 'LOJA'})
 // @namespace    http://tampermonkey.net/
-// @version      8.0
-// @description  Lê a fila do Sisfood e DESPACHA via FilaLab
+// @version      9.0
+// @description  Lê a fila do Sisfood e DESPACHA via FilaLab usando Batch Route
 // @match        https://app.sisfood.com.br/*/pdv*
 // @match        https://app.sisfood.com.br/*/secretaria/atendimentos/tela*
 // @grant        none
@@ -195,13 +195,13 @@ export function WebhookConfig() {
              // ID do Entregador Encontrado ou Forçado fallback manual na config
              const idMotoboyFinal = idMotoboy || "40"; // "40" foi o ID base do Teste
 
-             // 2. Montar Req XHR identica ao que o site Sisfood faz (UrlBase + /motoboy)
-             const urlDespacho = window.location.pathname.replace('/tela', '') + "/motoboy";
+             // 2. Montar Req XHR no endpoint definitivo de Roteiro (Batch) Sisfood API
+             const urlDespacho = window.location.pathname.replace('/tela', '') + "/statusPedidosLote";
              
-             // 3. FormData (O Sisfood pede Payload Form Url Encoded)
-             const form = "cod_pedido="+encodeURIComponent(cmd.cod_pedido_interno)+
-                          "&cod_motoboy="+encodeURIComponent(idMotoboyFinal)+
-                          "&nome_motoboy="+encodeURIComponent(cmd.nome_motoboy);
+             // 3. FormData (O Sisfood pede Payload Form Url Encoded "pedidos=ID&status=entrega&cod_motoboy=ID")
+             const form = "pedidos="+encodeURIComponent(cmd.cod_pedido_interno)+
+                          "&status=entrega"+
+                          "&cod_motoboy="+encodeURIComponent(idMotoboyFinal);
                           
 
              console.log("🚀 [FILALAB] Despachando na Raça Sisfood: Pedido " + cmd.cod_pedido_interno + " para motoboy " + cmd.nome_motoboy + " (ID " + idMotoboyFinal + ")");
