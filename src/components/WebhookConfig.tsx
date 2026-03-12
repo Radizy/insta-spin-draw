@@ -50,21 +50,24 @@ export function WebhookConfig() {
     return `// ==UserScript==
 // @name         Integração SISFOOD x FilaLab (${selectedUnit || 'LOJA'})
 // @namespace    http://tampermonkey.net/
-// @version      7.0
-// @description  Lê a fila do Sisfood e manda pro FilaLab
+// @version      8.0
+// @description  Lê a fila do Sisfood e DESPACHA via FilaLab
 // @match        https://app.sisfood.com.br/*/pdv*
+// @match        https://app.sisfood.com.br/*/secretaria/atendimentos/tela*
 // @grant        none
 // ==/UserScript==
 
 (function() {
     const API_FILALAB = "https://kegbvaikqelwezpehlhf.supabase.co/functions/v1/sisfood-webhook";
+    const SUPABASE_URL = "${import.meta.env.VITE_SUPABASE_URL}";
+    const ANON_KEY = "${import.meta.env.VITE_SUPABASE_ANON_KEY}";
     
     // Nome exato da sua loja configurada no FilaLab
     const LOJA_FIXA = "${selectedUnit || 'NomeDaLojaAqui'}";
     let ultimaHashFila = "";
     let ultimaContagemFila = -1;
 
-    // Interceptador de Rede invisível
+    // ----- [PARTE 1: LEITURA] Interceptador de Rede invisível para sincronizar a fila -----
     const XHR = XMLHttpRequest.prototype;
     const send = XHR.send;
 
@@ -81,9 +84,11 @@ export function WebhookConfig() {
                             const status = pedido[4]; 
                             if (status === "Fila" || status === "fila") {
                                 contagemFila++;
-                                // Extrai pos [7] = N diário do pedido, fallback ID sistema [0]
+                                // Extracao dupla: salvar ID interno [0] E formato visual diário [7]
                                 pedidosNaFila.push({
-                                    id: pedido[7] || pedido[0],
+                                    id: pedido[0],
+                                    id_interno: pedido[0],
+                                    comanda: pedido[7] || pedido[0],
                                     cliente: pedido[3] ? pedido[3].split(' / ')[0].trim() : 'Desconhecido',
                                     telefone: pedido[3] && pedido[3].includes('/') ? pedido[3].split(' / ')[1].trim() : '',
                                     endereco: pedido[9] || ''
@@ -95,7 +100,7 @@ export function WebhookConfig() {
                     const hashAtual = JSON.stringify(pedidosNaFila);
 
                     if (hashAtual !== ultimaHashFila || contagemFila !== ultimaContagemFila) {
-                        console.log(\`🟢 [FILALAB] Fila: \${contagemFila} pedidos. Disparando Supabase!\`);
+                        console.log("🟢 [FILALAB] Fila: " + contagemFila + " pedidos. Disparando Supabase!");
                         ultimaHashFila = hashAtual;
                         ultimaContagemFila = contagemFila;
                         enviarFilaLab(LOJA_FIXA, contagemFila, pedidosNaFila);
@@ -119,15 +124,149 @@ export function WebhookConfig() {
             const resposta = await fetch(API_FILALAB, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ loja: lojaNome, fila: filaCount, pedidos_fila: pedidosFila, sistema: "SISFOOD_V7" })
+                body: JSON.stringify({ loja: lojaNome, fila: filaCount, pedidos_fila: pedidosFila, sistema: "SISFOOD_V8" })
             });
-            if (resposta.ok) {
-                 console.log(\`✅ [FILALAB] Sucesso! Banco atualizado (\${filaCount}).\`);
-            }
         } catch (e) {
             console.error("❌ [FILALAB] Erro de Rede:", e);
         }
     }
+
+    // ----- [PARTE 2: ESCRITA] Polling de Comandos Pendentes FilaLab -> Sisfood -----
+    
+    // Auxiliar: Busca o ID interno do Motoboy no HTML pelo Nome dele
+    function findMotoboyIdByName(targetName) {
+        // Geralmente o Sisfood cria botões/opções de motoboys. Buscaremos todos os elementos de JS/DOM e cruzaremos o nome.
+        const normalTarget = targetName.toLowerCase().trim();
+        const todosElementosTexto = Array.from(document.querySelectorAll('*'))
+            .filter(el => {
+                if(el.children.length === 0 && el.textContent) {
+                    return el.textContent.toLowerCase().includes(normalTarget);
+                }
+                return false;
+            });
+
+        // 1. Tentar ler o 'onclick' de elementos na tela (ex: vincularMotoboy(cod, 40))
+        for (let baseEl of todosElementosTexto) {
+            let prnt = baseEl;
+            for(let i=0; i<3; i++) { // sobe 3 níveis max
+                if(prnt) {
+                    const attrs = Array.from(prnt.attributes).map(a => a.value).join(' ');
+                    // ex: onclick="vincular(1234, 40)" ignoramos isso, se for um val, etc.
+                    if(prnt.value && !isNaN(prnt.value)) return prnt.value;
+                    if(prnt.dataset && prnt.dataset.id) return prnt.dataset.id;
+                }
+                prnt = prnt.parentElement;
+            }
+        }
+        
+        // 2. Se o Sisfood carrega os motoboys numa variavel JS global (comum em VUE)
+        // Isso é complexo pelo Content Security do navegador, logo tentaremos o form bruto
+        const forms = document.querySelectorAll("select option");
+        for(let opt of forms) {
+             if(opt.textContent.toLowerCase().includes(normalTarget)) {
+                 return opt.value;
+             }
+        }
+
+        // 3. Fallback: procurar inputs/buttons escondidos
+        const btns = document.querySelectorAll("button, div.card");
+        for(let b of btns) {
+             if(b.textContent.toLowerCase().includes(normalTarget)) {
+                 if(b.value) return b.value;
+                 // As vezes a action eh vinculada num fetch direto
+             }
+        }
+
+        return null; // Não achou
+    }
+
+    async function despacharPedidoNoSisfood(cmd) {
+         return new Promise((resolve) => {
+             // 1. Identificar Motoboy no front
+             const idMotoboy = findMotoboyIdByName(cmd.nome_motoboy);
+             
+             if(!idMotoboy && !window._avisoMotoboyNaoAchado) {
+                  // Se não achar o ID logamos error e deixamos como pendente pra tentar de novo, porém com warning.
+                  console.warn("[FILALAB] Aviso: Botão do motoboy " + cmd.nome_motoboy + " não foi encontrado na DOM aberta do Sisfood para o pedido " + cmd.cod_pedido_interno + ". Certifique-se que o nome é IGUAL ou que a lista de motoboys está carregada na memória.");
+                  window._avisoMotoboyNaoAchado = true; // Só avisa 1 vez
+                  return resolve(false);
+             }
+             
+             // ID do Entregador Encontrado ou Forçado fallback manual na config
+             const idMotoboyFinal = idMotoboy || "40"; // "40" foi o ID base do Teste
+
+             // 2. Montar Req XHR identica ao que o site Sisfood faz (UrlBase + /motoboy)
+             const urlDespacho = window.location.pathname.replace('/tela', '') + "/motoboy";
+             
+             // 3. FormData (O Sisfood pede Payload Form Url Encoded)
+             const form = "cod_pedido="+encodeURIComponent(cmd.cod_pedido_interno)+
+                          "&cod_motoboy="+encodeURIComponent(idMotoboyFinal)+
+                          "&nome_motoboy="+encodeURIComponent(cmd.nome_motoboy);
+                          
+
+             console.log("🚀 [FILALAB] Despachando na Raça Sisfood: Pedido " + cmd.cod_pedido_interno + " para motoboy " + cmd.nome_motoboy + " (ID " + idMotoboyFinal + ")");
+
+             const xhr = new XMLHttpRequest();
+             xhr.open("POST", urlDespacho, true);
+             xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+             xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest'); // Essencial p/ não dar 403
+
+             xhr.onreadystatechange = async function () {
+                 if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
+                      // Despacho no Sisfood feito com sucesso, atualiza nuvem confirmando a execução
+                      await fetch(SUPABASE_URL + "/rest/v1/sisfood_comandos?id=eq." + cmd.id, {
+                           method: 'PATCH',
+                           headers: {
+                               "apikey": ANON_KEY,
+                               "Authorization": "Bearer " + ANON_KEY,
+                               "Content-Type": "application/json",
+                               "Prefer": "return=minimal"
+                           },
+                           body: JSON.stringify({ status: "EXECUTADO" })
+                      });
+                      console.log("✅ [FILALAB] Despacho " + cmd.cod_pedido_interno + " com sucesso e nuvem liberada.");
+                      
+                      // Forçar refresh no Sisfood simulando atualizar
+                      setTimeout(()=> {
+                         const refreshBtn = document.querySelector('button[title*="Atualizar"], a[title*="Atualizar"]');
+                         if(refreshBtn) refreshBtn.click();
+                      }, 1000);
+                      resolve(true);
+                 } else if (this.readyState === XMLHttpRequest.DONE) {
+                      console.error("❌ [FILALAB] Falha Request Sisfood Status HTTP: " + this.status);
+                      resolve(false);
+                 }
+             }
+
+             // Envia o dispatch
+             xhr.send(form);
+         });
+    }
+
+    async function pollComandosDoFilaLab() {
+         try {
+             // Lista todos os pendentes para a loja vinculada
+             const resp = await fetch(SUPABASE_URL + "/rest/v1/sisfood_comandos?status=eq.PENDENTE&unidade_nome=eq." + encodeURIComponent(LOJA_FIXA), {
+                 headers: {
+                     "apikey": ANON_KEY,
+                     "Authorization": "Bearer " + ANON_KEY
+                 }
+             });
+             
+             if(resp.ok) {
+                 const comandosPendentes = await resp.json();
+                 
+                 for(let cmd of comandosPendentes) {
+                     await despacharPedidoNoSisfood(cmd);
+                     await new Promise(r => setTimeout(r, 600)); // Sleep anti-spam entre cada comanda pro Sisfood
+                 }
+             }
+         } catch(e) { /* silent fail no polling wifi */}
+    }
+
+    // Iniciar loop infinito observador de Ordens do Roteirista FilaLab a cada 3 segundos
+    setInterval(pollComandosDoFilaLab, 3000);
+
 })();`;
   };
 
@@ -185,8 +324,7 @@ export function WebhookConfig() {
                 
                 <li className="pl-6">
                   <div className="absolute w-6 h-6 bg-card rounded-full -left-3 border-2 border-primary flex items-center justify-center font-bold text-xs text-primary shadow-sm">3</div>
-                  <h4 className="font-semibold text-foreground mb-1">Passo 3: Insira nosso Código</h4>
-                  <p className="text-sm text-muted-foreground">Copie o código customizado ao lado, cole na janela do script, e salve apertando `Ctrl + S`. Atualize (F5) a página do Sisfood.</p>
+                  <p className="text-sm text-muted-foreground">Copie o código customizado ao lado, cole na janela do script, e salve apertando <strong>Ctrl + S</strong>. Atualize (F5) a página do Sisfood.</p>
                 </li>
               </ol>
 

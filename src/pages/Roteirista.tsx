@@ -65,6 +65,7 @@ export default function Roteirista() {
   const [calledEntregador, setCalledEntregador] = useState<Entregador | null>(null);
   const [selectedEntregador, setSelectedEntregador] = useState<Entregador | null>(null);
   const [deliveryCount, setDeliveryCount] = useState(1);
+  const [sisfoodComandas, setSisfoodComandas] = useState('');
   const [tipoBag, setTipoBag] = useState<TipoBag>('normal');
   const [hasBebida, setHasBebida] = useState(false);
   const [skipReason, setSkipReason] = useState('');
@@ -305,6 +306,7 @@ export default function Roteirista() {
   });
 
   const isWhatsappAtivo = (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes('whatsapp');
+  const isSisfoodAtivo = (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes('sisfood_integration');
 
   // Próximo da fila
   const nextInQueue = availableQueue[0] || null;
@@ -321,6 +323,7 @@ export default function Roteirista() {
     const defaultBag = bagOptions[0]?.value || 'BAG Normal';
     setTipoBag(defaultBag as TipoBag);
     setHasBebida(false);
+    setSisfoodComandas('');
     setCallDialogOpen(true);
   };
 
@@ -370,6 +373,34 @@ export default function Roteirista() {
           tipo_bag: bagName,
         },
       });
+
+      // Se SISFOOD ativo e o usuário digitou comandas para despachar: salvar na nuvem
+      if (isSisfoodAtivo && sisfoodComandas.trim() !== '') {
+        const comandaStrArray = sisfoodComandas.split(',').map(s => s.trim()).filter(Boolean);
+        if (comandaStrArray.length > 0) {
+          const sisfoodPayloadPromises = comandaStrArray.map(async (comandaDigitada) => {
+             // Achar o array real da fila que pareia com essa comanda
+             // (Para suportar quando 'comanda' e 'id_interno' chegam separados se ajustarmos no Tampermonkey)
+             let codPedidoFake = comandaDigitada;
+             
+             // Busca em pedidosFila aquele pedido que tem o campo comanda se não achar usar propria string
+             const pedEncontrado = pedidosFila.find((p: any) => String(p.comanda) === String(comandaDigitada) || String(p.id) === String(comandaDigitada));
+             if (pedEncontrado) {
+                 codPedidoFake = pedEncontrado.id_interno || pedEncontrado.id || comandaDigitada;
+             }
+
+             return supabase.from('sisfood_comandos' as any).insert({
+                 unidade_nome: selectedUnit,
+                 cod_pedido_interno: String(codPedidoFake),
+                 nome_motoboy: selectedEntregador.nome, // FilaLab nome, script vai cruzar
+                 status: 'PENDENTE'
+             });
+          });
+          
+          await Promise.all(sisfoodPayloadPromises);
+        }
+      }
+
       // Cria a Saída no ato da chamada para aparecer na TV imediatamente
       if (!isTrainingMode) {
         await createHistoricoEntrega({
@@ -974,19 +1005,35 @@ export default function Roteirista() {
 
               <div className="space-y-2">
                 <Label className="text-lg">Quantas entregas?</Label>
-                <div className="grid grid-cols-5 gap-2">
-                  {[1, 2, 3, 4, 5].map((num) => (
-                    <Button
-                      key={num}
-                      type="button"
-                      variant={deliveryCount === num ? 'default' : 'outline'}
-                      className="h-16 text-2xl font-mono"
-                      onClick={() => setDeliveryCount(num)}
-                    >
-                      {num}
-                    </Button>
-                  ))}
-                </div>
+                {isSisfoodAtivo ? (
+                  <div className="space-y-2">
+                    <Textarea 
+                       placeholder="Insira as comandas diárias parciais (ex: 54, 55, 56)"
+                       className="text-lg font-mono p-4"
+                       value={sisfoodComandas}
+                       onChange={(e) => {
+                         setSisfoodComandas(e.target.value);
+                         const qs = e.target.value.split(',').filter(x => x.trim().length > 0).length;
+                         if (qs > 0) setDeliveryCount(qs);
+                       }}
+                    />
+                    <p className="text-sm text-muted-foreground">A quantidade se ajustará sozinha: {deliveryCount} entrega{deliveryCount !== 1 ? 's' : ''}</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-5 gap-2">
+                    {[1, 2, 3, 4, 5].map((num) => (
+                      <Button
+                        key={num}
+                        type="button"
+                        variant={deliveryCount === num ? 'default' : 'outline'}
+                        className="h-16 text-2xl font-mono"
+                        onClick={() => setDeliveryCount(num)}
+                      >
+                        {num}
+                      </Button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3">
