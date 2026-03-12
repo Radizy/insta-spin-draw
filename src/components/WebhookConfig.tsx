@@ -20,9 +20,9 @@ export function WebhookConfig() {
         .from('franquias')
         .select('config_pagamento')
         .eq('id', user.franquiaId)
-        .single();
+        .maybeSingle();
       if (error) throw error;
-      return data;
+      return (data?.config_pagamento as any) || {};
     },
     enabled: !!user?.franquiaId,
     staleTime: 10 * 60 * 1000,
@@ -36,7 +36,7 @@ export function WebhookConfig() {
     );
   }
 
-  const modulosAtivos = (franquiaConfig?.config_pagamento as any)?.modulos_ativos || [];
+  const modulosAtivos = franquiaConfig?.modulos_ativos || [];
   const isSisfoodAtivo = modulosAtivos.includes('sisfood_integration');
 
   const copyScript = (codigo: string) => {
