@@ -50,8 +50,8 @@ export function WebhookConfig() {
     return `// ==UserScript==
 // @name         Integração SISFOOD x FilaLab (${selectedUnit || 'LOJA'})
 // @namespace    http://tampermonkey.net/
-// @version      9.0
-// @description  Lê a fila do Sisfood e DESPACHA via FilaLab usando Batch Route
+// @version      9.5
+// @description  Lê a fila do Sisfood e DESPACHA via FilaLab usando Batch Route Array
 // @match        https://app.sisfood.com.br/*/pdv*
 // @match        https://app.sisfood.com.br/*/secretaria/atendimentos/tela*
 // @grant        none
@@ -198,13 +198,18 @@ export function WebhookConfig() {
              // 2. Montar Req XHR no endpoint definitivo de Roteiro (Batch) Sisfood API
              const urlDespacho = window.location.pathname.replace('/tela', '') + "/statusPedidosLote";
              
-             // 3. FormData (O Sisfood pede Payload Form Url Encoded "pedidos=ID&status=entrega&cod_motoboy=ID")
-             const form = "pedidos="+encodeURIComponent(cmd.cod_pedido_interno)+
+             // Preparação do ID (Lote/Vírgula): O Sisfood aceita "71908,71910" transformado em %2C no Payload
+             // Se houver espacos no array recuperado, trocamos por vazio e garantimos URLEncode da vírgula.
+             const codigosLimpos = cmd.cod_pedido_interno.replace(/\\s+/g, '');
+             const arrayPedidosFormatado = encodeURIComponent(codigosLimpos);
+
+             // 3. FormData (O Sisfood pede Payload Form Url Encoded "pedidos=ID%2CID&status=entrega&cod_motoboy=ID")
+             const form = "pedidos="+arrayPedidosFormatado+
                           "&status=entrega"+
                           "&cod_motoboy="+encodeURIComponent(idMotoboyFinal);
                           
 
-             console.log("🚀 [FILALAB] Despachando na Raça Sisfood: Pedido " + cmd.cod_pedido_interno + " para motoboy " + cmd.nome_motoboy + " (ID " + idMotoboyFinal + ")");
+             console.log("🚀 [FILALAB] Despachando na Raça Sisfood: Pedido(s) LOTE [" + codigosLimpos + "] para motoboy " + cmd.nome_motoboy + " (ID " + idMotoboyFinal + ")");
 
              const xhr = new XMLHttpRequest();
              xhr.open("POST", urlDespacho, true);

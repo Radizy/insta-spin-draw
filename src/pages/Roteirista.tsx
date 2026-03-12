@@ -376,7 +376,8 @@ export default function Roteirista() {
 
       // Se SISFOOD ativo e o usuário digitou comandas para despachar: salvar na nuvem
       if (isSisfoodAtivo && sisfoodComandas.trim() !== '') {
-        const comandaStrArray = sisfoodComandas.split(',').map(s => s.trim()).filter(Boolean);
+        // Aceita vírgula, espaço ou quebra de linha como separador
+        const comandaStrArray = sisfoodComandas.split(/[, \n]+/).map(s => s.trim()).filter(Boolean);
         if (comandaStrArray.length > 0) {
           const sisfoodPayloadPromises = comandaStrArray.map(async (comandaDigitada) => {
              // Achar o array real da fila que pareia com essa comanda
@@ -1008,12 +1009,12 @@ export default function Roteirista() {
                 {isSisfoodAtivo ? (
                   <div className="space-y-2">
                     <Textarea 
-                       placeholder="Insira as comandas diárias parciais (ex: 54, 55, 56)"
+                       placeholder="Ex: 54, 55 ou&#10;54&#10;55"
                        className="text-lg font-mono p-4"
                        value={sisfoodComandas}
                        onChange={(e) => {
                          setSisfoodComandas(e.target.value);
-                         const qs = e.target.value.split(',').filter(x => x.trim().length > 0).length;
+                         const qs = e.target.value.split(/[, \n]+/).filter(x => x.trim().length > 0).length;
                          if (qs > 0) setDeliveryCount(qs);
                        }}
                     />
