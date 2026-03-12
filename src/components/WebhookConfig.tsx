@@ -60,7 +60,7 @@ export function WebhookConfig() {
 (function() {
     const API_FILALAB = "https://kegbvaikqelwezpehlhf.supabase.co/functions/v1/sisfood-webhook";
     const SUPABASE_URL = "${import.meta.env.VITE_SUPABASE_URL}";
-    const ANON_KEY = "${import.meta.env.VITE_SUPABASE_ANON_KEY}";
+    const ANON_KEY = "${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}";
     
     // Nome exato da sua loja configurada no FilaLab
     const LOJA_FIXA = "${selectedUnit || 'NomeDaLojaAqui'}";
