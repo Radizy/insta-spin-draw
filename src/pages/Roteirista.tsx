@@ -306,7 +306,26 @@ export default function Roteirista() {
   });
 
   const isWhatsappAtivo = (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes('whatsapp');
-  const isSisfoodAtivo = (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes('sisfood_integration');
+  
+  // Query para verificar se o módulo Sisfood está ativo para esta unidade específica
+  const { data: unidadeModuloSisfood } = useQuery({
+    queryKey: ['unidade-modulo-sisfood', user?.unidadeId],
+    queryFn: async () => {
+      if (!user?.unidadeId) return null;
+      const { data, error } = await supabase
+        .from('unidade_modulos')
+        .select('ativo')
+        .eq('unidade_id', user.unidadeId)
+        .eq('modulo_codigo', 'sisfood_integration')
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.unidadeId,
+  });
+
+  const isSisfoodAtivo = (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes('sisfood_integration') && (unidadeModuloSisfood?.ativo ?? false);
 
   // Próximo da fila
   const nextInQueue = availableQueue[0] || null;

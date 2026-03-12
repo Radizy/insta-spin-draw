@@ -6,11 +6,15 @@ import { Loader2, Link as LinkIcon, Download, Code2, Copy, CheckCircle2 } from '
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 
 export function WebhookConfig() {
   const { user } = useAuth();
   const { selectedUnit } = useUnit();
   const [copied, setCopied] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: franquiaConfig } = useQuery({
     queryKey: ['franquia-config', user?.franquiaId],
@@ -28,6 +32,55 @@ export function WebhookConfig() {
     staleTime: 10 * 60 * 1000,
   });
 
+  // Query para verificar se o módulo está ativo para esta unidade específica
+  const { data: unidadeModulo, isLoading: loadingUnidadeModulo } = useQuery({
+    queryKey: ['unidade-modulo-sisfood', user?.unidadeId],
+    queryFn: async () => {
+      if (!user?.unidadeId) return null;
+      const { data, error } = await supabase
+        .from('unidade_modulos')
+        .select('*')
+        .eq('unidade_id', user.unidadeId)
+        .eq('modulo_codigo', 'sisfood_integration')
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.unidadeId,
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: async (ativo: boolean) => {
+      if (!user?.unidadeId) return;
+
+      if (unidadeModulo) {
+        const { error } = await supabase
+          .from('unidade_modulos')
+          .update({ ativo })
+          .eq('id', unidadeModulo.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('unidade_modulos')
+          .insert({
+            unidade_id: user.unidadeId,
+            modulo_codigo: 'sisfood_integration',
+            ativo,
+          });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['unidade-modulo-sisfood', user?.unidadeId] });
+      toast.success('Configuração da unidade atualizada!');
+    },
+    onError: (error) => {
+      console.error('Erro ao atualizar módulo da unidade:', error);
+      toast.error('Erro ao salvar configuração.');
+    }
+  });
+
   if (!user) {
     return (
       <div className="flex items-center justify-center p-10">
@@ -37,7 +90,8 @@ export function WebhookConfig() {
   }
 
   const modulosAtivos = franquiaConfig?.modulos_ativos || [];
-  const isSisfoodAtivo = modulosAtivos.includes('sisfood_integration');
+  const isSisfoodGlobalAtivo = modulosAtivos.includes('sisfood_integration');
+  const isSisfoodUnidadeAtivo = unidadeModulo?.ativo ?? false;
 
   const copyScript = (codigo: string) => {
     navigator.clipboard.writeText(codigo);
@@ -284,8 +338,24 @@ export function WebhookConfig() {
         </p>
       </div>
 
-      {isSisfoodAtivo && (
+      {isSisfoodGlobalAtivo && (
         <div className="bg-gradient-to-br from-card to-card/50 border border-primary/20 rounded-2xl p-6 md:p-8 space-y-6 shadow-xl shadow-primary/5">
+          <div className="flex items-center justify-between p-4 bg-primary/5 rounded-xl border border-primary/10 mb-2">
+            <div className="space-y-0.5">
+              <Label className="text-base font-bold">Uso por Unidade</Label>
+              <p className="text-sm text-muted-foreground">
+                Habilite esta opção para permitir que a unidade "{selectedUnit}" utilize a integração.
+              </p>
+            </div>
+            <Switch
+              checked={isSisfoodUnidadeAtivo}
+              onCheckedChange={(checked) => toggleMutation.mutate(checked)}
+              disabled={toggleMutation.isPending}
+            />
+          </div>
+
+          {isSisfoodUnidadeAtivo && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
           <div className="flex items-start justify-between">
             <div className="space-y-1">
               <div className="flex items-center gap-3">
@@ -365,6 +435,8 @@ export function WebhookConfig() {
               </div>
             </div>
           </div>
+            </div>
+          )}
         </div>
       )}
     </div>
