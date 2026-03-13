@@ -24,16 +24,16 @@ Os 5 módulos principais são:
 Esses módulos podem ser geridos livremente pelo painel Super Admin na visualização e edição de uma franquia.
 
 ### Versão do Sistema
-- **Versão Atual**: `2.5.0` (Março 2026)
+- **Versão Atual**: `2.6.0` (Março 2026)
 - **Últimas Implementações**:
-    - **Integração SISFOOD (Webhook Oculto)**: Scripts isolados Tampermonkey V7 por filial para contagem assíncrona da fila do Sisfood (interceptando solicitações `/listarJson`). Eles batem em uma *Edge Function* Supabase (`sisfood-webhook`) que atualiza `unidades.entregas_na_fila` e realimenta o Roteirista via *Supabase Realtime* sem delay.
-    - Mapa Dinâmico do Roteirista (`/mapa`): Permite busca nativa baseada na Google/OSM UI com PIN dinâmico que puxa da `system_config.endereco`. Resolve conflitos Vanilla Leaflet x React Context (bypassa `react-leaflet`). Agora exibe o PIN 🏠 da Loja (Base) via Auto-Geocode.
-    - Controle de Endereço Inteligente (`/config`): Super Admins e Admins de Franquia agora têm a aba **"Dados da Loja"** integrada ao ViaCEP e Nominatim API (OpenStreetMap) para busca de Latitude/Longitude com base no endereço e número, alimentando a centralização do Mapa do entregador de forma persistente.
-    - Sistema de Check-in Diário (`checkin_diario`): Nova trigger `trg_log_checkin_diario` no Supabase garante a estabilidade de registro da entrada. É imutável, e o script noturno `/functions/reset-daily` cuida do expurgo.
-    - Integração Sheets (`webhook_url`): Recebe pontualmente e com prioridade a data ancorada do primeiro log de entrada para facilitar fechamentos e DRE de Motoboy.
-    - Refatoração do layout de controle de Maquininhas 100% responsivo ocupando altura de pop-ups com base no scroll independente.
-    - **UI Premium de Módulos & Auto-Ativação**: A aba de Configurações exibe as métricas de forma separada ("Módulos Contratados" e "Disponíveis"). Paralelamente, a Edge Function do Supabase foi aprimorada para, ao criar uma conta Trial, vincular o perfil imediatamente com privilégio de Admin Franquia e ativar incondicionalmente os módulos base do pacote comercial.
-    - **Gestão de Tipos de BAG e Ícones Visuais**: Transferência do painel CRUD de BAGs da aba do Sistema de Franquias (Painel Root) diretamente para "Dados da Loja", permitindo aos franqueados autonomia. Adicionamos sistema de suporte a uploade de Ícone por bolsa via Cloud Storage na Gallery, refletindo no painel Roteirização.
+    - **Kanban Board para Atualizações**: O painel Super Admin agora conta com um layout Kanban (Drag & Drop) para gerir atualizações do sistema, dividido em: "Lançados", "Em desenvolvimento" e "Ideias enviadas".
+    - **Termos de Uso e Política de Privacidade**: Implementação de modais dedicados no rodapé da Landing Page para conformidade legal e transparência com o usuário.
+    - **Integração SISFOOD v10.3 (Unificada)**: Script Tampermonkey refatorado com inteligência para detectar botões dinâmicos de Motoboys por Nome-HTML. Integra "Duplo Request nativo" (Status e Motoboy) suportando as lojas de Poá, Suzano e Itaquá com a mesma base. Adicionado Garbage Collector (`window.gc()`) e *Polling* reduzido (10s) para economia extrema de CPU.
+    - **Otimização de Bateria Front-End (App Empregado)**: Refatoração térmica no módulo `MeuLugar.tsx`. O rastreio GPS em *background* abandonou a agressiva `enableHighAccuracy` e teve o *heartbeat* alterado drasticamente de "10 segundos" para "5 minutos", poupando plano de dados e CPU dos smartphones durante o expediente.
+    - **Preservação de Histórico no Reset**: O reset de expediente agora preserva os registros de `historico_entregas` para fins de Analytics, limpando apenas o status operacional diário.
+    - **Mapa Dinâmico do Roteirista (`/mapa`)**: Permite busca nativa baseada na Google/OSM UI com PIN dinâmico que puxa da `system_config.endereco`. Resolve conflitos Vanilla Leaflet x React Context. Agora exibe o PIN 🏠 da Loja (Base) via Auto-Geocode.
+    - **Check-in Diário Robusto**: Utilização de triggers Supabase para garantir que apenas o primeiro check-in do dia seja registrado como entrada oficial, independentemente de múltiplos retornos.
+    - **Gestão de BAG e Ícones**: Autonomia para franqueados gerirem tipos de BAG com suporte a ícones customizados via storage.
 
 ---
 
@@ -161,6 +161,8 @@ CREATE TABLE unidades (
   config_whatsapp JSONB,
   config_sheets_url TEXT,
   cidade_clima TEXT,
+  clima_cache JSONB,
+  clima_updated_at TIMESTAMP WITH TIME ZONE,
   exibir_fila_tv BOOLEAN DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
@@ -326,9 +328,13 @@ CREATE TABLE entregadores (
   dias_trabalho JSONB DEFAULT '{"seg":true,"ter":true,"qua":true,"qui":true,"sex":true,"sab":true,"dom":true}',
   fila_posicao TIMESTAMP WITH TIME ZONE DEFAULT now(),
   hora_saida TIMESTAMP WITH TIME ZONE,
-  primeiro_checkin TEXT, -- Armazena o timestamp do primeiro checkin diário (preservado após retornos)
-  checkin_diario TIMESTAMP WITH TIME ZONE, -- Registra apenas uma vez no dia com trigger inteligente
-  tts_voice_path TEXT, -- Caminho do arquivo de voz no storage
+  primeiro_checkin TEXT, -- Armazena o timestamp do primeiro checkin diário
+  checkin_diario TIMESTAMP WITH TIME ZONE, -- Registra apenas uma vez no dia via trigger
+  tts_voice_path TEXT,
+  whatsapp_ativo BOOLEAN DEFAULT true,
+  lat NUMERIC,
+  lng NUMERIC,
+  last_location_time TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
@@ -1765,21 +1771,13 @@ ORDER BY valor_final DESC;
 
 ---
 
-## 📞 SUPORTE E CONTATO
-
-**Sistema:** FilaLab  
-**Versão:** 1.0.0  
-**Última Atualização:** 2026-01-02  
-**Tecnologia:** React + Supabase (Lovable Cloud)  
-
-**Dados de Produção:**
-- Project ID: `wekdrdcvwecaoafnrwhl`
-- Storage Bucket: `motoboy_voices` (público)
-- Edge Functions: 15 ativas
-
----
-
 ## 📝 CHANGELOG
+
+### v2.6.0 (2026-03-12)
+- ✅ **Kanban de Atualizações:** Refatorado painel de Super Admin para visualização Kanban das atualizações.
+- ✅ **Sisfood v9.6:** Correção crítica no cálculo de tempo em fila preservando timestamp original do Sisfood.
+- ✅ **Termos e Privacidade:** Adicionados modais de conformidade na Landing Page.
+- ✅ **Resiliência de Dados:** Alterado comportamento de reset para preservação de histórico em análises futuras.
 
 ### v1.3.0 (2026-02-28)
 - ✅ **Estabilidade da TV (Redescagem):** Implementado sistema de rediscagem automática de 10 segundos entre tentativas (máximo 3) com aviso por voz em caso de falha persistente.
@@ -1788,35 +1786,26 @@ ORDER BY valor_final DESC;
 - ✅ **Limpeza Automática:** Adicionado rotina de limpeza de cache diário (localStorage) na tela de TV para manutenção de performance.
 
 ### v1.2.0 (2026-02-26)
-- ✅ **Atualização Mobile Base Real:** Adicionado plano diretor para refatoração completa do layout e usabilidade mobile do sistema, contemplando menu Drawer global e Drawer operacional logado, empilhamento intuitivo de cards na aba Disponíveis, Fila e Histórico, além de responsividade dedicada ao Roteirista e Analytics Pro. Documentado em `Atualizacao_Mobile_Base_Sistema_Real.md`.
 - ✅ **Implementação Mobile Base Real:** Refatoração completa da UI/UX mobile executada. Drawers de navegação aplicados (Home e Dashboard), tabelas substituídas por Grid Cards responsivos no Roteirista e Histórico, botões de ação e modais (ex: Reset) reestruturados para width 100% visando máxima usabilidade em telas pequenas.
 
 ### v1.1.0 (2026-02-23)
 - ✅ **Mapa de Entregadores:** Implementado painel Mapa no Roteirista para visualização em tempo real.
-- ✅ **Obrigatoriedade GPS:** Adicionada permissão silenciosa de GPS à página `/meu-lugar` para motoboys operacionais. Se descer sem habilitar, ele toma Erro 503.
-- ✅ **WhatsApp em Lote:** Controles granulares por motoboy e Botão "Desligar/Ligar Todos" migrados da listagem para a Caixa do Módulo de Automações (`Config.tsx`). Esses só carregam na UI se o `whatsapp` estiver ativo para a respectiva loja logada.
+- ✅ **Obrigatoriedade GPS:** Adicionada permissão silenciosa de GPS à página `/meu-lugar` para motoboys operacionais.
 
 ### v1.0.0 (2026-01-02)
-- ✅ Sistema de descontos recorrentes implementado
-- ✅ Visualização de desconto ativo em SuperAdmin
-- ✅ Botão "Remover desconto" adicionado
-- ✅ Cálculo de faturamento considera descontos
-- ✅ Responsividade mobile em SuperAdmin, Roteirista e Config
-- ✅ Documentação completa do sistema gerada
+- ✅ **Lançamento Base:** Sistema de descontos, faturamento e responsividade inicial.
 
 ### Próximas Features (Roadmap)
-- [ ] Multi-tenant completo com RLS restritivo
-- [ ] Dashboard de analytics para franquias
-- [ ] App mobile nativo para motoboys
+- [ ] Multi-tenant completo com RLS restritivo (Pragmático atual -> Custom Claims JWT)
+- [ ] Dashboard de analytics avançado para franquias
+- [ ] App mobile nativo para motoboys PWA -> Native
 - [ ] Integração com Mercado Pago e PagSeguro
-- [ ] Sistema de notificações push
-- [ ] Chat interno entre operador e motoboy
-- [ ] Geolocalização em tempo real
+- [ ] Sistema de notificações push (Web Push atual -> Mobile)
 - [ ] Relatórios exportáveis em PDF
 
 ---
 
 **FIM DA DOCUMENTAÇÃO**
 
-*Este documento foi gerado automaticamente com base no estado atual do sistema em 2026-01-02.*  
-*Todos os dados cadastrados, estruturas de tabelas, políticas RLS e funcionalidades foram extraídos diretamente do banco de dados e código-fonte.*
+*Este documento foi atualizado em 2026-03-12.*  
+*Todos os dados cadastrados, estruturas de tabelas, políticas RLS e funcionalidades foram extraídos diretamente do banco de dados e código-fonte.*

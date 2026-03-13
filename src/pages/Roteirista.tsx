@@ -18,7 +18,7 @@ import {
 } from '@/lib/api';
 import { useTraining } from '@/contexts/TrainingContext';
 import { toast } from 'sonner';
-import { Users, Loader2, Phone, GripVertical, SkipForward, UserMinus, LogOut, ArrowRight, MessageSquare, Map, MessageCircleOff, MessageCircle, XCircle, GraduationCap } from 'lucide-react';
+import { Users, Loader2, Phone, GripVertical, SkipForward, UserMinus, LogOut, ArrowRight, MessageSquare, Map, MessageCircleOff, MessageCircle, XCircle, GraduationCap, ListFilter, AlertTriangle, Search, Clock, MapPin } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import {
   Dialog,
@@ -27,6 +27,7 @@ import {
   DialogTitle,
   DialogFooter,
   DialogDescription,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -46,6 +47,9 @@ import { DeliveryTimer } from '@/components/DeliveryTimer';
 import { supabase } from '@/integrations/supabase/client';
 import { TvPaymentPreview } from '@/components/TvPaymentPreview';
 import { MotoboyMapModal } from '@/components/MotoboyMapModal';
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 
 export default function Roteirista() {
   const { selectedUnit, setSelectedUnit } = useUnit();
@@ -76,6 +80,8 @@ export default function Roteirista() {
   const [returnToQueueOpen, setReturnToQueueOpen] = useState(false);
   const [actionEntregador, setActionEntregador] = useState<Entregador | null>(null);
   const [mapModalOpen, setMapModalOpen] = useState(false);
+  const [isQueueModalOpen, setIsQueueModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Tipos de BAG configurados para a franquia da unidade atual
   const { data: franquiaBagTipos = [], isLoading: isLoadingBags } = useQuery<{ id: string; nome: string; descricao: string | null; ativo: boolean; franquia_id: string; icone_url: string | null; }[]>({
@@ -222,47 +228,81 @@ export default function Roteirista() {
   // ======= Fila em Tempo Real do SISFOOD =======
   const [entregasNaFila, setEntregasNaFila] = useState<number | null>(null);
   const [pedidosFila, setPedidosFila] = useState<any[]>([]);
+  const [activeUnitId, setActiveUnitId] = useState<string | null>(null);
+
+  // Helper robusto para extrair timestamp de diversos formatos do Sisfood
+  const parseSisfoodTime = (timeStr: string) => {
+    if (!timeStr) return null;
+    
+    // Tenta extrair HH:mm via Regex
+    const timeMatch = timeStr.match(/(\d{2}):(\d{2})/);
+    if (!timeMatch) return null;
+    
+    const h = parseInt(timeMatch[1]);
+    const m = parseInt(timeMatch[2]);
+    
+    const d = new Date();
+    
+    // Verifica se existe data "DD/MM" no formato
+    const dateMatch = timeStr.match(/(\d{2})\/(\d{2})/);
+    if (dateMatch) {
+      const day = parseInt(dateMatch[1]);
+      const month = parseInt(dateMatch[2]) - 1; // JS meses são 0-11
+      d.setMonth(month, day);
+      // Se a data resultante for no futuro (ex: virada de ano), retrocede 1 ano
+      if (d > new Date()) d.setFullYear(d.getFullYear() - 1);
+    }
+    
+    d.setHours(h, m, 0, 0);
+    
+    // Se não tinha data, mas o horário resultou no futuro (virada de dia), retrocede 1 dia
+    if (!dateMatch && d > new Date()) {
+      d.setDate(d.getDate() - 1);
+    }
+    
+    return d.getTime();
+  };
 
   useEffect(() => {
-    // Só liga a integração em realtime se a franquia tiver o módulo habilitado (verificado pelo render, mas mantemos o básico ativo)
     if (!selectedUnit) return;
 
     let channel: any = null;
 
-    // 1. Busca inicial e registro no socket com o nome da unidade
     const fetchFilaInicial = async () => {
-      console.log("[FILALAB] Buscando fila inicial para a unidade Nome:", selectedUnit);
+      // Logic para mapear códigos em nomes reais do banco para busca ilike
+      const getSearchName = (unit: string) => {
+        if (unit === 'POA') return 'Po'; // Pega Poá
+        if (unit === 'ITAQUA') return 'Itaqua'; // Pega Itaquaquecetuba
+        return unit;
+      };
       
-      // O selectedUnit vem como string (ex: "ITAQUA"), precisamos achar no banco usando a coluna correta (nome_loja) com curingas (%)
+      const searchName = getSearchName(selectedUnit as string);
+      console.log("[FILALAB] Buscando fila inicial para a unidade:", selectedUnit, "usando termo:", searchName);
+      
       const { data, error } = await supabase
         .from('unidades')
         .select('*')
-        .ilike('nome_loja', `%${selectedUnit}%`) 
+        .ilike('nome_loja', `%${searchName}%`)
         .maybeSingle();
 
       if (error) {
          console.error("[FILALAB] Erro ao buscar unidade no Supabase:", error);
       } else if (data) {
-        console.log("[FILALAB] Dados da Unidade Carregados:", data.nome_loja);
-        console.log("[FILALAB] Quantidade na Fila (Banco):", (data as any).entregas_na_fila);
+        const unitId = data.id;
+        setActiveUnitId(unitId);
         setEntregasNaFila((data as any).entregas_na_fila ?? 0);
-        
         const pedidosBanco = (data as any).sisfood_pedidos_fila;
         setPedidosFila(Array.isArray(pedidosBanco) ? pedidosBanco : []);
 
-        const dbNomeLoja = data.nome_loja;
-
-        // 2. Inscrição Realtime (Ouve modificações feitas pelo Webhook)
-        // Escutando especificamente pelo nome verdadeiro da loja no DB
         channel = supabase
-          .channel(`rt_fila_${dbNomeLoja}`)
+          .channel(`rt_fila_${unitId}`)
           .on(
             'postgres_changes' as any,
             {
               event: 'UPDATE',
               schema: 'public',
               table: 'unidades',
-              filter: `nome_loja=eq.${dbNomeLoja}`, 
+              filter: `id=eq.${unitId}`, 
             },
             (payload: any) => {
               if (payload.new) {
@@ -286,6 +326,80 @@ export default function Roteirista() {
       }
     };
   }, [selectedUnit]);
+
+  // Query para monitorar a fila em tempo real (para os alertas de atraso e exibição) - 30s
+  const { data: sisfoodUnitData } = useQuery({
+    queryKey: ['unidade-fila-sisfood-monitor', selectedUnit],
+    queryFn: async () => {
+      if (!selectedUnit) return null;
+      
+      const searchName = selectedUnit === 'POA' ? 'Poá' : (selectedUnit === 'ITAQUA' ? 'Itaquaquecetuba' : selectedUnit);
+      
+      const { data, error } = await supabase
+        .from('unidades')
+        .select('sisfood_pedidos_fila, entregas_na_fila')
+        .ilike('nome_loja', `%${searchName}%`)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedUnit,
+    refetchInterval: 30000,
+  });
+
+  // Efeito para sincronizar os dados do Polling com o estado local para garantir consistência
+  useEffect(() => {
+    if (sisfoodUnitData) {
+      const pedidos = (sisfoodUnitData as any).sisfood_pedidos_fila;
+      setPedidosFila(Array.isArray(pedidos) ? pedidos : []);
+      setEntregasNaFila((sisfoodUnitData as any).entregas_na_fila ?? 0);
+    }
+  }, [sisfoodUnitData]);
+
+  const pedidosFilaRaw = pedidosFila; // Agora usamos o estado unificado
+  
+  const hasDelayedOrders = pedidosFilaRaw.some((p: any) => {
+    let timestamp = parseSisfoodTime(p.hora_entrada) || 0;
+    
+    if (!timestamp) {
+      if (p.id && String(p.id).includes('-')) {
+          const parts = String(p.id).split('-');
+          const ts = parseInt(parts[parts.length - 1]);
+          if (!isNaN(ts)) timestamp = ts;
+      } else if (p.created_at) {
+          timestamp = new Date(p.created_at).getTime();
+      }
+    }
+    
+    if (!timestamp) return false;
+    return (Date.now() - timestamp) / 60000 >= 20;
+  });
+
+  const filteredPedidos = pedidosFilaRaw
+    .filter((p: any) => {
+      const search = searchQuery.toLowerCase().trim();
+      if (!search) return true;
+      return (
+        String(p.comanda || '').toLowerCase().includes(search) ||
+        String(p.cliente || '').toLowerCase().includes(search) ||
+        String(p.endereco || '').toLowerCase().includes(search)
+      );
+    })
+    .sort((a: any, b: any) => {
+      const getTime = (p: any) => {
+        const ts = parseSisfoodTime(p.hora_entrada);
+        if (ts) return ts;
+
+        if (p.id && String(p.id).includes('-')) {
+            const parts = String(p.id).split('-');
+            const tsParts = parseInt(parts[parts.length - 1]);
+            return isNaN(tsParts) ? 0 : tsParts;
+        }
+        return p.created_at ? new Date(p.created_at).getTime() : 0;
+      };
+      return getTime(a) - getTime(b);
+    });
   // ====================================================
 
 
@@ -403,18 +517,21 @@ export default function Roteirista() {
              // (Para suportar quando 'comanda' e 'id_interno' chegam separados se ajustarmos no Tampermonkey)
              let codPedidoFake = comandaDigitada;
              
-             // Busca em pedidosFila aquele pedido que tem o campo comanda se não achar usar propria string
-             const pedEncontrado = pedidosFila.find((p: any) => String(p.comanda) === String(comandaDigitada) || String(p.id) === String(comandaDigitada));
-             if (pedEncontrado) {
-                 codPedidoFake = pedEncontrado.id_interno || pedEncontrado.id || comandaDigitada;
-             }
+             // 1. Procurar o ID Interno real do Sisfood associado a esta comanda/cod_pedido_interno visual
+              let sisfoodInternalId = String(codPedidoFake);
+              // Procurar na master list de pedidos em fila retornado pela Unidade (banco de dados)
+              const realPedido = pedidosFila.find(p => (String(p.comanda) === String(codPedidoFake)) || (String(p.id) === String(codPedidoFake)));
+              if (realPedido && realPedido.id_interno) {
+                  sisfoodInternalId = String(realPedido.id_interno);
+              }
 
-             return supabase.from('sisfood_comandos' as any).insert({
-                 unidade_nome: selectedUnit,
-                 cod_pedido_interno: String(codPedidoFake),
-                 nome_motoboy: selectedEntregador.nome, // FilaLab nome, script vai cruzar
-                 status: 'PENDENTE'
-             });
+              return supabase.from('sisfood_comandos' as any).insert({
+                  unidade_nome: selectedUnit,
+                  unidade_id: activeUnitId || user?.unidadeId,
+                  cod_pedido_interno: sisfoodInternalId, // AQUI envia o ID longo para o despacho funcionar!
+                  nome_motoboy: selectedEntregador.nome, 
+                  status: 'PENDENTE'
+              });
           });
           
           await Promise.all(sisfoodPayloadPromises);
@@ -709,6 +826,107 @@ export default function Roteirista() {
         </div>
 
         <div className="flex flex-col sm:flex-row w-full sm:w-auto items-stretch sm:items-center gap-3">
+          {isSisfoodAtivo && (
+            <div className="relative">
+              <Dialog open={isQueueModalOpen} onOpenChange={setIsQueueModalOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className={`w-full sm:w-auto gap-2 transition-all min-h-[48px] sm:min-h-0 ${
+                      hasDelayedOrders ? 'border-destructive text-destructive hover:bg-destructive/10 bg-destructive/5' : 'border-blue-500/50 hover:bg-blue-500/10 text-blue-500'
+                    }`}
+                  >
+                    <ListFilter className="w-5 h-5" />
+                    Acompanhar Fila
+                    {hasDelayedOrders && (
+                      <>
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-destructive text-white text-[10px] font-bold rounded-full animate-bounce shadow-lg whitespace-nowrap">
+                          PEDIDOS ATRASADOS
+                        </div>
+                        <AlertTriangle className="w-4 h-4 ml-1 animate-pulse" />
+                      </>
+                    )}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden border-border/50 shadow-2xl">
+                  <DialogHeader className="p-6 pb-2 border-b border-border/10 bg-muted/20">
+                    <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+                      <ListFilter className="w-5 h-5 text-primary" />
+                      Fila Sisfood - {selectedUnit}
+                    </DialogTitle>
+                  </DialogHeader>
+                  
+                  <div className="p-6 pt-4 space-y-4 flex-1 flex flex-col min-h-0">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input 
+                        placeholder="Comanda, cliente ou endereço..." 
+                        className="pl-9 bg-muted/30 border-border/30"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                    </div>
+
+                    <ScrollArea className="flex-1 -mx-2 px-2">
+                      <div className="space-y-3 pb-4">
+                        {filteredPedidos.length === 0 ? (
+                          <div className="text-center py-10 text-muted-foreground">
+                            <p>Nenhum pedido encontrado na fila.</p>
+                          </div>
+                        ) : (
+                          filteredPedidos.map((p: any, idx: number) => {
+                            const timestamp = parseSisfoodTime(p.hora_entrada) || (p.created_at ? new Date(p.created_at).getTime() : Date.now());
+                            const diffMin = Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
+                            const isDelayed = diffMin >= 20;
+
+                            return (
+                              <div key={idx} className={`p-4 rounded-xl border border-border/50 bg-card/50 flex flex-col gap-2 transition-all hover:border-primary/30 ${isDelayed ? 'border-destructive/30 bg-destructive/5' : ''}`}>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="font-mono text-[10px] uppercase font-bold py-0 h-5">
+                                      #{p.comanda || p.id}
+                                    </Badge>
+                                    <div className="flex flex-col items-start gap-1">
+                                      <div className="flex items-center gap-1.5">
+                                        <Badge variant="secondary" className={`text-[10px] uppercase font-bold py-0 h-5 border-none ${isDelayed ? 'bg-destructive/20 text-destructive' : 'bg-blue-500/10 text-blue-400'}`}>
+                                          <Clock className="w-3 h-3 mr-1" />
+                                          {diffMin}m
+                                        </Badge>
+                                        {p.hora_entrada && (
+                                          <span className="text-[10px] font-bold text-muted-foreground/60 font-mono">
+                                            {p.hora_entrada.includes(' ') ? p.hora_entrada.split(' ')[1] : p.hora_entrada}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <span className="text-[10px] text-muted-foreground font-mono opacity-50">#{p.id_interno || p.id}</span>
+                                </div>
+                                
+                                <div className="space-y-1">
+                                  <h4 className="font-bold text-sm flex items-center gap-2">
+                                    {p.cliente}
+                                    {p.telefone && <span className="text-xs font-normal text-muted-foreground">/ {p.telefone}</span>}
+                                  </h4>
+                                  {p.endereco && (
+                                    <p className="text-[11px] text-muted-foreground flex items-start gap-1">
+                                      <MapPin className="w-3 h-3 mt-0.5 shrink-0" />
+                                      {p.endereco}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
+
           {!isTrainingMode && (
             <Button
               variant="outline"

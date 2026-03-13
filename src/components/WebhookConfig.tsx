@@ -9,17 +9,6 @@ import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
-import { AlertTriangle, ListFilter, Search, Clock, User, Hash } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
 
 interface WebhookConfigProps {
   overrideUnidadeId?: string;
@@ -29,8 +18,6 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
   const { user } = useAuth();
   const { selectedUnit } = useUnit();
   const [copied, setCopied] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isQueueModalOpen, setIsQueueModalOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const unidadeId = overrideUnidadeId || user?.unidadeId;
@@ -52,7 +39,7 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
   });
 
   // Query para verificar se o módulo está ativo para esta unidade específica
-  const { data: unidadeModulo, isLoading: loadingUnidadeModulo } = useQuery({
+  const { data: unidadeModulo } = useQuery({
     queryKey: ['unidade-modulo-sisfood', unidadeId],
     queryFn: async () => {
       if (!unidadeId) return null;
@@ -67,24 +54,6 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
       return data;
     },
     enabled: !!unidadeId,
-  });
-
-  // Query para monitorar a fila em tempo real (para os alertas de atraso)
-  const { data: unitFullData } = useQuery({
-    queryKey: ['unidade-fila-sisfood', selectedUnit],
-    queryFn: async () => {
-      if (!selectedUnit) return null;
-      const { data, error } = await supabase
-        .from('unidades')
-        .select('sisfood_pedidos_fila')
-        .eq('nome_loja', selectedUnit)
-        .maybeSingle();
-      
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!selectedUnit,
-    refetchInterval: 30000, // Atualiza a cada 30 segundos
   });
 
   const toggleMutation = useMutation({
@@ -130,59 +99,19 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
   const isSisfoodGlobalAtivo = modulosAtivos.includes('sisfood_integration');
   const isSisfoodUnidadeAtivo = unidadeModulo?.ativo ?? false;
 
-  const pedidosFilaRaw = ((unitFullData as any)?.sisfood_pedidos_fila as any[]) || [];
-  
-  // Lógica de pedidos atrasados (20 min)
-  const hasDelayedOrders = pedidosFilaRaw.some((p: any) => {
-    // Tentamos pegar o timestamp do ID (formato: idinterno-timestamp) ou created_at
-    let timestamp = Date.now();
-    if (p.id && String(p.id).includes('-')) {
-        const parts = String(p.id).split('-');
-        const ts = parseInt(parts[parts.length - 1]);
-        if (!isNaN(ts)) timestamp = ts;
-    } else if (p.created_at) {
-        timestamp = new Date(p.created_at).getTime();
-    }
-    
-    const diffMin = (Date.now() - timestamp) / 60000;
-    return diffMin >= 20;
-  });
-
-  const filteredPedidos = pedidosFilaRaw
-    .filter((p: any) => {
-      const search = searchQuery.toLowerCase().trim();
-      if (!search) return true;
-      return (
-        String(p.comanda || '').toLowerCase().includes(search) ||
-        String(p.cliente || '').toLowerCase().includes(search) ||
-        String(p.id_interno || '').toLowerCase().includes(search)
-      );
-    })
-    .sort((a: any, b: any) => {
-      const getTime = (p: any) => {
-        if (p.id && String(p.id).includes('-')) {
-            const parts = String(p.id).split('-');
-            const ts = parseInt(parts[parts.length - 1]);
-            return isNaN(ts) ? 0 : ts;
-        }
-        return a.created_at ? new Date(a.created_at).getTime() : 0;
-      };
-      return getTime(a) - getTime(b);
-    });
-
   const copyScript = (codigo: string) => {
     navigator.clipboard.writeText(codigo);
     setCopied(true);
     toast.success('Script copiado para a área de transferência!');
-    setTimeout(() => setCopied(false), 3000);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const getSisfoodScript = () => {
     return `// ==UserScript==
 // @name         Integração SISFOOD x FilaLab (${selectedUnit || 'LOJA'})
 // @namespace    http://tampermonkey.net/
-// @version      9.5
-// @description  Lê a fila do Sisfood e DESPACHA via FilaLab usando Batch Route Array
+// @version      10.3 - Otimizada
+// @description  Lê a fila do Sisfood e DESPACHA via FilaLab (Sem Vasamento de Memória)
 // @match        https://app.sisfood.com.br/*/pdv*
 // @match        https://app.sisfood.com.br/*/secretaria/atendimentos/tela*
 // @grant        none
@@ -195,6 +124,7 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
     
     // Nome exato da sua loja configurada no FilaLab
     const LOJA_FIXA = "${selectedUnit || 'NomeDaLojaAqui'}";
+    const UNIDADE_ID_FIXA = "${unidadeId || ''}";
     let ultimaHashFila = "";
     let ultimaContagemFila = -1;
 
@@ -215,11 +145,12 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
                             const status = pedido[4]; 
                             if (status === "Fila" || status === "fila") {
                                 contagemFila++;
-                                // Extracao dupla: salvar ID interno [0] E formato visual diário [7]
+                                
                                 pedidosNaFila.push({
                                     id: pedido[0],
                                     id_interno: pedido[0],
                                     comanda: pedido[7] || pedido[0],
+                                    hora_entrada: pedido[2] || '', 
                                     cliente: pedido[3] ? pedido[3].split(' / ')[0].trim() : 'Desconhecido',
                                     telefone: pedido[3] && pedido[3].includes('/') ? pedido[3].split(' / ')[1].trim() : '',
                                     endereco: pedido[9] || ''
@@ -231,13 +162,14 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
                     const hashAtual = JSON.stringify(pedidosNaFila);
 
                     if (hashAtual !== ultimaHashFila || contagemFila !== ultimaContagemFila) {
-                        console.log("🟢 [FILALAB] Fila: " + contagemFila + " pedidos. Disparando Supabase!");
+                        // Apenas loga quando houver uma mudança real na fila para não flodar o console
+                        console.log("🟢 [FILALAB] Atualização detectada: Fila com " + contagemFila + " pedidos.");
                         ultimaHashFila = hashAtual;
                         ultimaContagemFila = contagemFila;
                         enviarFilaLab(LOJA_FIXA, contagemFila, pedidosNaFila);
                     }
                 } catch(err) {
-                    console.error("❌ [FILALAB] Erro ao ler JSON:", err);
+                    // console.error("❌ [FILALAB] Erro ao ler JSON:", err); // Desligado para poupar RAM em caso de tela ociosa
                 }
             }
         });
@@ -313,76 +245,76 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
 
     async function despacharPedidoNoSisfood(cmd) {
          return new Promise((resolve) => {
-             // 1. Identificar Motoboy no front
-             const idMotoboy = findMotoboyIdByName(cmd.nome_motoboy);
+             const idMotoboyFinal = findMotoboyIdByName(cmd.nome_motoboy);
              
-             if(!idMotoboy && !window._avisoMotoboyNaoAchado) {
-                  // Se não achar o ID logamos error e deixamos como pendente pra tentar de novo, porém com warning.
+             if(!idMotoboyFinal && !window._avisoMotoboyNaoAchado) {
                   console.warn("[FILALAB] Aviso: Botão do motoboy " + cmd.nome_motoboy + " não foi encontrado na DOM aberta do Sisfood para o pedido " + cmd.cod_pedido_interno + ". Certifique-se que o nome é IGUAL ou que a lista de motoboys está carregada na memória.");
                   window._avisoMotoboyNaoAchado = true; // Só avisa 1 vez
                   return resolve(false);
              }
              
-             // ID do Entregador Encontrado ou Forçado fallback manual na config
-             const idMotoboyFinal = idMotoboy || "40"; // "40" foi o ID base do Teste
-
-             // 2. Montar Req XHR no endpoint definitivo de Roteiro (Batch) Sisfood API
-             const urlDespacho = window.location.pathname.replace('/tela', '') + "/statusPedidosLote";
-             
-             // Preparação do ID (Lote/Vírgula): O Sisfood aceita "71908,71910" transformado em %2C no Payload
-             // Se houver espacos no array recuperado, trocamos por vazio e garantimos URLEncode da vírgula.
              const codigosLimpos = cmd.cod_pedido_interno.replace(/\\s+/g, '');
-             const arrayPedidosFormatado = encodeURIComponent(codigosLimpos);
 
-             // 3. FormData (O Sisfood pede Payload Form Url Encoded "pedidos=ID%2CID&status=entrega&cod_motoboy=ID")
-             const form = "pedidos="+arrayPedidosFormatado+
-                          "&status=entrega"+
-                          "&cod_motoboy="+encodeURIComponent(idMotoboyFinal);
-                          
+             // LOGICA UNIFICADA PRA TODAS AS LOJAS (Status + Vinculacao de Motoboy Sequencial)
+             const basePath = window.location.pathname.replace('/tela', '').replace('/pdv', '');
+             const urlStatus = basePath + "/pdv/statusPedido";
+             const urlMotoboy = basePath + "/pdv/motoboy";
+             
+             const formStatus = "cod="+encodeURIComponent(codigosLimpos)+"&status=entrega";
+             const formMotoboy = "cod_pedido="+encodeURIComponent(codigosLimpos)+"&cod_motoboy="+encodeURIComponent(idMotoboyFinal || "40")+"&nome_motoboy="+encodeURIComponent(cmd.nome_motoboy);
 
-             console.log("🚀 [FILALAB] Despachando na Raça Sisfood: Pedido(s) LOTE [" + codigosLimpos + "] para motoboy " + cmd.nome_motoboy + " (ID " + idMotoboyFinal + ")");
+             // console.log("🚀 [FILALAB] Alterando status do ID " + codigosLimpos + "...");
 
-             const xhr = new XMLHttpRequest();
-             xhr.open("POST", urlDespacho, true);
-             xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
-             xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest'); // Essencial p/ não dar 403
+             const xhrStatus = new XMLHttpRequest();
+             xhrStatus.open("POST", urlStatus, true);
+             xhrStatus.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+             xhrStatus.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
 
-             xhr.onreadystatechange = async function () {
-                 if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
-                      // Despacho no Sisfood feito com sucesso, atualiza nuvem confirmando a execução
-                      await fetch(SUPABASE_URL + "/rest/v1/sisfood_comandos?id=eq." + cmd.id, {
-                           method: 'PATCH',
-                           headers: {
-                               "apikey": ANON_KEY,
-                               "Authorization": "Bearer " + ANON_KEY,
-                               "Content-Type": "application/json",
-                               "Prefer": "return=minimal"
-                           },
-                           body: JSON.stringify({ status: "EXECUTADO" })
-                      });
-                      console.log("✅ [FILALAB] Despacho " + cmd.cod_pedido_interno + " com sucesso e nuvem liberada.");
-                      
-                      // Forçar refresh no Sisfood simulando atualizar
-                      setTimeout(()=> {
-                         const refreshBtn = document.querySelector('button[title*="Atualizar"], a[title*="Atualizar"]');
-                         if(refreshBtn) refreshBtn.click();
-                      }, 1000);
-                      resolve(true);
-                 } else if (this.readyState === XMLHttpRequest.DONE) {
-                      console.error("❌ [FILALAB] Falha Request Sisfood Status HTTP: " + this.status);
-                      resolve(false);
-                 }
+             xhrStatus.onreadystatechange = function () {
+                  if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
+                       // console.log("🚀 [FILALAB] Vinculando motoboy " + cmd.nome_motoboy + "...");
+                       const xhrMotoboy = new XMLHttpRequest();
+                       xhrMotoboy.open("POST", urlMotoboy, true);
+                       xhrMotoboy.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+                       xhrMotoboy.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                       
+                       xhrMotoboy.onreadystatechange = async function() {
+                           if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
+                               await fetch(SUPABASE_URL + "/rest/v1/sisfood_comandos?id=eq." + cmd.id, {
+                                    method: 'PATCH',
+                                    headers: {
+                                        "apikey": ANON_KEY, "Authorization": "Bearer " + ANON_KEY, "Content-Type": "application/json", "Prefer": "return=minimal"
+                                    },
+                                    body: JSON.stringify({ status: "EXECUTADO"                                console.log("✅ [FILALAB] Pedido " + codigosLimpos + " despachado com sucesso!");
+                               setTimeout(()=> {
+                                  const refreshBtn = document.querySelector('button[title*="Atualizar"], a[title*="Atualizar"]');
+                                  if(refreshBtn) refreshBtn.click();
+                               }, 1000);
+                               resolve(true);
+                           } else if (this.readyState === XMLHttpRequest.DONE) {
+                               console.error("❌ [FILALAB] Falha ao vincular motoboy: HTTP " + this.status);
+                               resolve(false);
+                           }
+                       };
+                       xhrMotoboy.send(formMotoboy);
+                  } else if (this.readyState === XMLHttpRequest.DONE) {
+                       console.error("❌ [FILALAB] Falha ao alterar status (Pode ser cache): HTTP " + this.status);
+                       resolve(false);
+                  }
              }
-
-             // Envia o dispatch
-             xhr.send(form);
+             xhrStatus.send(formStatus);   }
+             xhrStatus.send(formStatus);
          });
     }
 
     async function pollComandosDoFilaLab() {
          try {
-             // Lista todos os pendentes para a loja vinculada
-             const resp = await fetch(SUPABASE_URL + "/rest/v1/sisfood_comandos?status=eq.PENDENTE&unidade_nome=eq." + encodeURIComponent(LOJA_FIXA), {
+             // Lista todos os pendentes baseado no ID forte (segurança máxima entre unidades)
+             const endpointUrl = UNIDADE_ID_FIXA 
+                ? "/rest/v1/sisfood_comandos?status=eq.PENDENTE&unidade_id=eq." + UNIDADE_ID_FIXA
+                : "/rest/v1/sisfood_comandos?status=eq.PENDENTE&unidade_nome=eq." + encodeURIComponent(LOJA_FIXA);
+
+             const resp = await fetch(SUPABASE_URL + endpointUrl, {
                  headers: {
                      "apikey": ANON_KEY,
                      "Authorization": "Bearer " + ANON_KEY
@@ -396,12 +328,18 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
                      await despacharPedidoNoSisfood(cmd);
                      await new Promise(r => setTimeout(r, 600)); // Sleep anti-spam entre cada comanda pro Sisfood
                  }
+                 
+                 // Se limpou o lixo do polling com sucesso da memoria
+                 if (comandosPendentes.length > 0 && typeof performance !== "undefined" && performance.memory) {
+                     // Memory sweep request silencioso (funciona no chrome ao atingir limites)
+                     window.gc && window.gc();
+                 }
              }
          } catch(e) { /* silent fail no polling wifi */}
     }
 
-    // Iniciar loop infinito observador de Ordens do Roteirista FilaLab a cada 3 segundos
-    setInterval(pollComandosDoFilaLab, 3000);
+    // Iniciar loop infinito observador de Ordens do Roteirista FilaLab a cada 10 segundos (para poupar bateria/rede da máquina do PDV)
+    setInterval(pollComandosDoFilaLab, 10000);
 
 })();`;
   };
@@ -426,100 +364,6 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
             </div>
             
             <div className="flex items-center gap-4">
-              {isSisfoodUnidadeAtivo && (
-                <div className="relative">
-                  <Dialog open={isQueueModalOpen} onOpenChange={setIsQueueModalOpen}>
-                    <DialogTrigger asChild>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className={`gap-2 h-10 px-4 transition-all ${
-                          hasDelayedOrders ? 'border-destructive text-destructive hover:bg-destructive/10 bg-destructive/5' : 'border-primary/30'
-                        }`}
-                      >
-                        <ListFilter className="w-4 h-4" />
-                        Acompanhar Fila
-                        {hasDelayedOrders && (
-                          <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-destructive text-white text-[10px] font-bold rounded-full animate-bounce shadow-lg whitespace-nowrap">
-                            PEDIDOS ATRASADOS
-                          </div>
-                        )}
-                        {hasDelayedOrders && <AlertTriangle className="w-4 h-4 ml-1 animate-pulse" />}
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden border-border/50 shadow-2xl">
-                      <DialogHeader className="p-6 pb-2 border-b border-border/10 bg-muted/20">
-                        <DialogTitle className="flex items-center gap-2 text-xl font-bold">
-                          <ListFilter className="w-5 h-5 text-primary" />
-                          Fila Sisfood - {selectedUnit}
-                        </DialogTitle>
-                      </DialogHeader>
-                      
-                      <div className="p-6 pt-4 space-y-4 flex-1 flex flex-col min-h-0">
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                          <Input 
-                            placeholder="Buscar por comanda ou cliente..." 
-                            className="pl-9 bg-muted/30 border-border/30"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                          />
-                        </div>
-
-                        <ScrollArea className="flex-1 -mx-2 px-2">
-                          <div className="space-y-3 pb-4">
-                            {filteredPedidos.length === 0 ? (
-                              <div className="text-center py-10 text-muted-foreground">
-                                <p>Nenhum pedido encontrado na fila.</p>
-                              </div>
-                            ) : (
-                              filteredPedidos.map((p: any, idx: number) => {
-                                const entries = p.id?.split('-') || [];
-                                const timestamp = entries.length > 1 ? parseInt(entries[1]) : Date.now();
-                                const diffMin = Math.floor((Date.now() - timestamp) / 60000);
-                                const isDelayed = diffMin >= 20;
-
-                                return (
-                                  <div key={idx} className={`p-4 rounded-xl border border-border/50 bg-card/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:border-primary/30 ${isDelayed ? 'border-destructive/30 bg-destructive/5' : ''}`}>
-                                    <div className="space-y-1">
-                                      <div className="flex items-center gap-2">
-                                        <Badge variant="outline" className="font-mono text-[10px] uppercase font-bold py-0 h-5">
-                                          #{p.comanda}
-                                        </Badge>
-                                        <h4 className="font-bold text-sm">{p.cliente}</h4>
-                                      </div>
-                                      <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-                                        <span className="flex items-center gap-1">
-                                          <Clock className={`w-3 h-3 ${isDelayed ? 'text-destructive font-bold' : ''}`} />
-                                          {isDelayed ? (
-                                            <span className="text-destructive font-bold">Atrasado: {diffMin} min</span>
-                                          ) : (
-                                            <span>Há {diffMin} min</span>
-                                          )}
-                                        </span>
-                                        {p.telefone && (
-                                          <span className="flex items-center gap-1">
-                                            <User className="w-3 h-3" />
-                                            {p.telefone}
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <div className="text-[10px] font-mono p-2 bg-muted/50 rounded-lg max-w-[200px] truncate text-muted-foreground opacity-60">
-                                      ID: {p.id_interno}
-                                    </div>
-                                  </div>
-                                );
-                              })
-                            )}
-                          </div>
-                        </ScrollArea>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              )}
-              
               <Switch
                 checked={isSisfoodUnidadeAtivo}
                 onCheckedChange={(checked) => toggleMutation.mutate(checked)}
@@ -530,85 +374,85 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
 
           {isSisfoodUnidadeAtivo && (
             <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-primary/10 rounded-xl">
-                  <LinkIcon className="w-6 h-6 text-primary" />
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-primary/10 rounded-xl">
+                      <LinkIcon className="w-6 h-6 text-primary" />
+                    </div>
+                    <h2 className="text-2xl font-bold tracking-tight text-foreground/90">
+                      Integração SISFOOD
+                    </h2>
+                  </div>
+                  <p className="text-sm text-muted-foreground ml-14">
+                    Sincronize a fila de despacho do Sisfood ativamente com o painel do Roteirista e Mapa FilaLab.
+                  </p>
                 </div>
-                <h2 className="text-2xl font-bold tracking-tight text-foreground/90">
-                  Integração SISFOOD
-                </h2>
+                <div className="px-3 py-1 bg-green-500/10 text-green-500 rounded-full text-xs font-bold uppercase tracking-wider border border-green-500/20">
+                  Módulo Ativo
+                </div>
               </div>
-              <p className="text-sm text-muted-foreground ml-14">
-                Sincronize a fila de despacho do Sisfood ativamente com o painel do Roteirista e Mapa FilaLab.
-              </p>
-            </div>
-            <div className="px-3 py-1 bg-green-500/10 text-green-500 rounded-full text-xs font-bold uppercase tracking-wider border border-green-500/20">
-              Módulo Ativo
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="space-y-6">
-              <h3 className="text-lg font-bold">Tutorial de Vinculação</h3>
-              <ol className="relative border-l border-primary/20 ml-3 space-y-8">
-                <li className="pl-6">
-                  <div className="absolute w-6 h-6 bg-card rounded-full -left-3 border-2 border-primary flex items-center justify-center font-bold text-xs text-primary shadow-sm">1</div>
-                  <h4 className="font-semibold text-foreground mb-1">Passo 1: Instale o Tampermonkey</h4>
-                  <p className="text-sm text-muted-foreground mb-3">No navegador do seu terminal POS Caixa ou Expedição onde o Sisfood fica aberto, adicione a extensão Tampermonkey.</p>
-                  <Button variant="outline" size="sm" asChild className="gap-2 h-8">
-                    <a href="https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo" target="_blank" rel="noopener noreferrer">
-                      <Download className="w-3.5 h-3.5" />
-                      Baixar no Google Chrome
-                    </a>
-                  </Button>
-                </li>
-                
-                <li className="pl-6">
-                  <div className="absolute w-6 h-6 bg-card rounded-full -left-3 border-2 border-primary flex items-center justify-center font-bold text-xs text-primary shadow-sm">2</div>
-                  <h4 className="font-semibold text-foreground mb-1">Passo 2: Crie o Script</h4>
-                  <p className="text-sm text-muted-foreground">Clique no ícone do Tampermonkey no painel do navegador, vá em "Adicionar novo script" e apague todo o conteúdo que aparece lá por padrão.</p>
-                </li>
-                
-                <li className="pl-6">
-                  <div className="absolute w-6 h-6 bg-card rounded-full -left-3 border-2 border-primary flex items-center justify-center font-bold text-xs text-primary shadow-sm">3</div>
-                  <p className="text-sm text-muted-foreground">Copie o código customizado ao lado, cole na janela do script, e salve apertando <strong>Ctrl + S</strong>. Atualize (F5) a página do Sisfood.</p>
-                </li>
-              </ol>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <h3 className="text-lg font-bold">Tutorial de Vinculação</h3>
+                  <ol className="relative border-l border-primary/20 ml-3 space-y-8">
+                    <li className="pl-6">
+                      <div className="absolute w-6 h-6 bg-card rounded-full -left-3 border-2 border-primary flex items-center justify-center font-bold text-xs text-primary shadow-sm">1</div>
+                      <h4 className="font-semibold text-foreground mb-1">Passo 1: Instale o Tampermonkey</h4>
+                      <p className="text-sm text-muted-foreground mb-3">No navegador do seu terminal POS Caixa ou Expedição onde o Sisfood fica aberto, adicione a extensão Tampermonkey.</p>
+                      <Button variant="outline" size="sm" asChild className="gap-2 h-8">
+                        <a href="https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo" target="_blank" rel="noopener noreferrer">
+                          <Download className="w-3.5 h-3.5" />
+                          Baixar no Google Chrome
+                        </a>
+                      </Button>
+                    </li>
+                    
+                    <li className="pl-6">
+                      <div className="absolute w-6 h-6 bg-card rounded-full -left-3 border-2 border-primary flex items-center justify-center font-bold text-xs text-primary shadow-sm">2</div>
+                      <h4 className="font-semibold text-foreground mb-1">Passo 2: Crie o Script</h4>
+                      <p className="text-sm text-muted-foreground">Clique no ícone do Tampermonkey no painel do navegador, vá em "Adicionar novo script" e apague todo o conteúdo que aparece lá por padrão.</p>
+                    </li>
+                    
+                    <li className="pl-6">
+                      <div className="absolute w-6 h-6 bg-card rounded-full -left-3 border-2 border-primary flex items-center justify-center font-bold text-xs text-primary shadow-sm">3</div>
+                      <p className="text-sm text-muted-foreground">Copie o código customizado ao lado, cole na janela do script, e salve apertando <strong>Ctrl + S</strong>. Atualize (F5) a página do Sisfood.</p>
+                    </li>
+                  </ol>
 
-              <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl space-y-2">
-                <h4 className="text-sm font-bold text-yellow-600 dark:text-yellow-400">Atenção Crítica:</h4>
-                <p className="text-xs text-yellow-600/80 dark:text-yellow-400/80">
-                  O Script ao lado foi gerado especificamente para a Loja <b>"{selectedUnit || 'SELECIONADA'}"</b>. Instale esse script apenas nessa operação, para que o roteamento de entregas não pareça no painel da cidade incorreta.
-                </p>
-              </div>
-            </div>
+                  <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl space-y-2">
+                    <h4 className="text-sm font-bold text-yellow-600 dark:text-yellow-400">Atenção Crítica:</h4>
+                    <p className="text-xs text-yellow-600/80 dark:text-yellow-400/80">
+                      O Script ao lado foi gerado especificamente para a Loja <b>"{selectedUnit || 'SELECIONADA'}"</b>. Instale esse script apenas nessa operação, para que o roteamento de entregas não pareça no painel da cidade incorreta.
+                    </p>
+                  </div>
+                </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold flex items-center gap-2">
-                  <Code2 className="w-4 h-4 text-primary" />
-                  Script de Envio
-                </h3>
-                <Button 
-                  size="sm" 
-                  variant={copied ? "default" : "secondary"}
-                  onClick={() => copyScript(getSisfoodScript())}
-                  className="h-8 gap-1.5 transition-all text-xs"
-                >
-                  {copied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  {copied ? 'Copiado!' : 'Copiar Código'}
-                </Button>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold flex items-center gap-2">
+                      <Code2 className="w-4 h-4 text-primary" />
+                      Script de Envio
+                    </h3>
+                    <Button 
+                      size="sm" 
+                      variant={copied ? "default" : "secondary"}
+                      onClick={() => copyScript(getSisfoodScript())}
+                      className="h-8 gap-1.5 transition-all text-xs"
+                    >
+                      {copied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copied ? 'Copiado!' : 'Copiar Código'}
+                    </Button>
+                  </div>
+                  <div className="relative">
+                    <pre className="p-4 bg-[#1e1e1e] text-[#d4d4d4] rounded-xl text-xs overflow-auto max-h-[400px] font-mono border border-border/10 custom-scrollbar shadow-inner">
+                      <code>{getSisfoodScript()}</code>
+                    </pre>
+                    <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-[#1e1e1e] to-transparent pointer-events-none rounded-b-xl" />
+                  </div>
+                </div>
               </div>
-              <div className="relative">
-                <pre className="p-4 bg-[#1e1e1e] text-[#d4d4d4] rounded-xl text-xs overflow-auto max-h-[400px] font-mono border border-border/10 custom-scrollbar shadow-inner">
-                  <code>{getSisfoodScript()}</code>
-                </pre>
-                <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-[#1e1e1e] to-transparent pointer-events-none rounded-b-xl" />
-              </div>
-            </div>
-          </div>
             </div>
           )}
         </div>

@@ -64,7 +64,9 @@ export default function MeuLugar() {
       (error) => {
         console.error('Erro no rastreio do GPS:', error);
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+      // enableHighAccuracy gasta mais bateria. Reduzido para false para modo econômico.
+      // E aumentado timeout para 5 minutos.
+      { enableHighAccuracy: false, timeout: 300000, maximumAge: 300000 }
     );
 
     return () => navigator.geolocation.clearWatch(watchId);

@@ -274,10 +274,12 @@ export default function FilaPagamento() {
         unidadeId = unidadeRow.id as string;
         franquiaId = unidadeRow.franquia_id as string;
       } else {
+        const searchName = selectedUnit === 'POA' ? 'Poá' : (selectedUnit === 'ITAQUA' ? 'Itaquaquecetuba' : selectedUnit);
+        
         const { data: unidadeRow, error } = await supabase
           .from('unidades')
           .select('id, franquia_id')
-          .ilike('nome_loja', `%${selectedUnit as string}%`)
+          .ilike('nome_loja', `%${searchName}%`)
           .maybeSingle();
 
         if (error || !unidadeRow || !unidadeRow.franquia_id) {

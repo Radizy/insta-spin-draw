@@ -28,14 +28,28 @@ serve(async (req) => {
             });
         }
 
+        const { data: currentUnit } = await supabaseClient
+            .from('unidades')
+            .select('sisfood_pedidos_fila')
+            .ilike('nome_loja', `%${loja}%`)
+            .maybeSingle();
+
+        const oldPedidos = (currentUnit?.sisfood_pedidos_fila as any[]) || [];
+        const now = new Date().toISOString();
+
+        const mergedPedidos = pedidos_fila.map((newP: any) => {
+            const oldP = oldPedidos.find(op => op.id_interno === newP.id_interno || op.id === newP.id);
+            return {
+                ...newP,
+                created_at: oldP?.created_at || now
+            };
+        });
+
         const updatePayload: any = {
             entregas_na_fila: fila,
-            entregas_na_fila_atualizado_em: new Date().toISOString()
+            entregas_na_fila_atualizado_em: now,
+            sisfood_pedidos_fila: mergedPedidos
         };
-
-        if (pedidos_fila !== undefined) {
-             updatePayload.sisfood_pedidos_fila = pedidos_fila;
-        }
 
         let query = supabaseClient
             .from('unidades')
@@ -44,7 +58,6 @@ serve(async (req) => {
         if (unidade_id) {
             query = query.eq('id', unidade_id);
         } else {
-            // Using ilike or eq for name match, adjust based on how FilaLab names units 
             query = query.ilike('nome_loja', `%${loja}%`);
         }
 

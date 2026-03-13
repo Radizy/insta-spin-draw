@@ -121,10 +121,13 @@ export default function Config() {
     queryKey: ['unidade-detalhes', selectedUnit],
     queryFn: async () => {
       if (!selectedUnit) return null;
+      
+      const searchName = selectedUnit === 'POA' ? 'Poá' : (selectedUnit === 'ITAQUA' ? 'Itaquaquecetuba' : selectedUnit);
+      
       const { data, error } = await supabase
         .from('unidades')
         .select('id, nome_loja')
-        .ilike('nome_loja', `%${selectedUnit}%`)
+        .ilike('nome_loja', `%${searchName}%`)
         .maybeSingle();
       
       if (error) throw error;
