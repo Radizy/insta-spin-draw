@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name         Integração SISFOOD x FilaLab (LOJA SUZANO) - v11.2 (Static)
 // @namespace    http://tampermonkey.net/
-// @version      11.4
-// @description  Lê a fila do Sisfood e DESPACHA via FilaLab (Suzano - Lote Direto + Anti-Zumbi)
+// @version      11.6
+// @description  Lê a fila do Sisfood e DESPACHA via FilaLab (Suzano - Lote Direto)
 // @match        https://app.sisfood.com.br/*
 // @grant        none
 // ==/UserScript==
 
 (function() {
-    console.log("🚀 [FILALAB SUZANO v11.4] Iniciado!");
+    console.log("🚀 [FILALAB SUZANO v11.6] Iniciado!");
     const API_FILALAB = "https://kegbvaikqelwezpehlhf.supabase.co/functions/v1/sisfood-webhook";
     const SUPABASE_URL = "https://kegbvaikqelwezpehlhf.supabase.co";
     const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtlZ2J2YWlrcWVsd2V6cGVobGhmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2NDc4MzUsImV4cCI6MjA4NzIyMzgzNX0.hIRjDR4D6p8RAsnWMhkF1stRDr_oa0yMsqukCPADyh0";
@@ -146,7 +146,7 @@
                   return resolve(false);
              }
              
-             const urlDespacho = window.location.pathname.replace('/tela', '').replace('/pdv', '') + "/pdv/statusPedidosLote";
+             const urlDespacho = window.location.pathname.replace('/tela', '') + "/statusPedidosLote";
              
              // O SEGREDO DE SUZANO - LOTE BRUTO (SEM COLCHETES)
              const arrayPedidosFormatado = encodeURIComponent(codigosLimpos);

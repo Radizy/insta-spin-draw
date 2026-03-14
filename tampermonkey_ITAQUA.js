@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name         Integração SISFOOD x FilaLab (LOJA ITAQUA) - v11.2 (Static)
 // @namespace    http://tampermonkey.net/
-// @version      11.5
-// @description  Lê a fila do Sisfood e DESPACHA via FilaLab (Itaqua - Lote Nativo) - SEM ZUMBI LOCK
+// @version      11.6
+// @description  Lê a fila do Sisfood e DESPACHA via FilaLab (Itaqua - Lote Nativo Antigo V11.0) - SEM ZUMBI LOCK
 // @match        https://app.sisfood.com.br/*
 // @grant        none
 // ==/UserScript==
 
 (function() {
-    console.log("🚀 [FILALAB ITAQUA v11.5] Iniciado!");
+    console.log("🚀 [FILALAB ITAQUA v11.6] Iniciado!");
     const API_FILALAB = "https://kegbvaikqelwezpehlhf.supabase.co/functions/v1/sisfood-webhook";
     const SUPABASE_URL = "https://kegbvaikqelwezpehlhf.supabase.co";
     const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtlZ2J2YWlrcWVsd2V6cGVobGhmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2NDc4MzUsImV4cCI6MjA4NzIyMzgzNX0.hIRjDR4D6p8RAsnWMhkF1stRDr_oa0yMsqukCPADyh0";
@@ -155,8 +155,11 @@
                   return resolve(false);
              }
              
-             const urlDespacho = window.location.pathname.replace('/tela', '').replace('/pdv', '') + "/pdv/statusPedidosLote";
-             const arrayPedidosFormatado = encodeURIComponent("[" + codigosLimpos + "]"); // <--- O Segredo de ITAQUA (COM COLCHETES)
+             // Volta à base antiga v11.0: Mantém o /pdv/ se existir, remove apenas /tela
+             const urlDespacho = window.location.pathname.replace('/tela', '') + "/statusPedidosLote";
+             
+             // O Segredo verdadeiro de Itaquá da v11.0: Sem colchetes no lote!
+             const arrayPedidosFormatado = encodeURIComponent(codigosLimpos); 
 
              const form = "pedidos="+arrayPedidosFormatado+"&status=entrega&cod_motoboy="+encodeURIComponent(idMotoboy);
              console.log("🚀 [FILALAB ITAQUA] Despachando ID " + codigosLimpos + "...");
