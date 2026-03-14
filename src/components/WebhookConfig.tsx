@@ -107,12 +107,10 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
   };
 
   const getSisfoodScript = () => {
-    const isItaqua = selectedUnit && selectedUnit.toUpperCase().includes('ITAQU');
-
     return `// ==UserScript==
 // @name         Integração SISFOOD x FilaLab (\${selectedUnit || 'LOJA'})
 // @namespace    http://tampermonkey.net/
-// @version      11.0 (\${isItaqua ? 'Lote/Matriz' : 'Sequencial/Filial'})
+// @version      11.1 (Despacho Universal Anti-Zumbi)
 // @description  Intercepta fila do Sisfood e Despacha com proteção ZUMBI
 // @match        https://app.sisfood.com.br/*/pdv*
 // @match        https://app.sisfood.com.br/*/secretaria/atendimentos/tela*
@@ -271,33 +269,7 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
              
              const basePath = window.location.pathname.replace('/tela', '').replace('/pdv', '');
              
-             ${isItaqua ? `
-             // ================== ROTA MATRIZ (ITAQUA) [LOTE NATIVO] ==================
-             const urlDespacho = basePath + "/pdv/statusPedidosLote";
-             const payload = "id_motoboy=" + encodeURIComponent(idMotoboyFinal || "40") + "&pedidos_status_entrega=" + encodeURIComponent(codigosLimpos);
-
-             const xhrStatus = new XMLHttpRequest();
-             xhrStatus.open("POST", urlDespacho, true);
-             xhrStatus.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
-             xhrStatus.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-
-             xhrStatus.onreadystatechange = async function () {
-                  if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
-                       await patchSupabaseStatus(cmd.id, 'EXECUTADO');
-                       console.log("✅ [FILALAB] Pedido " + codigosLimpos + " despachado (Lote).");
-                       setTimeout(()=> {
-                          const refreshBtn = document.querySelector('button[title*="Atualizar"], a[title*="Atualizar"]');
-                          if(refreshBtn) refreshBtn.click();
-                       }, 700);
-                       resolve(true);
-                  } else if (this.readyState === XMLHttpRequest.DONE) {
-                       console.error("❌ Falha no despacho Lote HTTP " + this.status);
-                       resolve(false);
-                  }
-             }
-             xhrStatus.send(payload);
-             ` : `
-             // ================== ROTA FILIAIS (POA/SUZANO) [STATUS + VINCULO] ==================
+             // ================== ROTA UNIVERSAL (STATUS + VINCULO SEQUENCIAL) ==================
              const urlStatus = basePath + "/pdv/statusPedido";
              const urlMotoboy = basePath + "/pdv/motoboy";
              
@@ -319,7 +291,7 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
                        xhrMotoboy.onreadystatechange = async function() {
                            if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
                                await patchSupabaseStatus(cmd.id, 'EXECUTADO');
-                               console.log("✅ [FILALAB] Pedido " + codigosLimpos + " despachado (Seq).");
+                               console.log("✅ [FILALAB] Pedido " + codigosLimpos + " despachado (Universal).");
                                setTimeout(()=> {
                                   const refreshBtn = document.querySelector('button[title*="Atualizar"], a[title*="Atualizar"]');
                                   if(refreshBtn) refreshBtn.click();
@@ -337,7 +309,6 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
                   }
              }
              xhrStatus.send(formStatus);
-             `}
          });
     }
 
