@@ -107,11 +107,13 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
   };
 
   const getSisfoodScript = () => {
+    const isItaqua = selectedUnit && selectedUnit.toUpperCase().includes('ITAQU');
+
     return `// ==UserScript==
-// @name         Integração SISFOOD x FilaLab (${selectedUnit || 'LOJA'})
+// @name         Integração SISFOOD x FilaLab (\${selectedUnit || 'LOJA'})
 // @namespace    http://tampermonkey.net/
-// @version      10.3 - Otimizada
-// @description  Lê a fila do Sisfood e DESPACHA via FilaLab (Sem Vasamento de Memória)
+// @version      11.0 (\${isItaqua ? 'Lote/Matriz' : 'Sequencial/Filial'})
+// @description  Intercepta fila do Sisfood e Despacha com proteção ZUMBI
 // @match        https://app.sisfood.com.br/*/pdv*
 // @match        https://app.sisfood.com.br/*/secretaria/atendimentos/tela*
 // @grant        none
@@ -119,14 +121,17 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
 
 (function() {
     const API_FILALAB = "https://kegbvaikqelwezpehlhf.supabase.co/functions/v1/sisfood-webhook";
-    const SUPABASE_URL = "${import.meta.env.VITE_SUPABASE_URL}";
-    const ANON_KEY = "${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}";
+    const SUPABASE_URL = "\${import.meta.env.VITE_SUPABASE_URL}";
+    const ANON_KEY = "\${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}";
     
-    // Nome exato da sua loja configurada no FilaLab
-    const LOJA_FIXA = "${selectedUnit || 'NomeDaLojaAqui'}";
-    const UNIDADE_ID_FIXA = "${unidadeId || ''}";
+    const LOJA_FIXA = "\${selectedUnit || 'NomeDaLojaAqui'}";
+    const UNIDADE_ID_FIXA = "\${unidadeId || ''}";
+    
     let ultimaHashFila = "";
     let ultimaContagemFila = -1;
+    
+    // VARIÁVEL DE SEGURANÇA MÁXIMA PARA EVITAR DESPACHOS DE PEDIDOS ZUMBIS
+    window._filaAtualSisfood = []; 
 
     // ----- [PARTE 1: LEITURA] Interceptador de Rede invisível para sincronizar a fila -----
     const XHR = XMLHttpRequest.prototype;
@@ -139,14 +144,17 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
                     const data = JSON.parse(this.responseText);
                     let contagemFila = 0;
                     const pedidosNaFila = [];
+                    window._filaAtualSisfood = []; // Reseta a cada passada da tela
                     
                     if (data.pedidos && Array.isArray(data.pedidos)) {
                         data.pedidos.forEach(pedido => {
                             const status = pedido[4]; 
                             if (status === "Fila" || status === "fila") {
                                 contagemFila++;
+                                // O Sisfood salva [0] como ID longo nas filiais, mas pode ser Comanda na Matriz.
+                                // Na v11.0 a gente padroniza: id é sempre [0], comanda é [7]
                                 
-                                pedidosNaFila.push({
+                                const pedidoClean = {
                                     id: pedido[0],
                                     id_interno: pedido[0],
                                     comanda: pedido[7] || pedido[0],
@@ -154,7 +162,10 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
                                     cliente: pedido[3] ? pedido[3].split(' / ')[0].trim() : 'Desconhecido',
                                     telefone: pedido[3] && pedido[3].includes('/') ? pedido[3].split(' / ')[1].trim() : '',
                                     endereco: pedido[9] || ''
-                                });
+                                };
+                                
+                                pedidosNaFila.push(pedidoClean);
+                                window._filaAtualSisfood.push(String(pedido[0]).trim()); // Lista VIP de quem PODE ser despachado
                             }
                         });
                     }
@@ -162,15 +173,12 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
                     const hashAtual = JSON.stringify(pedidosNaFila);
 
                     if (hashAtual !== ultimaHashFila || contagemFila !== ultimaContagemFila) {
-                        // Apenas loga quando houver uma mudança real na fila para não flodar o console
-                        console.log("🟢 [FILALAB] Atualização detectada: Fila com " + contagemFila + " pedidos.");
+                        console.log("🟢 [FILALAB] Fila atualizada: " + contagemFila + " pedidos ativos na tela.");
                         ultimaHashFila = hashAtual;
                         ultimaContagemFila = contagemFila;
                         enviarFilaLab(LOJA_FIXA, contagemFila, pedidosNaFila);
                     }
-                } catch(err) {
-                    // console.error("❌ [FILALAB] Erro ao ler JSON:", err); // Desligado para poupar RAM em caso de tela ociosa
-                }
+                } catch(err) { }
             }
         });
         return send.apply(this, arguments);
@@ -184,21 +192,19 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
 
     async function enviarFilaLab(lojaNome, filaCount, pedidosFila) {
         try {
-            const resposta = await fetch(API_FILALAB, {
+            await fetch(API_FILALAB, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ loja: lojaNome, fila: filaCount, pedidos_fila: pedidosFila, sistema: "SISFOOD_V8" })
+                body: JSON.stringify({ loja: lojaNome, fila: filaCount, pedidos_fila: pedidosFila, sistema: "SISFOOD_V11" })
             });
         } catch (e) {
-            console.error("❌ [FILALAB] Erro de Rede:", e);
+            console.error("❌ [FILALAB] Erro de Rede sincronizando Fila:", e);
         }
     }
 
-    // ----- [PARTE 2: ESCRITA] Polling de Comandos Pendentes FilaLab -> Sisfood -----
+    // ----- [PARTE 2: ESCRITA] Polling FilaLab -> Sisfood -----
     
-    // Auxiliar: Busca o ID interno do Motoboy no HTML pelo Nome dele
     function findMotoboyIdByName(targetName) {
-        // Geralmente o Sisfood cria botões/opções de motoboys. Buscaremos todos os elementos de JS/DOM e cruzaremos o nome.
         const normalTarget = targetName.toLowerCase().trim();
         const todosElementosTexto = Array.from(document.querySelectorAll('*'))
             .filter(el => {
@@ -208,13 +214,10 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
                 return false;
             });
 
-        // 1. Tentar ler o 'onclick' de elementos na tela (ex: vincularMotoboy(cod, 40))
         for (let baseEl of todosElementosTexto) {
             let prnt = baseEl;
-            for(let i=0; i<3; i++) { // sobe 3 níveis max
+            for(let i=0; i<3; i++) { 
                 if(prnt) {
-                    const attrs = Array.from(prnt.attributes).map(a => a.value).join(' ');
-                    // ex: onclick="vincular(1234, 40)" ignoramos isso, se for um val, etc.
                     if(prnt.value && !isNaN(prnt.value)) return prnt.value;
                     if(prnt.dataset && prnt.dataset.id) return prnt.dataset.id;
                 }
@@ -222,48 +225,84 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
             }
         }
         
-        // 2. Se o Sisfood carrega os motoboys numa variavel JS global (comum em VUE)
-        // Isso é complexo pelo Content Security do navegador, logo tentaremos o form bruto
         const forms = document.querySelectorAll("select option");
         for(let opt of forms) {
-             if(opt.textContent.toLowerCase().includes(normalTarget)) {
-                 return opt.value;
-             }
+             if(opt.textContent.toLowerCase().includes(normalTarget)) return opt.value;
         }
 
-        // 3. Fallback: procurar inputs/buttons escondidos
         const btns = document.querySelectorAll("button, div.card");
         for(let b of btns) {
              if(b.textContent.toLowerCase().includes(normalTarget)) {
                  if(b.value) return b.value;
-                 // As vezes a action eh vinculada num fetch direto
              }
         }
+        return null;
+    }
 
-        return null; // Não achou
+    async function patchSupabaseStatus(cmdId, newStatus) {
+         try {
+             await fetch(SUPABASE_URL + "/rest/v1/sisfood_comandos?id=eq." + cmdId, {
+                  method: 'PATCH',
+                  headers: { "apikey": ANON_KEY, "Authorization": "Bearer " + ANON_KEY, "Content-Type": "application/json", "Prefer": "return=minimal" },
+                  body: JSON.stringify({ status: newStatus })
+             });
+             return true;
+         } catch(e) { return false; }
     }
 
     async function despacharPedidoNoSisfood(cmd) {
-         return new Promise((resolve) => {
+         return new Promise(async (resolve) => {
+             const codigosLimpos = cmd.cod_pedido_interno.replace(/\\s+/g, '');
+             
+             // TRAVA ZUMBI [V11.0] - Se o Sisfood original JÁ TIROU o pedido da Fila visual, nós abortamos pra não ressuscitar a comanda!
+             if (!window._filaAtualSisfood.includes(codigosLimpos)) {
+                 console.warn("🛡️ [FILALAB Zumbi-Lock] O pedido " + codigosLimpos + " não está mais 'Na Fila' do Sisfood (provavelmente já alterado manualmente ou cancelado). Marcando comando FilaLab como IGNORADO.");
+                 await patchSupabaseStatus(cmd.id, 'IGNORADO');
+                 return resolve(true); // Termina com sucesso pra não repetir polling
+             }
+
              const idMotoboyFinal = findMotoboyIdByName(cmd.nome_motoboy);
              
              if(!idMotoboyFinal && !window._avisoMotoboyNaoAchado) {
-                  console.warn("[FILALAB] Aviso: Botão do motoboy " + cmd.nome_motoboy + " não foi encontrado na DOM aberta do Sisfood para o pedido " + cmd.cod_pedido_interno + ". Certifique-se que o nome é IGUAL ou que a lista de motoboys está carregada na memória.");
-                  window._avisoMotoboyNaoAchado = true; // Só avisa 1 vez
-                  return resolve(false);
+                  console.warn("[FILALAB] Botão do motoboy " + cmd.nome_motoboy + " não achado no DOM.");
+                  window._avisoMotoboyNaoAchado = true; 
+                  return resolve(false); // Retorna false pra tentar de novo dps
              }
              
-             const codigosLimpos = cmd.cod_pedido_interno.replace(/\\s+/g, '');
-
-             // LOGICA UNIFICADA PRA TODAS AS LOJAS (Status + Vinculacao de Motoboy Sequencial)
              const basePath = window.location.pathname.replace('/tela', '').replace('/pdv', '');
+             
+             ${isItaqua ? `
+             // ================== ROTA MATRIZ (ITAQUA) [LOTE NATIVO] ==================
+             const urlDespacho = basePath + "/pdv/statusPedidosLote";
+             const payload = "id_motoboy=" + encodeURIComponent(idMotoboyFinal || "40") + "&pedidos_status_entrega=" + encodeURIComponent(codigosLimpos);
+
+             const xhrStatus = new XMLHttpRequest();
+             xhrStatus.open("POST", urlDespacho, true);
+             xhrStatus.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+             xhrStatus.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+             xhrStatus.onreadystatechange = async function () {
+                  if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
+                       await patchSupabaseStatus(cmd.id, 'EXECUTADO');
+                       console.log("✅ [FILALAB] Pedido " + codigosLimpos + " despachado (Lote).");
+                       setTimeout(()=> {
+                          const refreshBtn = document.querySelector('button[title*="Atualizar"], a[title*="Atualizar"]');
+                          if(refreshBtn) refreshBtn.click();
+                       }, 700);
+                       resolve(true);
+                  } else if (this.readyState === XMLHttpRequest.DONE) {
+                       console.error("❌ Falha no despacho Lote HTTP " + this.status);
+                       resolve(false);
+                  }
+             }
+             xhrStatus.send(payload);
+             ` : `
+             // ================== ROTA FILIAIS (POA/SUZANO) [STATUS + VINCULO] ==================
              const urlStatus = basePath + "/pdv/statusPedido";
              const urlMotoboy = basePath + "/pdv/motoboy";
              
              const formStatus = "cod="+encodeURIComponent(codigosLimpos)+"&status=entrega";
              const formMotoboy = "cod_pedido="+encodeURIComponent(codigosLimpos)+"&cod_motoboy="+encodeURIComponent(idMotoboyFinal || "40")+"&nome_motoboy="+encodeURIComponent(cmd.nome_motoboy);
-
-             // console.log("🚀 [FILALAB] Alterando status do ID " + codigosLimpos + "...");
 
              const xhrStatus = new XMLHttpRequest();
              xhrStatus.open("POST", urlStatus, true);
@@ -272,7 +311,6 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
 
              xhrStatus.onreadystatechange = function () {
                   if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
-                       // console.log("🚀 [FILALAB] Vinculando motoboy " + cmd.nome_motoboy + "...");
                        const xhrMotoboy = new XMLHttpRequest();
                        xhrMotoboy.open("POST", urlMotoboy, true);
                        xhrMotoboy.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
@@ -280,45 +318,37 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
                        
                        xhrMotoboy.onreadystatechange = async function() {
                            if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
-                               await fetch(SUPABASE_URL + "/rest/v1/sisfood_comandos?id=eq." + cmd.id, {
-                                    method: 'PATCH',
-                                    headers: {
-                                        "apikey": ANON_KEY, "Authorization": "Bearer " + ANON_KEY, "Content-Type": "application/json", "Prefer": "return=minimal"
-                                    },
-                                    body: JSON.stringify({ status: "EXECUTADO"                                console.log("✅ [FILALAB] Pedido " + codigosLimpos + " despachado com sucesso!");
+                               await patchSupabaseStatus(cmd.id, 'EXECUTADO');
+                               console.log("✅ [FILALAB] Pedido " + codigosLimpos + " despachado (Seq).");
                                setTimeout(()=> {
                                   const refreshBtn = document.querySelector('button[title*="Atualizar"], a[title*="Atualizar"]');
                                   if(refreshBtn) refreshBtn.click();
-                               }, 1000);
+                               }, 700);
                                resolve(true);
                            } else if (this.readyState === XMLHttpRequest.DONE) {
-                               console.error("❌ [FILALAB] Falha ao vincular motoboy: HTTP " + this.status);
+                               console.error("❌ Falha Vinculo Motoboy HTTP " + this.status);
                                resolve(false);
                            }
                        };
                        xhrMotoboy.send(formMotoboy);
                   } else if (this.readyState === XMLHttpRequest.DONE) {
-                       console.error("❌ [FILALAB] Falha ao alterar status (Pode ser cache): HTTP " + this.status);
+                       console.error("❌ Falha Status Pedido HTTP " + this.status);
                        resolve(false);
                   }
              }
-             xhrStatus.send(formStatus);   }
              xhrStatus.send(formStatus);
+             `}
          });
     }
 
     async function pollComandosDoFilaLab() {
          try {
-             // Lista todos os pendentes baseado no ID forte (segurança máxima entre unidades)
              const endpointUrl = UNIDADE_ID_FIXA 
                 ? "/rest/v1/sisfood_comandos?status=eq.PENDENTE&unidade_id=eq." + UNIDADE_ID_FIXA
                 : "/rest/v1/sisfood_comandos?status=eq.PENDENTE&unidade_nome=eq." + encodeURIComponent(LOJA_FIXA);
 
              const resp = await fetch(SUPABASE_URL + endpointUrl, {
-                 headers: {
-                     "apikey": ANON_KEY,
-                     "Authorization": "Bearer " + ANON_KEY
-                 }
+                 headers: { "apikey": ANON_KEY, "Authorization": "Bearer " + ANON_KEY }
              });
              
              if(resp.ok) {
@@ -326,20 +356,21 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
                  
                  for(let cmd of comandosPendentes) {
                      await despacharPedidoNoSisfood(cmd);
-                     await new Promise(r => setTimeout(r, 600)); // Sleep anti-spam entre cada comanda pro Sisfood
+                     await new Promise(r => setTimeout(r, 600)); 
                  }
                  
-                 // Se limpou o lixo do polling com sucesso da memoria
-                 if (comandosPendentes.length > 0 && typeof performance !== "undefined" && performance.memory) {
-                     // Memory sweep request silencioso (funciona no chrome ao atingir limites)
-                     window.gc && window.gc();
+                 if (comandosPendentes.length > 0 && typeof window.gc === "function") {
+                     window.gc(); // Sweep
                  }
              }
-         } catch(e) { /* silent fail no polling wifi */}
+         } catch(e) { }
     }
 
-    // Iniciar loop infinito observador de Ordens do Roteirista FilaLab a cada 10 segundos (para poupar bateria/rede da máquina do PDV)
-    setInterval(pollComandosDoFilaLab, 10000);
+    // Iniciar loop infinito observador de Comandos a cada 4 segundos (Tempo Snappy e seguro)
+    setInterval(pollComandosDoFilaLab, 4000);
+
+})();\`;
+  };Interval(pollComandosDoFilaLab, 10000);
 
 })();`;
   };
