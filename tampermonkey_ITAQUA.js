@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name         Integração SISFOOD x FilaLab (LOJA ITAQUA) - v11.2 (Static)
 // @namespace    http://tampermonkey.net/
-// @version      11.4
-// @description  Lê a fila do Sisfood e DESPACHA via FilaLab (Itaqua - Lote Nativo + Anti-Zumbi)
+// @version      11.5
+// @description  Lê a fila do Sisfood e DESPACHA via FilaLab (Itaqua - Lote Nativo) - SEM ZUMBI LOCK
 // @match        https://app.sisfood.com.br/*
 // @grant        none
 // ==/UserScript==
 
 (function() {
-    console.log("🚀 [FILALAB ITAQUA v11.4] Iniciado!");
+    console.log("🚀 [FILALAB ITAQUA v11.5] Iniciado!");
     const API_FILALAB = "https://kegbvaikqelwezpehlhf.supabase.co/functions/v1/sisfood-webhook";
     const SUPABASE_URL = "https://kegbvaikqelwezpehlhf.supabase.co";
     const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtlZ2J2YWlrcWVsd2V6cGVobGhmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2NDc4MzUsImV4cCI6MjA4NzIyMzgzNX0.hIRjDR4D6p8RAsnWMhkF1stRDr_oa0yMsqukCPADyh0";
@@ -140,12 +140,14 @@
          return new Promise(async (resolve) => {
              const codigosLimpos = cmd.cod_pedido_interno.replace(/\s+/g, '');
              
-             // TRAVA ANTI-ZUMBI V11.2 - Impede RESSURREIÇÃO
+             // TRAVA ANTI-ZUMBI V11.5 - Desativada Temporariamente em Itaquá para garantir despachos
+             /*
              if (window._filaAtualSisfood && !window._filaAtualSisfood.includes(codigosLimpos)) {
                  console.warn("🛡️ [FILALAB Zumbi-Lock] O pedido " + codigosLimpos + " não está na lista visual. Marcando FilaLab como IGNORADO.");
                  await patchSupabaseStatus(cmd.id, 'IGNORADO');
                  return resolve(true);
              }
+             */
 
              const idMotoboy = findMotoboyIdByName(cmd.nome_motoboy);
              if(!idMotoboy) {
