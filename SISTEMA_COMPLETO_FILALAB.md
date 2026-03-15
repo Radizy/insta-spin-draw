@@ -24,16 +24,27 @@ Os 5 módulos principais são:
 Esses módulos podem ser geridos livremente pelo painel Super Admin na visualização e edição de uma franquia.
 
 ### Versão do Sistema
-- **Versão Atual**: `2.6.0` (Março 2026)
+- **Versão Atual**: `2.6.1` (Março 2026)
 - **Últimas Implementações**:
-    - **Kanban Board para Atualizações**: O painel Super Admin agora conta com um layout Kanban (Drag & Drop) para gerir atualizações do sistema, dividido em: "Lançados", "Em desenvolvimento" e "Ideias enviadas".
-    - **Termos de Uso e Política de Privacidade**: Implementação de modais dedicados no rodapé da Landing Page para conformidade legal e transparência com o usuário.
-    - **Integração SISFOOD v11.1 (Universal Anti-Zumbi)**: Script Tampermonkey `WebhookConfig.tsx` unificou todas as franquias na rota *Sequencial Rápida* de disparo duplo (`/statusPedido` + `/motoboy`), que provou ser mais confiável contra payloads cegos, enquanto manteve o crucial ganho arquitetural do filtro de interceptação visual (`_filaAtualSisfood`). A trava protege contra reciclagens indevidas de comandos Zumbis velhos no banco de dados. O *polling* de despacho atua agora a velozes `4000ms`, garantindo tempo de alerta na TV imediato.
-    - **Otimização de Bateria Front-End (App Empregado)**: Refatoração térmica no módulo `MeuLugar.tsx`. O rastreio GPS em *background* abandonou a agressiva `enableHighAccuracy` e teve o *heartbeat* alterado drasticamente de "10 segundos" para "5 minutos", poupando plano de dados e CPU dos smartphones durante o expediente.
-    - **Preservação de Histórico no Reset**: O reset de expediente agora preserva os registros de `historico_entregas` para fins de Analytics, limpando apenas o status operacional diário.
-    - **Mapa Dinâmico do Roteirista (`/mapa`)**: Permite busca nativa baseada na Google/OSM UI com PIN dinâmico que puxa da `system_config.endereco`. Resolve conflitos Vanilla Leaflet x React Context. Agora exibe o PIN 🏠 da Loja (Base) via Auto-Geocode.
-    - **Check-in Diário Robusto**: Utilização de triggers Supabase para garantir que apenas o primeiro check-in do dia seja registrado como entrada oficial, independentemente de múltiplos retornos.
-    - **Gestão de BAG e Ícones**: Autonomia para franqueados gerirem tipos de BAG com suporte a ícones customizados via storage.
+    - **Otimização de Network Polling**: Redução do intervalo de busca para `saidas-hoje` (Roteirista) e `historico-rank` (TV) para cada 5 minutos, diminuindo a carga no banco de dados e melhorando a performance geral.
+    - **Organização de Scripts**: Todos os scripts SQL e scripts auxiliares (.js, .ps1) foram centralizados na pasta `/scripts` para um ambiente de desenvolvimento mais limpo.
+    - **Kanban Board para Atualizações**: O painel Super Admin agora conta com um layout Kanban (Drag & Drop) para gerir atualizações do sistema.
+    - **Termos de Uso e Política de Privacidade**: Implementação de modais dedicados no rodapé da Landing Page.
+    - **Integração SISFOOD v11.1 (Universal Anti-Zumbi)**: Script Tampermonkey unificado com disparo duplo e proteção contra comandos obsoletos.
+    - **Otimização de Bateria (App Motoboy)**: Heartbeat de localização alterado para 5 minutos para preservação de bateria e CPU.
+
+---
+
+## 📂 ESTRUTURA DE PASTAS (Root Cleanup)
+
+Para manter a manutenabilidade, o diretório raiz foi limpo, restando apenas arquivos essenciais de configuração e os códigos principais:
+
+- **`/src`**: Código fonte da aplicação React (Páginas, Componentes, Hooks).
+- **`/scripts`**: Central de scripts SQL de migração, scripts de banco de dados e utilitários.
+- **`/supabase`**: Configurações de Edge Functions e Migrações de banco.
+- **`/public`**: Assets estáticos e imagens.
+- **`SISTEMA_COMPLETO_FILALAB.md`**: Esta documentação mestra.
+- **`tampermonkey_*.js`**: Scripts de integração Sisfood por unidade.
 
 ---
 

@@ -37,7 +37,7 @@ export function TopRankWidget({ unidadeId, availableQueue = [], deliveringQueue 
     const { data: entregadores = [] } = useQuery({
         queryKey: ['entregadores', unidadeId, 'top_rank'],
         queryFn: () => fetchEntregadores({ unidade: unidadeId as Unidade }),
-        refetchInterval: 30000,
+        refetchInterval: 300000,
     });
 
     // 3. Obter histórico do expediente
@@ -54,7 +54,7 @@ export function TopRankWidget({ unidadeId, availableQueue = [], deliveringQueue 
             if (error) throw error;
             return data;
         },
-        refetchInterval: 30000,
+        refetchInterval: 300000,
     });
 
     // 4. Calcular Top 5
@@ -193,7 +193,7 @@ export function TopRankWidget({ unidadeId, availableQueue = [], deliveringQueue 
                     <div className="px-4 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm">
                         <p className="text-slate-400 font-mono text-xs flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                            Ranking ao vivo · Atualizado a cada 30s
+                            Ranking ao vivo · Atualizado a cada 5 min
                         </p>
                     </div>
                 </div>

@@ -224,14 +224,14 @@ export default function TV() {
       dataFim: dataFim.toISOString(),
     }),
     enabled: !!selectedUnit,
-    refetchInterval: 10000,
+    refetchInterval: 300000,
   });
 
   const { data: senhasPagamento = [] } = useQuery({
     queryKey: ['senhas-pagamento-tv', user?.unidadeId],
     queryFn: () => fetchSenhasPagamento(user?.unidadeId!),
     enabled: !!user?.unidadeId,
-    refetchInterval: 5000,
+    refetchInterval: 10000,
   });
 
   const { data: franquiaBagTipos = [] } = useQuery({
@@ -288,6 +288,7 @@ export default function TV() {
   const playOneAudio = useCallback(async (path: string, volume: number): Promise<boolean> => {
     try {
       const safeVolume = Math.min(1, Math.max(0, volume));
+      console.log(`[TV] playOneAudio: ${path} | Volume: ${safeVolume}`);
 
       // Se for uma URL absoluta, toca diretamente
       if (path.startsWith('http')) {
@@ -295,29 +296,42 @@ export default function TV() {
           const audio = new Audio(path);
           audio.volume = safeVolume;
           audio.onended = () => resolve(true);
-          audio.onerror = () => resolve(false);
-          audio.play().catch(() => resolve(false));
+          audio.onerror = (e) => {
+            console.error(`[TV] Erro ao reproduzir URL externa: ${path}`, e);
+            resolve(false);
+          };
+          audio.play().catch((err) => {
+            console.error(`[TV] Falha no play() da URL externa: ${path}`, err);
+            resolve(false);
+          });
         });
       }
 
-      // Lógica de bucket refinada
-      let bucket = 'motoboy_voices';
-      let filePath = path;
+      const bucket = path.startsWith('audios_sistema/') ? 'audios_sistema' : 'motoboy_voices';
+      const filePath = path.startsWith('audios_sistema/') ? path.replace('audios_sistema/', '') : path;
 
-      if (path.startsWith('audios_sistema/')) {
-        bucket = 'audios_sistema';
-        filePath = path.replace('audios_sistema/', '');
-      } else if (path.includes('/')) {
-        // Se o caminho for 'UUID/arquivo.mp3', o bucket continua sendo 'motoboy_voices'
-        // pois é a estrutura interna desse bucket. 
-        // Não removemos o prefixo pois ele faz parte do filePath no bucket motoboy_voices.
-        bucket = 'motoboy_voices';
-        filePath = path;
-      }
+      // Tentativa 1: Via URL Pública (Mais rápida e evita 400 de download se o bucket for público)
+      const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(filePath);
+      
+      const playResult = await new Promise<boolean>((resolve) => {
+        const audio = new Audio(publicUrl);
+        audio.volume = safeVolume;
+        audio.onended = () => resolve(true);
+        audio.onerror = () => {
+          console.warn(`[TV] Falha ao tocar via URL Pública: ${publicUrl}. Tentando via Download Blob...`);
+          resolve(false);
+        };
+        audio.play().catch(() => resolve(false));
+      });
 
+      if (playResult) return true;
+
+      // Tentativa 2: Via Download Blob (Fallback para buckets privados)
+      console.log(`[TV] Baixando do Storage via Blob: Bucket=${bucket}, Path=${filePath}`);
       const { data, error } = await supabase.storage.from(bucket).download(filePath);
+      
       if (error) {
-        console.error(`[TV] Erro ao baixar áudio (${bucket}/${filePath}):`, error);
+        console.warn(`[TV] Áudio não encontrado ou erro no storage (${bucket}/${filePath}):`, error.message);
         return false;
       }
 
@@ -350,23 +364,29 @@ export default function TV() {
     const pause = () => new Promise((r) => setTimeout(r, 300));
     let playedNome = false;
     if (entregador.tts_voice_path) playedNome = await playOneAudio(entregador.tts_voice_path, volume);
+    
     if (!playedNome) {
-      await speak(`É a vez de ${entregador.nome}`, { enabled: true, volume: volume * 100, voice_model: 'browser_clara' });
+      console.log('[TV] Áudio do nome não encontrado, usando TTS');
+      await speak(`É a vez de ${entregador.nome}`, { enabled: true, volume: Math.min(100, volume * 130), voice_model: 'browser_clara' });
       await pause();
     }
     if (bagId) {
-      console.log('[TV] Processando audio da bag:', bagId);
+      console.log('[TV] Processando áudio da bag:', bagId);
       const bagTipo = franquiaBagTipos.find((b) => b.id === bagId || b.nome === bagId);
-      console.log('[TV] Tipo de bag encontrado:', bagTipo);
-
+      
       let playedBag = false;
-      const bagPath = `${user.franquiaId}/bags/${bagTipo?.id}.mp3`;
-      console.log('[TV] Tentando reproduzir audio da bag:', bagPath);
-      playedBag = await playOneAudio(bagPath, volume);
+      if (bagTipo) {
+        const bagPath = `${user.franquiaId}/bags/${bagTipo.id}.mp3`;
+        console.log('[TV] Tentando reproduzir áudio da bag:', bagPath);
+        playedBag = await playOneAudio(bagPath, volume);
+      } else {
+        console.warn('[TV] Tipo de bag não encontrado na lista da franquia para id:', bagId);
+      }
 
       if (!playedBag) {
-        console.log('[TV] Audio da bag falhou ou inexistente, usando TTS para bag');
-        await speak(`Pegue a ${bagTipo?.nome || bagId}`, { enabled: true, volume: volume * 100, voice_model: 'browser_clara' });
+        console.log('[TV] Áudio da bag falhou ou inexistente, usando TTS para bag');
+        const bagNomeReal = bagTipo?.nome || bagId;
+        await speak(`Pegue a ${bagNomeReal}`, { enabled: true, volume: Math.min(100, volume * 130), voice_model: 'browser_clara' });
         await pause();
       }
     }
@@ -707,9 +727,9 @@ export default function TV() {
         show={!!displayingCalled || !!displayingPagamento}
         tipo={displayingPagamento ? 'PAGAMENTO' : 'ENTREGA'}
         nomeMotoboy={displayingPagamento?.entregador_nome || displayingCalled?.entregador.nome || ''}
-        bagNome={displayingPagamento ? undefined : franquiaBagTipos.find(b => b.id === displayingCalled?.entregador.tipo_bag)?.nome || displayingCalled?.entregador.tipo_bag}
-        callPhrase={displayingPagamento ? buildTvTexts(displayingPagamento.entregador_nome!, undefined, displayingPagamento.numero_senha).pagamentoText : displayingCalled ? buildTvTexts(displayingCalled.entregador.nome, franquiaBagTipos.find(b => b.id === displayingCalled.entregador.tipo_bag)?.nome).chamadaText : undefined}
-        bagPhrase={displayingCalled ? buildTvTexts(displayingCalled.entregador.nome, franquiaBagTipos.find(b => b.id === displayingCalled.entregador.tipo_bag)?.nome).bagText : undefined}
+        bagNome={displayingPagamento ? undefined : (franquiaBagTipos.find(b => b.id === displayingCalled?.entregador.tipo_bag || b.nome === displayingCalled?.entregador.tipo_bag)?.nome || displayingCalled?.entregador.tipo_bag)}
+        callPhrase={displayingPagamento ? buildTvTexts(displayingPagamento.entregador_nome!, undefined, displayingPagamento.numero_senha).pagamentoText : displayingCalled ? buildTvTexts(displayingCalled.entregador.nome, (franquiaBagTipos.find(b => b.id === displayingCalled.entregador.tipo_bag || b.nome === displayingCalled.entregador.tipo_bag)?.nome)).chamadaText : undefined}
+        bagPhrase={displayingCalled ? buildTvTexts(displayingCalled.entregador.nome, (franquiaBagTipos.find(b => b.id === displayingCalled.entregador.tipo_bag || b.nome === displayingCalled.entregador.tipo_bag)?.nome)).bagText : undefined}
         hasBebida={displayingCalled?.hasBebida || false}
         onComplete={() => (displayingPagamento ? setDisplayingPagamento(null) : setDisplayingCalled(null))}
       />

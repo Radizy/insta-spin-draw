@@ -324,53 +324,42 @@ export async function sendDispatchWebhook(params: {
   bag: TipoBag;
   hasBebida?: boolean;
 }): Promise<void> {
-  try {
-    // Buscar URL do webhook configurada para a unidade
-    if (!params.unidadeId) return;
+    // Execução assíncrona para não travar a UI
+    const runWebhook = async () => {
+      try {
+        if (!params.unidadeId) return;
 
-    const { data: config, error: configError } = await supabase
-      .from('unidades')
-      .select('config_sheets_url')
-      .eq('id', params.unidadeId)
-      .maybeSingle();
+        // Tenta buscar do cache/config local se possível (futura melhoria), por ora buscamos uma vez
+        const { data: config } = await supabase
+          .from('unidades')
+          .select('config_sheets_url')
+          .eq('id', params.unidadeId)
+          .maybeSingle();
 
-    if (configError) {
-      console.error('Erro ao buscar config de webhook:', configError);
-      return;
-    }
+        const webhookUrl = config?.config_sheets_url;
+        if (!webhookUrl) return;
 
-    const webhookUrl = config?.config_sheets_url;
-    if (!webhookUrl) {
-      // Webhook não configurado, não faz nada
-      return;
-    }
+        const payload = {
+          tipo: "saida_entrega",
+          unidade: params.unidade,
+          nome: params.entregador.nome,
+          horario_saida: new Date().toISOString(),
+          quantidade_entregas: String(params.quantidadeEntregas),
+          motoboy: params.entregador.nome,
+          bag: params.bag,
+          possui_bebida: params.hasBebida ? 'SIM' : 'NAO',
+        };
 
-    const horarioSaida = new Date().toISOString();
-
-    const payload = {
-      tipo: "saida_entrega",
-      unidade: params.unidade,
-      nome: params.entregador.nome,
-      horario_saida: horarioSaida,
-      quantidade_entregas: String(params.quantidadeEntregas),
-      motoboy: params.entregador.nome,
-      bag: params.bag,
-      possui_bebida: params.hasBebida ? 'SIM' : 'NAO',
+        await supabase.functions.invoke('send-webhook', {
+          body: { webhookUrl, payload },
+        });
+      } catch (err) {
+        console.error('[API] Erro silenciado ao enviar webhook de despacho:', err);
+      }
     };
 
-    const { error } = await supabase.functions.invoke('send-webhook', {
-      body: {
-        webhookUrl,
-        payload,
-      },
-    });
-
-    if (error) {
-      console.error('Erro ao enviar webhook de despacho:', error);
-    }
-  } catch (err) {
-    console.error('Falha inesperada ao enviar webhook de despacho:', err);
-  }
+    runWebhook(); // Não aguardamos o retorno desta função para liberar a UI
+    return Promise.resolve();
 }
 
 // Histórico de entregas
@@ -441,25 +430,16 @@ export async function registrarRetornoEntrega(
   entregador_id: string,
   unidade: string
 ): Promise<void> {
-  const { data, error } = await supabase
+  // Otimizado: Update direto com filtro, economizando um SELECT
+  const { error } = await supabase
     .from('historico_entregas')
-    .select('id')
+    .update({ hora_retorno: new Date().toISOString() })
     .eq('entregador_id', entregador_id)
     .eq('unidade', unidade)
-    .is('hora_retorno', null)
-    .order('hora_saida', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .is('hora_retorno', null);
 
   if (error) {
-    console.error('Erro ao buscar entrega ativa:', error);
-    return;
-  }
-
-  if (data) {
-    await updateHistoricoEntrega(data.id, {
-      hora_retorno: new Date().toISOString()
-    });
+    console.error('[API] Erro ao registrar retorno:', error.message);
   }
 }
 
@@ -467,25 +447,16 @@ export async function atualizarSaidaEntrega(
   entregador_id: string,
   unidade: string
 ): Promise<void> {
-  const { data, error } = await supabase
+  // Otimizado: Update direto com filtro, economizando um SELECT
+  const { error } = await supabase
     .from('historico_entregas')
-    .select('id')
+    .update({ hora_saida: new Date().toISOString() })
     .eq('entregador_id', entregador_id)
     .eq('unidade', unidade)
-    .is('hora_retorno', null)
-    .order('hora_saida', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .is('hora_retorno', null);
 
   if (error) {
-    console.error('Erro ao buscar entrega ativa para atualizar saída:', error);
-    return;
-  }
-
-  if (data) {
-    await updateHistoricoEntrega(data.id, {
-      hora_saida: new Date().toISOString()
-    });
+    console.error('[API] Erro ao atualizar saída:', error.message);
   }
 }
 

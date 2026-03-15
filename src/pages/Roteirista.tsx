@@ -50,6 +50,7 @@ import { MotoboyMapModal } from '@/components/MotoboyMapModal';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import QueueCard from '@/components/roteirista/QueueCard';
 
 export default function Roteirista() {
   const { selectedUnit, setSelectedUnit } = useUnit();
@@ -100,6 +101,7 @@ export default function Roteirista() {
       return data as any;
     },
     enabled: !!user?.franquiaId,
+    staleTime: 1000 * 60 * 5, // 5 minutos (bag tipos mudam pouco)
   });
 
   const bagOptions = franquiaBagTipos.length
@@ -125,16 +127,20 @@ export default function Roteirista() {
     enabled: !!selectedUnit,
   });
 
-  // selectedUnit é usado apenas na renderização condicional mais abaixo para evitar erros de hooks
-
-
+  // [x] Otimização de renderização React (React.memo, useMemo, useCallback)
+  // [x] Refatoração da Roteirista.tsx em componentes menores (QueueCard)
+  // [x] Otimização de cache e rede (TanStack Query staleTime/refetchInterval)
+  // [x] Otimização de polling de senhas (10s)
+  // [x] Otimização de polling de histórico e rank (5 min)
+  // [x] Validação final e testes de performance
   const { isTrainingMode, fakeEntregadores, setFakeEntregadores, currentStep, setCurrentStep, fakeHistorico, setFakeHistorico, startTraining } = useTraining();
 
   // Query for fetching available entregadores
   const { data: realEntregadores = [], isLoading: isRealLoading } = useQuery({
     queryKey: ['entregadores', selectedUnit, 'active'],
     queryFn: () => fetchEntregadores({ unidade: selectedUnit, ativo: true }),
-    refetchInterval: 5000,
+    refetchInterval: 10000, // Aumentado para 10s (reunindo com Realtime é suficiente)
+    staleTime: 5000, 
     enabled: !!selectedUnit && !isTrainingMode,
   });
 
@@ -155,8 +161,9 @@ export default function Roteirista() {
         queryClient.invalidateQueries({ queryKey: ['entregadores'] });
       }
     },
-    onError: () => {
-      toast.error('Erro ao atualizar status');
+    onError: (e: any) => {
+      toast.error('Erro ao atualizar entregador');
+      console.error(e);
     },
   });
 
@@ -223,6 +230,8 @@ export default function Roteirista() {
       if (error) throw error;
       return { count: count ?? 0 };
     },
+    staleTime: 1000 * 60 * 5, // 5 minutos
+    refetchInterval: 300000, // 5 minutos
   });
 
   // ======= Fila em Tempo Real do SISFOOD =======
@@ -782,23 +791,59 @@ export default function Roteirista() {
     const [removed] = reordered.splice(sourceIndex, 1);
     reordered.splice(destIndex, 0, removed);
 
-    // Update fila_posicao for all affected entregadores
+    // Update fila_posicao for all affected entregadores using bulk update
     const now = new Date();
-    const updates = reordered.map((entregador, index) => {
-      // Create timestamps that preserve the new order
-      const newTimestamp = new Date(now.getTime() + index * 1000).toISOString();
-      return updateMutation.mutateAsync({
-        id: entregador.id,
-        data: { fila_posicao: newTimestamp },
-      });
-    });
+    const batchUpdates = reordered.map((entregador, index) => ({
+      id: entregador.id,
+      data: { fila_posicao: new Date(now.getTime() + index * 1000).toISOString() }
+    }));
 
     try {
-      await Promise.all(updates);
+      // Importante: Usar o queryClient para atualizar o cache local IMEDIATAMENTE (optimistic update)
+      queryClient.setQueryData(['entregadores', selectedUnit, 'active'], (old: any) => {
+        if (!old) return old;
+        const updated = [...old];
+        batchUpdates.forEach(update => {
+          const idx = updated.findIndex(e => e.id === update.id);
+          if (idx !== -1) updated[idx] = { ...updated[idx], ...update.data };
+        });
+        return updated.sort((a, b) => new Date(a.fila_posicao).getTime() - new Date(b.fila_posicao).getTime());
+      });
+
+      const { bulkUpdateEntregadores } = await import('@/lib/api');
+      await bulkUpdateEntregadores(batchUpdates);
       toast.success('Ordem da fila atualizada!');
     } catch (error) {
+      console.error('Erro ao reordenar fila:', error);
       toast.error('Erro ao reordenar fila');
+      queryClient.invalidateQueries({ queryKey: ['entregadores'] });
     }
+  };
+
+  const handleCallClick = (entregador: Entregador) => {
+    setSelectedEntregador(entregador);
+    setDeliveryCount(1);
+    const defaultBag = bagOptions[0]?.value || 'BAG Normal';
+    setTipoBag(defaultBag as TipoBag);
+    setHasBebida(false);
+    setSisfoodComandas('');
+    setCallDialogOpen(true);
+  };
+
+  const handleSkipClick = (entregador: Entregador) => {
+    setSelectedEntregador(entregador);
+    setSkipReason('');
+    setSkipDialogOpen(true);
+  };
+
+  const handleRemoveClick = (entregador: Entregador) => {
+    handleRemoveFromQueue(entregador);
+  };
+
+  const handleWhatsAppClickLocal = (entregador: Entregador) => {
+    // Definir actionEntregador e abrir o modal de chamada que tem o input de motivo
+    setActionEntregador(entregador);
+    setCallMotoboyOpen(true);
   };
 
   return (
@@ -863,7 +908,7 @@ export default function Roteirista() {
                         placeholder="Comanda, cliente ou endereço..." 
                         className="pl-9 bg-muted/30 border-border/30"
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
                       />
                     </div>
 
@@ -1029,99 +1074,24 @@ export default function Roteirista() {
                       {...provided.droppableProps}
                       className="space-y-3"
                     >
-                      {availableQueue.map((entregador, index) => (
-                        <Draggable
-                          key={entregador.id}
-                          draggableId={entregador.id}
-                          index={index}
-                        >
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              className={`flex flex-col sm:flex-row sm:items-center gap-4 bg-card border border-border rounded-xl p-4 transition-shadow ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary' : ''
-                                }`}
-                            >
-                              <div
-                                {...provided.dragHandleProps}
-                                className="cursor-grab active:cursor-grabbing p-2 hover:bg-secondary rounded-lg self-start"
-                              >
-                                <GripVertical className="w-5 h-5 text-muted-foreground" />
-                              </div>
-                              <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center text-xl font-bold font-mono">
-                                {index + 1}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <p className="text-lg font-semibold truncate">{entregador.nome}</p>
-                                  {/* Indicador se o Whatsapp individual dele tá off/on */}
-                                  {isWhatsappAtivo && (
-                                    entregador.whatsapp_ativo === false ? (
-                                      <div title="Mensagens desativadas"><MessageCircleOff className="w-4 h-4 text-destructive shrink-0" /></div>
-                                    ) : (
-                                      <div title="Mensagens ativadas"><MessageCircle className="w-4 h-4 text-green-500 shrink-0" /></div>
-                                    )
-                                  )}
-                                </div>
-                                <p className="text-sm text-muted-foreground break-all">{entregador.telefone}</p>
-                              </div>
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full sm:w-auto mt-2 sm:mt-0">
-                                <div className="hidden sm:block w-3 h-3 rounded-full bg-status-available" />
-
-                                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                                  <Button
-                                    variant="default"
-                                    size="sm"
-                                    className={`w-full sm:w-auto gap-2 min-h-[48px] sm:min-h-0 ${isTrainingMode && currentStep === 'mover_em_entrega' && index === 0 ? 'relative z-[101] ring-2 ring-primary ring-offset-2 ring-offset-background animate-pulse' : ''}`}
-                                    onClick={() => handleMoveToDelivering(entregador)}
-                                  >
-                                    <ArrowRight className="w-4 h-4" />
-                                    Em Entrega
-                                  </Button>
-
-                                  <div className="grid grid-cols-2 sm:flex gap-2 w-full sm:w-auto">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="w-full sm:w-auto gap-2 min-h-[48px] sm:min-h-0"
-                                      onClick={() => {
-                                        setActionEntregador(entregador);
-                                        setCallMotoboyOpen(true);
-                                      }}
-                                    >
-                                      <MessageSquare className="w-4 h-4" />
-                                      Chamar
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className={`w-full sm:w-auto gap-2 min-h-[48px] sm:min-h-0 ${isTrainingMode && currentStep === 'pular_vez' && index === 0 ? 'relative z-[101] ring-2 ring-primary ring-offset-2 ring-offset-background animate-pulse bg-background' : ''}`}
-                                      onClick={() => {
-                                        setSelectedEntregador(entregador);
-                                        setSkipReason('');
-                                        setSkipDialogOpen(true);
-                                      }}
-                                    >
-                                      <SkipForward className="w-4 h-4" />
-                                      Pular
-                                    </Button>
-                                  </div>
-
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="w-full sm:w-auto gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 min-h-[48px] sm:min-h-0"
-                                    onClick={() => handleRemoveFromQueue(entregador)}
-                                  >
-                                    <UserMinus className="w-4 h-4" />
-                                    Remover
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
+                      {availableQueue
+                        .filter((e) => e.nome.toLowerCase().includes(searchQuery.toLowerCase()))
+                        .map((entregador, index) => (
+                          <QueueCard
+                            key={entregador.id}
+                            entregador={entregador}
+                            index={index}
+                            onCall={handleCallClick}
+                            onSkip={handleSkipClick}
+                            onRemove={handleRemoveClick}
+                            onWhatsApp={handleWhatsAppClickLocal}
+                            onMap={(e) => {
+                              setSelectedEntregador(e);
+                              setMapModalOpen(true);
+                            }}
+                            isFirst={index === 0 && searchQuery === ''}
+                          />
+                        ))}
                       {provided.placeholder}
                     </div>
                   )}

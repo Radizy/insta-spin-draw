@@ -37,14 +37,14 @@ function normalizeConfig(config?: Partial<TTSConfig> | null): TTSConfig {
 // Perfis bem distintos para cada voz
 const voiceProfiles: Record<TTSVoiceModel, { rate: number; pitch: number; preferFemale?: boolean }> = {
   // Femininas - 3 opções bem diferentes
-  browser_clara: { rate: 0.88, pitch: 1.15, preferFemale: true },      // Suave e amigável (mais lenta)
-  browser_roberta: { rate: 0.98, pitch: 1.05, preferFemale: true },    // Profissional e clara (média)
-  browser_juliana: { rate: 1.12, pitch: 1.28, preferFemale: true },    // Jovem e energética (mais rápida)
+  browser_clara: { rate: 0.95, pitch: 1.1, preferFemale: true },      // Mais clara e presente
+  browser_roberta: { rate: 1.0, pitch: 1.05, preferFemale: true },    // Dinâmica
+  browser_juliana: { rate: 1.05, pitch: 1.2, preferFemale: true },    // Energética
   
   // Masculinas - 3 opções bem diferentes
-  browser_paulo: { rate: 0.82, pitch: 0.68, preferFemale: false },     // Grave e séria (mais lenta)
-  browser_marcelo: { rate: 0.92, pitch: 0.88, preferFemale: false },   // Neutra e confiável (média)
-  browser_eduardo: { rate: 1.08, pitch: 1.02, preferFemale: false },   // Dinâmica e assertiva (mais rápida)
+  browser_paulo: { rate: 0.9, pitch: 0.9, preferFemale: false },      // Mais grave, mas nítida
+  browser_marcelo: { rate: 1.0, pitch: 1.0, preferFemale: false },    // Neutra
+  browser_eduardo: { rate: 1.1, pitch: 1.1, preferFemale: false },     // Dinâmica
 };
 
 export function useTTS(initialConfig?: Partial<TTSConfig> | null) {
@@ -133,7 +133,8 @@ export function useTTS(initialConfig?: Partial<TTSConfig> | null) {
         utterance.lang = 'pt-BR';
         utterance.rate = profile.rate;
         utterance.pitch = profile.pitch;
-        utterance.volume = activeConfig.volume / 100;
+        // Garantindo volume máximo se configurado como 100
+        utterance.volume = Math.max(0.1, activeConfig.volume / 100); 
 
         if (selectedVoice) {
           utterance.voice = selectedVoice;

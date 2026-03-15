@@ -90,7 +90,7 @@ export default function FilaPagamento() {
     queryKey: ['senhas-pagamento', user?.unidadeId],
     queryFn: () => fetchSenhasPagamento(user!.unidadeId!),
     enabled: !!user?.unidadeId,
-    refetchInterval: 5000,
+    refetchInterval: 10000,
   });
 
   const senhasAbertas = useMemo(
