@@ -282,6 +282,21 @@ export async function updateEntregador(
   return result as unknown as Entregador;
 }
 
+// Bulk update entregadores (usado para reordenar a fila)
+export async function bulkUpdateEntregadores(updates: { id: string, data: Partial<Entregador> }[]): Promise<void> {
+  const promises = updates.map(update =>
+    supabase.from('entregadores').update(update.data).eq('id', update.id)
+  );
+
+  const results = await Promise.all(promises);
+  const errors = results.filter((r: any) => r.error).map((r: any) => r.error);
+  
+  if (errors.length > 0) {
+    console.error('Erros no bulkUpdateEntregadores:', errors);
+    throw new Error('Falha ao atualizar entregadores em massa');
+  }
+}
+
 // Delete entregador
 export async function deleteEntregador(id: string): Promise<void> {
   const { error } = await supabase
