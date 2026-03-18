@@ -412,6 +412,9 @@ export default function Historico() {
             Acompanhamento e contagem de entregas •{' '}
             <span className="font-semibold text-foreground">{selectedUnit}</span>
           </p>
+          <p className="text-xs text-amber-500 font-medium mt-1">
+            * Registros com mais de 10 dias são removidos automaticamente do sistema para otimização.
+          </p>
         </div>
         <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto">
           {canClean() && (
