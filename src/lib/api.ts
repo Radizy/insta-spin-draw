@@ -40,6 +40,7 @@ export interface Entregador {
   lng?: number;
   last_location_time?: string;
   primeiro_checkin?: string | null;
+  expo_push_token?: string | null;
 }
 
 
@@ -163,9 +164,20 @@ export function isWorkDay(diasTrabalho: DiasTrabalho): boolean {
   return diasTrabalho[dayMap[dayOfWeek]] ?? true;
 }
 
+export function hasRecentCheckin(entregador: Entregador): boolean {
+  if (!entregador.fila_posicao) return false;
+  const now = new Date().getTime();
+  const filaTime = new Date(entregador.fila_posicao).getTime();
+  const diffHours = (now - filaTime) / (1000 * 60 * 60);
+  return diffHours <= 24;
+}
+
 // Verifica se o entregador deve aparecer na fila
 export function shouldShowInQueue(entregador: Entregador): boolean {
   if (!entregador.ativo) return false;
+
+  // Primeiro check: se teve check-in recente, ele deve aparecer (override de horário/turno)
+  if (hasRecentCheckin(entregador)) return true;
 
   // Verificar dias de trabalho
   const diasTrabalho = entregador.dias_trabalho || {
@@ -197,7 +209,7 @@ export async function fetchEntregadores(filters?: {
 }): Promise<Entregador[]> {
   let query = supabase
     .from('entregadores')
-    .select('id, nome, telefone, status, unidade, ativo, created_at, updated_at, fila_posicao, primeiro_checkin, dias_trabalho, usar_turno_padrao, turno_inicio, turno_fim, hora_saida, tipo_bag, tts_voice_path, whatsapp_ativo, lat, lng, last_location_time')
+    .select('id, nome, telefone, status, unidade, ativo, created_at, updated_at, fila_posicao, primeiro_checkin, dias_trabalho, usar_turno_padrao, turno_inicio, turno_fim, hora_saida, tipo_bag, tts_voice_path, whatsapp_ativo, lat, lng, last_location_time, expo_push_token')
     .order('fila_posicao', { ascending: true });
 
   if (filters?.unidade) {
@@ -524,20 +536,42 @@ export async function getMotoboyPosition(telefone: string): Promise<{
   nome: string | null;
   status: Status | null;
 }> {
-  // Busca todos os entregadores ativos em todas as unidades
+  // Higieniza o telefone (mantém apenas números)
+  const cleanPhone = telefone.replace(/\D/g, '');
+  if (!cleanPhone) return { id: null, position: null, nome: null, status: null };
+
+  // Busca todos os entregadores ativos (ou que estiveram ativos recentemente)
   const entregadores = await fetchEntregadores({ ativo: true });
 
-  const entregador = entregadores.find(e => e.telefone === telefone);
-
-  if (!entregador) {
+  // Busca o entregador específico. Se houver mais de um recorde para o mesmo telefone, 
+  // priorizamos aquele que está em um status mais "próximo" da fila ou que foi atualizado recentemente.
+  const meusRecordes = entregadores.filter(e => e.telefone.replace(/\D/g, '') === cleanPhone);
+  
+  if (meusRecordes.length === 0) {
     return { id: null, position: null, nome: null, status: null };
   }
 
-  // Fila da unidade específica do motoboy
+  // Ordenação de prioridade de status: disponivel > chamado > entregando
+  const statusPriority: Record<string, number> = {
+    'disponivel': 1,
+    'chamado': 2,
+    'entregando': 3
+  };
+
+  const entregador = meusRecordes.sort((a, b) => {
+    const prioA = statusPriority[a.status] || 99;
+    const prioB = statusPriority[b.status] || 99;
+    if (prioA !== prioB) return prioA - prioB;
+    // Se empate no status, pega o mais recente
+    return new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime();
+  })[0];
+
+  // Regra unificada de quem está na fila (mesma da Roteirista.tsx)
   const activeQueue = entregadores
     .filter(e => e.unidade === entregador.unidade)
-    .filter(e => shouldShowInQueue(e) && e.status === 'disponivel');
+    .filter(e => e.status === 'disponivel' && shouldShowInQueue(e));
 
+  // Se o motoboy não está "disponível", ele não tem posição numérica, mostramos o status atual (Chamado ou Entregando)
   if (entregador.status !== 'disponivel') {
     return { id: entregador.id, position: null, nome: entregador.nome, status: entregador.status };
   }

@@ -8,6 +8,8 @@ import {
   fetchSystemConfig,
   fetchGlobalConfig,
   updateEntregador,
+  registrarRetornoEntrega,
+  hasRecentCheckin,
   shouldShowInQueue,
   Entregador,
   HORARIO_EXPEDIENTE,
@@ -606,7 +608,7 @@ export default function TV() {
   }, [resetIdleTimer]);
 
   const activeEntregadores = entregadores.filter(e => e.ativo);
-  const availableQueue = activeEntregadores.filter((e) => e.status === 'disponivel' && (shouldShowInQueue(e) || (e.fila_posicao && (new Date().getTime() - new Date(e.fila_posicao).getTime()) / 3600000 <= 24)));
+  const availableQueue = activeEntregadores.filter((e) => e.status === 'disponivel' && (shouldShowInQueue(e) || hasRecentCheckin(e)));
   const calledEntregadores = activeEntregadores.filter((e) => e.status === 'chamado');
   const deliveringQueue = activeEntregadores.filter((e) => e.status === 'entregando');
 

@@ -72,6 +72,34 @@ export default function MeuLugar() {
     return () => navigator.geolocation.clearWatch(watchId);
   }, [(positionData as any)?.id]);
 
+  // Listener para capturar o Push Token do App Android (APK)
+  useEffect(() => {
+    const entregadorId = (positionData as any)?.id;
+    if (!entregadorId) return;
+
+    const handlePushToken = async (event: any) => {
+      const token = event.detail;
+      if (token) {
+        console.log('App Push Token recebido:', token);
+        try {
+          await updateGpsMutation.mutateAsync({
+            id: entregadorId,
+            lat: (positionData as any).lat, // Mantém lat atual se houver
+            lng: (positionData as any).lng, // Mantém lng atual se houver
+            // @ts-ignore - campo novo na migração
+            expo_push_token: token
+          });
+          console.log('Push Token salvo com sucesso no perfil do motoboy.');
+        } catch (err) {
+          console.error('Erro ao salvar Push Token:', err);
+        }
+      }
+    };
+
+    window.addEventListener('ExpoPushTokenReceived', handlePushToken);
+    return () => window.removeEventListener('ExpoPushTokenReceived', handlePushToken);
+  }, [(positionData as any)?.id, positionData]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setErroGeo('');
@@ -87,7 +115,7 @@ export default function MeuLugar() {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setIsLocating(false);
-        setSearchTelefone(telefone);
+        setSearchTelefone(telefone.trim());
       },
       (error) => {
         console.error('GPS Negado ou timeout:', error);
@@ -146,7 +174,7 @@ export default function MeuLugar() {
           <h2 className="text-3xl font-bold font-mono mb-2">{positionData.nome}</h2>
           <p className="text-xl text-muted-foreground">Você está em entrega</p>
           <p className="text-sm text-muted-foreground mt-4">
-            Retorne após finalizar para voltar à fila
+            Se você já retornou, peça ao roteirista para dar seu "Retorno" no painel.
           </p>
         </div>
       );

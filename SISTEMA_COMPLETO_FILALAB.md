@@ -32,6 +32,8 @@ Esses módulos podem ser geridos livremente pelo painel Super Admin na visualiza
     - **Termos de Uso e Política de Privacidade**: Implementação de modais dedicados no rodapé da Landing Page.
     - **Integração SISFOOD v11.1 (Universal Anti-Zumbi)**: Script Tampermonkey unificado com disparo duplo e proteção contra comandos obsoletos.
     - **Otimização de Bateria (App Motoboy)**: Heartbeat de localização alterado para 5 minutos para preservação de bateria e CPU.
+    - **Refatoração da Fila do Motoboy**: Lógica de entrada na fila (check-in manual vs expediente) centralizada no backend via API, unificando a visão do Painel Roteirista e do Web App Meu Lugar.
+    - **App Mobile Otimizado**: Identidade visual do aplicativo Expo atualizada para "Filalab - Motoboy" com nova logo.
 
 ---
 

@@ -16,6 +16,7 @@ import {
   updateEntregador,
   resetDaily,
   registrarRetornoEntrega,
+  hasRecentCheckin,
 } from '@/lib/api';
 import { toast } from 'sonner';
 import { Ticket, Check, Loader2, Tv, ArrowDownCircle, ArrowRightLeft, RotateCcw, Phone } from 'lucide-react';
@@ -74,15 +75,9 @@ export default function FilaPagamento() {
     const ativo = e.ativo;
     const naUnidade = e.status === 'disponivel';
 
-    const hasRecentCheckin = (() => {
-      if (!e.fila_posicao) return false;
-      const now = new Date().getTime();
-      const filaTime = new Date(e.fila_posicao).getTime();
-      const diffHours = (now - filaTime) / (1000 * 60 * 60);
-      return diffHours <= 24;
-    })();
+    const hasRecentCheckinRecent = hasRecentCheckin(e);
 
-    return ativo && naUnidade && (shouldShowInQueue(e) || hasRecentCheckin);
+    return ativo && naUnidade && (shouldShowInQueue(e) || hasRecentCheckinRecent);
   });
 
   // Buscar senhas ativas

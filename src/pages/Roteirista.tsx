@@ -15,6 +15,7 @@ import {
   atualizarSaidaEntrega,
   resetDaily,
   registrarRetornoEntrega,
+  hasRecentCheckin,
 } from '@/lib/api';
 import { useTraining } from '@/contexts/TrainingContext';
 import { toast } from 'sonner';
@@ -168,14 +169,7 @@ export default function Roteirista() {
   });
 
 
-  // Filter by status and shift/workdays for display, liberando quem fez check-in recente
-  const hasRecentCheckin = (entregador: Entregador) => {
-    if (!entregador.fila_posicao) return false;
-    const now = new Date().getTime();
-    const filaTime = new Date(entregador.fila_posicao).getTime();
-    const diffHours = (now - filaTime) / (1000 * 60 * 60);
-    return diffHours <= 24;
-  };
+
 
   const availableQueue = entregadores
     .filter((e) => e.status === 'disponivel' && (shouldShowInQueue(e) || hasRecentCheckin(e)));
