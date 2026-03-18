@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, setAuthToken } from '@/integrations/supabase/client';
 import { Unidade } from '@/lib/api';
 
 interface User {
@@ -64,6 +64,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           sessionStorage.removeItem(TOKEN_STORAGE_KEY);
         } else {
           setUser(parsed as unknown as User);
+          // Restore the token if it exists in sessionStorage
+          const storedTokens = sessionStorage.getItem(TOKEN_STORAGE_KEY);
+          if (storedTokens) {
+            const parsedTokens = JSON.parse(storedTokens) as StoredTokens;
+            if (parsedTokens.accessToken) {
+              setAuthToken(parsedTokens.accessToken);
+            }
+          }
         }
       }
     } catch {
@@ -115,6 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         accessTokenExpiresAt: tokens.accessTokenExpiresAt,
       };
       sessionStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify(tokenPayload));
+      setAuthToken(tokens.accessToken);
     }
 
     return userData;
@@ -186,6 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     localStorage.removeItem(AUTH_STORAGE_KEY);
     sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+    setAuthToken(null);
   };
 
   return (

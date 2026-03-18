@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-api-key',
 };
 
 serve(async (req) => {
@@ -19,6 +19,20 @@ serve(async (req) => {
 
         const data = await req.json();
         const { loja, fila, pedidos_fila, sistema, unidade_id } = data;
+        
+        const providedToken = req.headers.get("x-api-key");
+        const isSecureTokenValid = providedToken === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+        // Modo Passivo/Migração: Se não tem token (loja antiga), deixa passar por enquanto mas avisa
+        if (!providedToken) {
+           console.warn(`⚠️ [SECURITY] Chamada feita sem Token pela loja ${loja}. Considere atualizar o Tampermonkey.`);
+        } else if (!isSecureTokenValid) {
+           console.error(`🛡️ [SECURITY] Tentativa de fraude/Token inválido rejeitado para loja ${loja}.`);
+           return new Response(JSON.stringify({ error: 'Token x-api-key invalido.' }), {
+               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+               status: 403,
+           });
+        }
 
         // We can match by ID (preferred) or by name
         if (!unidade_id && !loja) {

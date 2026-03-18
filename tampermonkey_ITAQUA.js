@@ -91,7 +91,10 @@
         try {
             await fetch(API_FILALAB, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'x-api-key': ANON_KEY
+                },
                 body: JSON.stringify({ 
                     loja: lojaNome, 
                     unidade_id: UNIDADE_ID,

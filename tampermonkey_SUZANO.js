@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Integração SISFOOD x FilaLab (LOJA SUZANO) - v11.2 (Static)
 // @namespace    http://tampermonkey.net/
-// @version      11.6
+// @version      11.7
 // @description  Lê a fila do Sisfood e DESPACHA via FilaLab (Suzano - Lote Direto)
 // @match        https://app.sisfood.com.br/*
 // @grant        none
@@ -84,7 +84,10 @@
         try {
             await fetch(API_FILALAB, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'x-api-key': ANON_KEY
+                },
                 body: JSON.stringify({ 
                     loja: lojaNome, 
                     unidade_id: UNIDADE_ID,

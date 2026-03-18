@@ -55,6 +55,8 @@ serve(async (req) => {
     const payload = (await req.json()) as AsaasWebhookPayload;
     console.log("Webhook Asaas recebido:", JSON.stringify(payload));
 
+    const asaasSignature = req.headers.get("asaas-signature");
+
     const payment = payload.payment;
 
     if (!payment || !payment.id || !payment.externalReference) {
@@ -85,13 +87,16 @@ serve(async (req) => {
     const webhookSecret = cfg.webhook_secret as string | undefined;
     const planoId = cfg.plano_id as string | undefined;
 
-    // Validação básica de segredo via query string: ?secret=SEU_SEGREDO_FORTE
-    if (webhookSecret && secretFromUrl !== webhookSecret) {
-      console.warn("Segredo do webhook inválido para franquia", franquiaId);
-      return new Response(JSON.stringify({ error: "Segredo inválido" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Validação de segurança via Asaas Signature Header
+    if (webhookSecret && asaasSignature !== webhookSecret) {
+      // Também mantendo fallback pra validacao antiga na query params se necessário
+      if (secretFromUrl !== webhookSecret) {
+        console.warn("🛡️ [SECURITY] Tentativa de fraude/Webhook Asaas inválido para franquia", franquiaId);
+        return new Response(JSON.stringify({ error: "Assinatura asaas-signature inválida" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // Atualiza/insere o registro da cobrança
