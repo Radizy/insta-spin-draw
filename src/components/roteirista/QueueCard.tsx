@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { Draggable } from '@hello-pangea/dnd';
-import { GripVertical, Phone, SkipForward, UserMinus, LogOut, MessageSquare, MapPin } from 'lucide-react';
+import { GripVertical, Phone, SkipForward, UserMinus, LogOut, MessageSquare, MapPin, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Entregador } from '@/lib/api';
@@ -13,10 +13,11 @@ interface QueueCardProps {
   onRemove: (e: Entregador) => void;
   onWhatsApp?: (e: Entregador) => void;
   onMap?: (e: Entregador) => void;
+  onMoveToDelivery?: (e: Entregador) => void;
   isFirst?: boolean;
 }
 
-const QueueCard = memo(({ entregador, index, onCall, onSkip, onRemove, onWhatsApp, onMap, isFirst }: QueueCardProps) => {
+const QueueCard = memo(({ entregador, index, onCall, onSkip, onRemove, onWhatsApp, onMap, onMoveToDelivery, isFirst }: QueueCardProps) => {
   return (
     <Draggable draggableId={entregador.id} index={index}>
       {(provided) => (
@@ -68,6 +69,18 @@ const QueueCard = memo(({ entregador, index, onCall, onSkip, onRemove, onWhatsAp
                   onClick={() => onWhatsApp(entregador)}
                 >
                   <MessageSquare className="h-4 w-4" />
+                </Button>
+              )}
+              {onMoveToDelivery && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 px-3 border-dashed text-orange-500 hover:text-orange-600 hover:bg-orange-500/10"
+                  onClick={() => onMoveToDelivery(entregador)}
+                  title="Mover para Em Entrega"
+                >
+                  <ArrowRight className="h-4 w-4 mr-2" />
+                  Em Entrega
                 </Button>
               )}
               <Button

@@ -1087,6 +1087,7 @@ export default function Roteirista() {
                             onSkip={handleSkipClick}
                             onRemove={handleRemoveClick}
                             onWhatsApp={handleWhatsAppClickLocal}
+                            onMoveToDelivery={handleMoveToDelivering}
                             onMap={(e) => {
                               setSelectedEntregador(e);
                               setMapModalOpen(true);
@@ -1173,7 +1174,7 @@ export default function Roteirista() {
                             }}
                           >
                             <ArrowRight className="w-4 h-4" />
-                            Finalizar
+                            Deixar Disponível
                           </Button>
                           <Button
                             variant="outline"
