@@ -24,8 +24,11 @@ Os 5 módulos principais são:
 Esses módulos podem ser geridos livremente pelo painel Super Admin na visualização e edição de uma franquia.
 
 ### Versão do Sistema
-- **Versão Atual**: `2.6.1` (Março 2026)
+- **Versão Atual**: `2.6.2` (Março 2026)
 - **Últimas Implementações**:
+    - **Integração Expo Push (Motoboy App)**: Disparo de notificações push nativas via backend.
+    - **Tela de TV e Roteirista Otimizados**: Modal de "Não Apareceu" alterado para card flutuante não-bloqueante (bottom-40), com auto-close em 10s.
+    - **Fila de Disponíveis e Entregando Refinadas**: Botão de retorno renomeado de `Finalizar` para `Deixar Disponível`. Adicionado botão de atalho `Em Entrega` na Fila de Disponíveis.
     - **Otimização de Network Polling**: Redução do intervalo de busca para `saidas-hoje` (Roteirista) e `historico-rank` (TV) para cada 5 minutos, diminuindo a carga no banco de dados e melhorando a performance geral.
     - **Organização de Scripts**: Todos os scripts SQL e scripts auxiliares (.js, .ps1) foram centralizados na pasta `/scripts` para um ambiente de desenvolvimento mais limpo.
     - **Kanban Board para Atualizações**: O painel Super Admin agora conta com um layout Kanban (Drag & Drop) para gerir atualizações do sistema.
@@ -1080,14 +1083,12 @@ CREATE POLICY "only_admins_can_modify_franquias"
 **Tela principal para gestão de entregas.**
 
 **Funcionalidades:**
-- **Drag & Drop:** Arraste motoboys entre "Na Fila" e "Em Entrega"
-- **Check-in:** Registra saída do motoboy com tipo de bag
-- **Check-out:** Registra retorno do motoboy
-- **Não Apareceu:** Marca motoboy como ausente
-- **Retornar à Fila:** Devolve motoboy de "Em Entrega" para "Na Fila"
-- **Filtros:** Status (disponível, em entrega, ausente) e turno (manhã, tarde, noite)
-- **Tempo Real:** Exibe tempo decorrido desde a saída
-- **Tipos de Bag:** Customizável por franquia (Normal, Metro, etc)
+- **Drag & Drop:** Arraste motoboys na "Fila de Disponíveis" para reordenar posições.
+- **Check-in Rápido:** Registra saída do motoboy com quantidade de bags e tag de bebidas.
+- **Deixar Disponível (Check-out):** Ex-botão "Finalizar", devolve motoboy da lista "Em Entrega" para a lista "Na Fila".
+- **Não Apareceu (Card Inteligente):** Modal 10s não bloqueante para marcar motoboy como ausente ou chamar novamente.
+- **Ação Em Entrega:** Mova rapidamente motoboys equivocados da "Fila" para a aba "Em Entrega" a qualquer momento.
+- **Integração Viva Sisfood:** Acompanhamento dinâmico direto da integração com badges alertando pedidos atrasados.
 
 **Fluxo:**
 1. Motoboy aparece na coluna "Na Fila"
@@ -1814,6 +1815,11 @@ ORDER BY valor_final DESC;
 ---
 
 ## 📝 CHANGELOG
+
+### v2.6.2 (2026-03-21)
+- ✅ **App Motoboy (Expo React Native):** Frontend e Backend com notificações nativas Expo push ao longo das chamadas na tela de TV.
+- ✅ **Ações Roteirista (Semânticas):** Criação do atalho rápido (`Em Entrega`) e renomeação estratégica para `Deixar Disponível`.
+- ✅ **TV e Call UX:** O modal de não-comparecimento agora é um banner 10 segundos flutuante não-bloqueante no bottom-40 garantindo visibilidade em resoluções mais espremidas.
 
 ### v2.6.0 (2026-03-12)
 - ✅ **Kanban de Atualizações:** Refatorado painel de Super Admin para visualização Kanban das atualizações.
