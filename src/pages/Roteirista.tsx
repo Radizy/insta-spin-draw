@@ -510,6 +510,14 @@ export default function Roteirista() {
         },
       });
 
+      // Disparar Notificação Push Nativa para o app mobile
+      try {
+        const { enviarNotificacaoChamado } = await import('@/lib/api');
+        await enviarNotificacaoChamado(selectedEntregador.expo_push_token);
+      } catch (e) {
+        console.error("Erro ao disparar push:", e);
+      }
+
       // Se SISFOOD ativo e o usuário digitou comandas para despachar: salvar na nuvem
       if (isSisfoodAtivo && sisfoodComandas.trim() !== '') {
         // Aceita vírgula, espaço ou quebra de linha como separador

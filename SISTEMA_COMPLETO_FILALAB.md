@@ -34,8 +34,37 @@ Esses módulos podem ser geridos livremente pelo painel Super Admin na visualiza
     - **Otimização de Bateria (App Motoboy)**: Heartbeat de localização alterado para 5 minutos para preservação de bateria e CPU.
     - **Refatoração da Fila do Motoboy**: Lógica de entrada na fila (check-in manual vs expediente) centralizada no backend via API, unificando a visão do Painel Roteirista e do Web App Meu Lugar.
     - **App Mobile Otimizado**: Identidade visual do aplicativo Expo atualizada para "Filalab - Motoboy" com nova logo.
+    - **Atualização de Segurança (Zero-Quebra)**: 
+        - Hashing transparente via Trigger SQL (`pgcrypto`) na inserção de senhas em `system_users`.
+        - Implementação RLS Estrita e progressiva (`franquias`, `system_users`, `unidades`) baseada no JWT e claims passados via Front-End `AuthContext.tsx`.
+        - Validação forte (HMAC/Token) adicionada às Edge Functions do Asaas (`webhook-asaas`) e Sisfood (`sisfood-webhook`). Tampermonkeys (v11.5+) agora trafegam token `x-api-key`.
 
 ---
+
+## 🛡️ ANÁLISE DE SEGURANÇA E TESTES PENDENTES (ROADMAP)
+
+A configuração atual mitigou as vulnerabilidades mais graves (acesso indevido a dados de pagamentos, vazamento de senhas, e falsificação de webhooks de caixas), porém **há pontos essenciais a serem priorizados** na próxima fase arquitetural do sistema (preservamos por enquanto para evitar quebra no *App do Motoboy*).
+
+### O que ainda falta ou está incorreto (Pontos Críticos):
+1. **Tabelas Operacionais (Motoboys e Histórico) estão ABERTAS no Banco**:
+   - O RLS (`Row Level Security`) para tabelas como `entregadores`, `historico_entregas` e `senhas_pagamento` ainda segue a política `USING (true) WITH CHECK (true)`.
+   - **Risco**: Qualquer um com o link/chave anônima do painel pode interagir com a fila de motoboys.
+   - **Solução Futura**: Trancar essas tabelas exigindo que o motoboy/tv também envie um Token JWT (ou uma validação customizada baseada em Pin de unidade).
+2. **"App do Motoboy" Autenticado na Base da Confiança**:
+   - Atualmente, o app Web/WebView do Motoboy se baseia muito no ID/Pin digitado no próprio celular e na ausência de validação rígida de Sessão via Supabase Auth.
+   - **Risco**: Risco de spoofing (um ex-funcionário sabendo a rota ou PIN pode manipular dados fingindo estar logado).
+3. **Canais de Realtime Expostos (Supabase Presence e Broadcast)**:
+   - Se o Realtime estiver ouvindo tabelas operacionais abertas, agentes mal intencionados podem assinar o socket `/realtime` filtrando a fila de motoboys de qualquer franquia.
+   - **Solução Futura**: Vincular Policies RLS ao Realtime para que canais socket só despachem eventos se o Token bater.
+4. **Senhas Antigas ainda estão em Texto Plano**:
+   - O novo Trigger faz o hash perfeito nas senhas que são cadastradas ou atualizadas *a partir de agora*. Mas o banco antigo ainda contém as senhas de franqueados antigos salvas em texto limpo.
+   - **Solução Futura**: Rodar um script de Migração única no Banco `UPDATE system_users SET password_hash = crypt(password_hash, gen_salt('bf')) WHERE password_hash NOT LIKE '$2%'`. Note que isso desconectará imediatamente todos que estiverem usando sessões antigas desatualizadas se houver concorrência de lógica e exigirá que a Edge Function `auth-login` pareça tratar o legado x novo.
+
+### Sugestão de Testes a Serem Feitos por Você Agora na Operação:
+1. **Teste o Login Normal:** Certifique-se de que os logins de Super Admin e Franquia continuam abrindo.
+2. **Crie um Usuário Teste:** Vá no painel super admin > Usuários do Sistema, e crie um "Operador". Tente entrar com a conta criada e em seguida logue no seu banco de dados Supabase e verifique se o campo "password_hash" não é "123", mas sim um hash `$2a$...`.
+3. **Pague uma Assinatura via Asaas Falso (Teste de Fraude):** Envie um POST via Postman para o `/webhook-asaas` com o corpo da loja, omitindo o `asaas-signature`. A função deve rejeitar a requisição na hora com `Status 403`.
+4. **Acione o Tampermonkey V11.7 (Suzano):** Acompanhe a aba Network do navegador na loja e verifique no endpoint de Sisfood-Webhook se a Edge function acusou Sucesso. Em lojas não atualizadas, cheque nos Logs do Servidor Deno se ele lançou a tag amarela `⚠️ [SECURITY] Chamada feita sem Token`.
 
 ## 📂 ESTRUTURA DE PASTAS (Root Cleanup)
 

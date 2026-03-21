@@ -294,6 +294,76 @@ export async function updateEntregador(
   return result as unknown as Entregador;
 }
 
+// Atualizar token de Push Notification do Motoboy
+export async function atualizarTokenPush(telefone: string, token: string): Promise<void> {
+  // Higieniza o telefone (mantém apenas números)
+  const cleanPhone = telefone.replace(/\D/g, '');
+  if (!cleanPhone) return;
+
+  try {
+    // 1. Encontrar o motoboy pelo telefone limpo
+    const { data: entregadores, error: fetchError } = await supabase
+      .from('entregadores')
+      .select('id, telefone')
+      .eq('ativo', true);
+
+    if (fetchError) throw fetchError;
+
+    // Fazer a match exato com o final do número (ignorando DDI/DDD diferentes se necessário)
+    const entregador = entregadores?.find(e => 
+      e.telefone.replace(/\D/g, '') === cleanPhone || 
+      e.telefone.replace(/\D/g, '').endsWith(cleanPhone)
+    );
+
+    if (entregador) {
+      // 2. Atualizar o token na coluna correspondente
+      const { error: updateError } = await supabase
+        .from('entregadores')
+        .update({ expo_push_token: token })
+        .eq('id', entregador.id);
+
+      if (updateError) throw updateError;
+      console.log(`[API] Token Push salvo com sucesso para o ID: ${entregador.id}`);
+    } else {
+      console.warn('[API] Nenhum motoboy ativo encontrado com este telefone para salvar o token.');
+    }
+  } catch (err) {
+    console.error('[API] Erro ao salvar Token Push:', err);
+  }
+}
+
+// Disparar Notificação Push via API do Expo
+export async function enviarNotificacaoChamado(expoPushToken: string | null): Promise<void> {
+  if (!expoPushToken) {
+    console.warn('[API] Tentativa de enviar notificação falhou: Motoboy não tem expo_push_token.');
+    return;
+  }
+
+  const message = {
+    to: expoPushToken,
+    sound: 'default',
+    title: 'FilaLab',
+    body: 'É a sua vez! Dirija-se à expedição.',
+  };
+
+  try {
+    const response = await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Accept-encoding': 'gzip, deflate',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(message),
+    });
+
+    const data = await response.json();
+    console.log('[API] Notificação Push enviada:', data);
+  } catch (error) {
+    console.error('[API] Erro ao disparar notificação Push para o Expo:', error);
+  }
+}
+
 // Bulk update entregadores (usado para reordenar a fila)
 export async function bulkUpdateEntregadores(updates: { id: string, data: Partial<Entregador> }[]): Promise<void> {
   const promises = updates.map(update =>

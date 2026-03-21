@@ -439,7 +439,9 @@ export default function TV() {
     await playAudioSequence(entregador, entregador.tipo_bag, hasBebida);
   }, [isMuted, playAudioSequence, franquiaConfig]);
 
-  useEffect(() => { handleCallAnnouncementRef.current = handleCallAnnouncement; }, [handleCallAnnouncement]);
+  useEffect(() => {
+    handleCallAnnouncementRef.current = handleCallAnnouncement;
+  }, [handleCallAnnouncement]);
 
   const triggerCall = useCallback((entregador: Entregador, hasBebida: boolean, isForce = false) => {
     if (isDisplayingRef.current && !isForce) {
@@ -485,7 +487,7 @@ export default function TV() {
   }, []);
 
   useEffect(() => {
-    const channel = supabase.channel('tv-calls').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'entregadores', filter: `unidade=eq.${selectedUnit}` }, (payload) => {
+    const channel = supabase.channel('tv-calls').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'entregadores', filter: `unidade=eq.${selectedUnit}` }, (payload: any) => {
       const newData = payload.new as any;
       if (newData.status === 'chamado') {
         const hasBebida = newData.has_bebida || localStorage.getItem(`bebida_${newData.id}`) === 'true';
@@ -502,17 +504,17 @@ export default function TV() {
     const channel = supabase.channel(`tv-calls-broadcast-${selectedUnit}`);
 
     channel
-      .on('broadcast', { event: 'tv-call-retry' }, (payload) => {
+      .on('broadcast', { event: 'tv-call-retry' }, (payload: any) => {
         console.log('[TV] Sinal tv-call-retry recebido via canal estável:', payload);
         const { entregadorId } = payload.payload;
-        const e = entregadores.find(ent => ent.id === entregadorId);
+        const e = entregadores.find((ent: any) => ent.id === entregadorId);
         if (e) {
           const hasBebida = localStorage.getItem(`bebida_${e.id}`) === 'true';
           triggerCall(e, hasBebida, true);
           toast.info(`Re-tentativa de chamada para ${e.nome}`);
         }
       })
-      .subscribe((status) => {
+      .subscribe((status: any) => {
         console.log(`[TV] Status da subscrição de broadcast: ${status}`);
         if (status === 'SUBSCRIBED') {
           broadcastChannelRef.current = channel;
@@ -534,7 +536,7 @@ export default function TV() {
     if (lastCleanup !== today) {
       console.log('[TV] Executando limpeza de cache diária...');
       // Remove chaves de estado de bebida antigas para não acumular
-      Object.keys(localStorage).forEach(key => {
+      Object.keys(localStorage).forEach((key: any) => {
         if (key.startsWith('bebida_')) {
           localStorage.removeItem(key);
         }
@@ -545,19 +547,17 @@ export default function TV() {
 
   useEffect(() => {
     const it = setInterval(() => {
-      if (isDisplayingRef.current) return;
-      const called = entregadores.filter(e => e.status === 'chamado');
-      if (called.length > 0) {
-        const e = called[0];
+      const called = entregadores.filter((e: any) => e.status === 'chamado');
+      called.forEach((e: any) => {
         const hasBebida = localStorage.getItem(`bebida_${e.id}`) === 'true';
         triggerCall(e, hasBebida);
-      }
+      });
     }, 5000);
     return () => clearInterval(it);
   }, [entregadores, triggerCall]);
 
   useEffect(() => {
-    const channel = supabase.channel('tv-pagamentos').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'senhas_pagamento', filter: `unidade_id=eq.${user?.unidadeId}` }, (payload) => {
+    const channel = supabase.channel('tv-pagamentos').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'senhas_pagamento', filter: `unidade_id=eq.${user?.unidadeId}` }, (payload: any) => {
       const nova = payload.new as SenhaPagamento;
       if (nova.status === 'chamado' && nova.id !== lastPagamentoIdRef.current) {
         lastPagamentoIdRef.current = nova.id; setDisplayingPagamento(nova);
@@ -576,14 +576,6 @@ export default function TV() {
     const t = setTimeout(() => setDisplayingPagamento(null), 4000);
     return () => clearTimeout(t);
   }, [displayingPagamento]);
-
-  useEffect(() => {
-    if (!isIdle || tvPlaylist.length === 0 || displayingCalled || displayingPagamento) return;
-    const slide = tvPlaylist[currentSlideIndex];
-    if (!slide) { setCurrentSlideIndex(0); return; }
-    const t = setTimeout(() => setCurrentSlideIndex((prev) => (prev + 1) % tvPlaylist.length), (slide.duracao || 15) * 1000);
-    return () => clearTimeout(t);
-  }, [isIdle, tvPlaylist, currentSlideIndex, displayingCalled, displayingPagamento]);
 
   const resetIdleTimer = useCallback(() => {
     setIsIdle(false);
@@ -623,6 +615,9 @@ export default function TV() {
     const slide = tvPlaylist[currentSlideIndex];
     if (!slide) return null;
 
+    const handleBagSelection = (e: any, h: any) => {
+    // some logic
+  };
     const renderMedia = () => {
       switch (slide.tipo) {
         case 'clima': return <WeatherSlide cidadeInput={unidadeData?.cidade_clima} />;
