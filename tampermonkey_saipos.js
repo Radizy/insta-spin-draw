@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Integração SAIPOS x FilaLab (Leitura Dinâmica)
 // @namespace    http://tampermonkey.net/
-// @version      2.0
-// @description  Extração passiva de pedidos Kanban e Retorno Automático - DOM atualizado
+// @version      2.1
+// @description  Extração passiva de pedidos Kanban + Retorno Automático. Suporta estrutura HTML atual do Saipos.
 // @match        https://conta.saipos.com/*
 // @grant        GM_xmlhttpRequest
 // ==/UserScript==
@@ -10,7 +10,7 @@
 (function() {
     'use strict';
 
-    console.log("🚀 [FILALAB SAIPOS] Iniciado em Modo Leitura!");
+    console.log("🚀 [FILALAB SAIPOS] Iniciado em Modo Leitura! v2.1");
 
     // ==========================================
     // CONFIGURAÇÕES INJETADAS PELO FILALAB
@@ -19,115 +19,146 @@
     const WEBHOOK_URL = "{{WEBHOOK_URL}}";
     const API_KEY = "{{API_KEY}}"; 
 
-    // Estado local para evitar spam de rede
     let cacheCozinhaAguardando = ""; 
     let motoboysNaRuaCache = [];
+
+    // Palavras-chave de seções do Kanban
+    const SECAO_KEYWORDS = ['cozinha', 'aguardando entrega', 'saiu para entrega', 'cancelado', 'encerrado'];
+
+    // Encontra o container do Kanban com múltiplos fallbacks
+    function findKanbanContainer() {
+        // Seletor primário (classe + atributo)
+        let c = document.querySelector('div.scrollbar[scrollable="true"]');
+        if (c && c.children.length > 0) return c;
+
+        // Fallback: sobe a partir de um label de seção conhecido
+        const sectionLabel = Array.from(document.querySelectorAll('label.p-l-25')).find(el => {
+            const t = el.textContent.trim().toLowerCase();
+            return SECAO_KEYWORDS.some(kw => t.startsWith(kw));
+        });
+        if (!sectionLabel) return null;
+
+        let parent = sectionLabel.parentElement;
+        for (let i = 0; i < 8 && parent; i++) {
+            if (parent.getAttribute('scrollable') || parent.classList.contains('scrollbar')) {
+                return parent;
+            }
+            parent = parent.parentElement;
+        }
+        return null;
+    }
 
     function scanKanban() {
         if (!window.location.hash.includes("/kanban/search-customer")) return;
 
-        const mainContainer = document.querySelector('div.scrollbar[scrollable="true"]');
+        const mainContainer = findKanbanContainer();
         if (!mainContainer) {
             console.log("[FILALAB] ⚠️ Container do Kanban não encontrado.");
             return;
         }
 
-        const children = Array.from(mainContainer.children);
-        
-        let inCozinha = false;
-        let inAguardando = false;
-        let inSaiu = false;
-
         const pedidosAtivos = [];
         const motoboysNaRuaSet = new Set();
         let filaCount = 0;
+        let currentSection = null;
 
-        // Palavras-chave que identificam um label como CABEÇALHO DE SEÇÃO (não como pedido)
-        // O Saipos mudou a estrutura: agora ambos (seções e pedidos) usam label.p-l-25
-        const SECAO_KEYWORDS = ['cozinha', 'aguardando entrega', 'saiu para entrega', 'cancelado', 'encerrado', 'retirada'];
+        // Itera os filhos DIRETOS do container:
+        // - label.p-l-25 com texto de seção → cabeçalho
+        // - div (geralmente div.simplebar-scroll-content) → contém os cards de pedido
+        const directChildren = Array.from(mainContainer.children);
 
-        children.forEach(el => {
+        directChildren.forEach(el => {
             const tagName = el.tagName.toLowerCase();
-            const isLabelPl25 = tagName === 'label' && el.classList.contains('p-l-25');
-            const textContent = (el.textContent || '').trim().toLowerCase();
+            const textLower = (el.textContent || '').trim().toLowerCase();
             const innerText = (el.innerText || '').trim();
 
             // === DETECTAR CABEÇALHO DE SEÇÃO ===
-            // Cabeçalhos: texto curto contendo palavras-chave de status, com até 3 linhas
-            // Pedidos: primeira linha no formato "123 - Nome Cliente"
-            const isSecao = isLabelPl25 
-                && SECAO_KEYWORDS.some(kw => textContent.includes(kw)) 
-                && innerText.split('\n').length <= 3
-                && !/^\d+/.test(innerText.trim()); // cabeçalho não começa com número
+            if (tagName === 'label' && el.classList.contains('p-l-25')) {
+                const isSectionHeader = SECAO_KEYWORDS.some(kw => textLower.includes(kw))
+                    && !innerText.match(/^\d+\s*[-–]/); // pedido começa com número
 
-            // Suporte legado: h3 tags (caso o Saipos reverta)
-            if (isSecao || tagName === 'h3' || el.querySelector('h3')) {
-                inCozinha = textContent.includes('cozinha');
-                inAguardando = textContent.includes('aguardando entrega');
-                inSaiu = textContent.includes('saiu para entrega');
-                return;
+                if (isSectionHeader) {
+                    if (textLower.includes('cozinha')) currentSection = 'Cozinha';
+                    else if (textLower.includes('aguardando entrega')) currentSection = 'Aguardando';
+                    else if (textLower.includes('saiu para entrega')) currentSection = 'Saiu';
+                    else currentSection = null;
+                    return;
+                }
             }
 
-            // === PROCESSAR CARD DE PEDIDO ===
-            if (isLabelPl25 && (inCozinha || inAguardando || inSaiu)) {
-                const linhas = innerText.split('\n').map(l => l.trim()).filter(l => l);
+            // === PROCESSAR WRAPPER DE PEDIDOS (div filho do container) ===
+            if (tagName === 'div' && currentSection) {
+                // Os cards de pedido estão DENTRO desse div (estrutura simplebar)
+                const orderCards = el.querySelectorAll('label.p-l-25');
                 
-                if (linhas.length === 0) return;
+                orderCards.forEach(card => {
+                    const cardText = (card.innerText || '').trim();
+                    const linhas = cardText.split('\n').map(l => l.trim()).filter(l => l);
+                    if (linhas.length === 0) return;
 
-                const primeiraLinha = linhas[0];
-                // Pedidos têm formato "123 - Nome Cliente" na primeira linha
-                const matchPedido = primeiraLinha.match(/^(\d+[\w]?)\s*[-–]\s*(.+)/);
-                
-                if (!matchPedido) return; // Não é um card de pedido, pula
+                    // Pedidos: primeira linha = "123 - Nome Cliente"
+                    const matchPedido = linhas[0].match(/^(\d+[\w]?)\s*[-–]\s*(.+)/);
+                    if (!matchPedido) return;
 
-                const idPedido = matchPedido[1].trim();
-                const nomeCliente = matchPedido[2].trim();
-                
-                if (inCozinha || inAguardando) {
-                    filaCount++;
-                    let enderecoStr = "";
-                    linhas.forEach(linha => {
-                        // Endereço: linha longa sem valores monetários, datas, "Nº" ou número de pedido
-                        if (
-                            linha.length > 15 
-                            && !linha.includes('R$') 
-                            && !linha.includes('/') 
-                            && !linha.includes('Pago') 
-                            && !linha.includes('Nº')
-                            && !/^\d+[-–]/.test(linha)
-                        ) {
-                            enderecoStr = linha;
-                        }
-                    });
+                    const idPedido = matchPedido[1].trim();
+                    const nomeCliente = matchPedido[2].trim();
 
-                    pedidosAtivos.push({
-                        id: idPedido,
-                        id_interno: idPedido,
-                        comanda: idPedido,
-                        cliente: nomeCliente,
-                        endereco: enderecoStr,
-                        status: inCozinha ? "Cozinha" : "Aguardando"
-                    });
-                }
+                    if (currentSection === 'Cozinha' || currentSection === 'Aguardando') {
+                        filaCount++;
+                        let enderecoStr = "";
+                        linhas.forEach(linha => {
+                            if (
+                                linha.length > 15
+                                && !linha.includes('R$')
+                                && !linha.includes('/')
+                                && !linha.includes('Pago')
+                                && !linha.includes('Nº')
+                                && !/^\d+\s*[-–]/.test(linha)
+                            ) {
+                                enderecoStr = linha;
+                            }
+                        });
 
-                if (inSaiu) {
-                    el.querySelectorAll('span').forEach(span => {
-                        if (span.innerHTML.includes('Entregador:')) {
-                            const nomeMatch = span.textContent.replace('Entregador:', '').trim();
-                            const motoboyPuro = nomeMatch.split('\n')[0].trim();
-                            if (motoboyPuro) motoboysNaRuaSet.add(motoboyPuro);
-                        }
-                    });
-                }
+                        pedidosAtivos.push({
+                            id: idPedido,
+                            id_interno: idPedido,
+                            comanda: idPedido,
+                            cliente: nomeCliente,
+                            endereco: enderecoStr,
+                            status: currentSection
+                        });
+                    }
+
+                    if (currentSection === 'Saiu') {
+                        card.querySelectorAll('span').forEach(span => {
+                            if (span.innerHTML.includes('Entregador:')) {
+                                const motoboy = span.textContent.replace('Entregador:', '').trim().split('\n')[0].trim();
+                                if (motoboy) motoboysNaRuaSet.add(motoboy);
+                            }
+                        });
+                    }
+                });
+
+                // Também verifica labels diretos dentro do div (caso não use simplebar)
+                Array.from(el.children).forEach(child => {
+                    if (child.tagName.toLowerCase() === 'label' && child.classList.contains('p-l-25')) {
+                        const cardText = (child.innerText || '').trim();
+                        const linhas = cardText.split('\n').map(l => l.trim()).filter(l => l);
+                        if (linhas.length === 0) return;
+                        const matchPedido = linhas[0].match(/^(\d+[\w]?)\s*[-–]\s*(.+)/);
+                        if (!matchPedido) return;
+                        // Já processado por querySelectorAll acima, evita duplicata
+                    }
+                });
             }
         });
 
-        console.log(`[FILALAB] 📊 Scan: ${pedidosAtivos.length} pedidos (Cozinha+Aguardando), ${motoboysNaRuaSet.size} motoboys na rua.`);
+        console.log(`[FILALAB] 📊 Scan: ${pedidosAtivos.length} pedidos, seção atual: ${currentSection}`);
 
         const hashAtual = JSON.stringify(pedidosAtivos);
         if (hashAtual !== cacheCozinhaAguardando) {
             cacheCozinhaAguardando = hashAtual;
-            console.log(`[FILALAB] 📤 Enviando ${pedidosAtivos.length} pedidos...`);
+            console.log(`[FILALAB] 📤 Enviando ${pedidosAtivos.length} pedidos...`, pedidosAtivos.map(p => p.cliente));
             enviarAPI({
                 action: 'update_kanban',
                 loja: LOJA_NOME,
@@ -135,22 +166,16 @@
                 entregas_na_fila: filaCount
             });
         } else {
-            console.log("[FILALAB] ✅ Sem mudanças, nenhum envio necessário.");
+            console.log("[FILALAB] ✅ Sem mudanças.");
         }
 
         const motoboysNaRuaList = Array.from(motoboysNaRuaSet);
-        
         motoboysNaRuaCache.forEach(antigoMotoboy => {
             if (!motoboysNaRuaList.includes(antigoMotoboy)) {
-                console.log(`🛎️ [FILALAB] Motoboy ${antigoMotoboy} retornou!`);
-                enviarAPI({
-                    action: 'motoboy_returned',
-                    loja: LOJA_NOME,
-                    motoboy: antigoMotoboy
-                });
+                console.log(`🛎️ [FILALAB] ${antigoMotoboy} retornou!`);
+                enviarAPI({ action: 'motoboy_returned', loja: LOJA_NOME, motoboy: antigoMotoboy });
             }
         });
-
         motoboysNaRuaCache = motoboysNaRuaList;
     }
 
@@ -158,16 +183,13 @@
         GM_xmlhttpRequest({
             method: "POST",
             url: WEBHOOK_URL,
-            headers: {
-                "Content-Type": "application/json",
-                "x-api-key": API_KEY
-            },
+            headers: { "Content-Type": "application/json", "x-api-key": API_KEY },
             data: JSON.stringify(payload),
-            onload: function(response) {
-                console.log("[FILALAB] API resp:", response.status, response.responseText.slice(0, 100));
+            onload: function(r) {
+                console.log("[FILALAB] 📬 Resp:", r.status, r.responseText.substring(0, 120));
             },
-            onerror: function(error) {
-                console.error("[FILALAB] Erro no envio:", error);
+            onerror: function(e) {
+                console.error("[FILALAB] ❌ Erro:", e);
             }
         });
     }
@@ -175,12 +197,8 @@
     let timerID = null;
     function startObserver() {
         const targetNode = document.querySelector('body');
-        if (!targetNode) {
-            setTimeout(startObserver, 1000);
-            return;
-        }
+        if (!targetNode) { setTimeout(startObserver, 1000); return; }
 
-        // MutationObserver para detectar mudanças no DOM
         const observer = new MutationObserver(function() {
             if (window.location.hash.includes("/kanban/search-customer")) {
                 clearTimeout(timerID);
@@ -188,20 +206,16 @@
             }
         });
 
-        observer.observe(targetNode, { childList: true, subtree: true, characterData: true });
+        observer.observe(targetNode, { childList: true, subtree: true });
         console.log("👁️ [FILALAB SAIPOS] Observer Ativado.");
 
-        // Polling de segurança a cada 15s — garante envio mesmo sem mutações
+        // Polling a cada 15s como fallback
         setInterval(() => {
-            if (window.location.hash.includes("/kanban/search-customer")) {
-                scanKanban();
-            }
+            if (window.location.hash.includes("/kanban/search-customer")) scanKanban();
         }, 15000);
 
-        // Faz um scan inicial imediato se já estiver no Kanban
-        if (window.location.hash.includes("/kanban/search-customer")) {
-            setTimeout(scanKanban, 2000);
-        }
+        // Scan inicial após 3s
+        setTimeout(scanKanban, 3000);
     }
 
     setTimeout(startObserver, 3000);
