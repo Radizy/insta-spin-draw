@@ -48,6 +48,7 @@ export interface CreateEntregadorData {
   nome: string;
   telefone: string;
   unidade: Unidade;
+  unidade_id?: string | null;
   status: Status;
   ativo: boolean;
   dias_trabalho?: DiasTrabalho;
@@ -204,6 +205,7 @@ export function shouldShowInQueue(entregador: Entregador): boolean {
 // Fetch all entregadores with optional filters
 export async function fetchEntregadores(filters?: {
   unidade?: Unidade;
+  unidade_id?: string | null;
   status?: Status;
   ativo?: boolean;
 }): Promise<Entregador[]> {
@@ -212,7 +214,9 @@ export async function fetchEntregadores(filters?: {
     .select('id, nome, telefone, status, unidade, ativo, created_at, updated_at, fila_posicao, primeiro_checkin, dias_trabalho, usar_turno_padrao, turno_inicio, turno_fim, hora_saida, tipo_bag, tts_voice_path, whatsapp_ativo, lat, lng, last_location_time, expo_push_token')
     .order('fila_posicao', { ascending: true });
 
-  if (filters?.unidade) {
+  if (filters?.unidade_id) {
+    query = query.eq('unidade_id', filters.unidade_id);
+  } else if (filters?.unidade) {
     query = query.eq('unidade', filters.unidade);
   }
   if (filters?.status) {
@@ -237,6 +241,7 @@ export async function createEntregador(data: CreateEntregadorData): Promise<Entr
     nome: data.nome,
     telefone: data.telefone,
     unidade: data.unidade,
+    unidade_id: data.unidade_id,
     status: data.status,
     ativo: data.ativo,
     usar_turno_padrao: data.usar_turno_padrao,

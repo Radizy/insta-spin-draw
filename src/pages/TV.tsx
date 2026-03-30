@@ -26,6 +26,7 @@ import { CheckinModal } from '@/components/CheckinModal';
 import { TVCallAnimation } from '@/components/TVCallAnimation';
 import { WeatherSlide } from '@/components/WeatherSlide';
 import { TopRankWidget } from '@/components/tv/TopRankWidget';
+import { MapScreensaverWidget } from '@/components/tv/MapScreensaverWidget';
 import { QueueSidebarWidget } from '@/components/tv/QueueSidebarWidget';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -180,11 +181,12 @@ export default function TV() {
     queryKey: ['unidade-cidade-clima', user?.unidadeId],
     queryFn: async () => {
       if (!user?.unidadeId) return null;
-      const { data, error } = await supabase.from('unidades').select('cidade_clima, exibir_fila_tv').eq('id', user.unidadeId).maybeSingle();
+      const { data, error } = await supabase.from('unidades').select('cidade_clima, estado, lat, lng, exibir_fila_tv, sisfood_pedidos_fila, saipos_pedidos_fila').eq('id', user.unidadeId).maybeSingle();
       if (error) return null;
       return data;
     },
     enabled: !!user?.unidadeId && !!selectedUnit,
+    refetchInterval: 15000,
   });
 
   const { data: franquiaConfig } = useQuery({
@@ -210,9 +212,20 @@ export default function TV() {
     refetchInterval: 30000,
   });
 
+  const { data: modulosTv = [] } = useQuery({
+    queryKey: ['unidade-modulos-tv', user?.unidadeId],
+    queryFn: async () => {
+      if (!user?.unidadeId) return [];
+      const { data, error } = await supabase.from('unidade_modulos').select('modulo_codigo').eq('unidade_id', user.unidadeId).eq('ativo', true);
+      if (error) return [];
+      return data.map(d => d.modulo_codigo);
+    },
+    enabled: !!user?.unidadeId,
+  });
+
   const { data: entregadores = [], refetch } = useQuery({
     queryKey: ['entregadores', selectedUnit, 'tv'],
-    queryFn: () => fetchEntregadores({ unidade: selectedUnit as any }),
+    queryFn: () => fetchEntregadores({ unidade: selectedUnit, unidade_id: user?.unidadeId as any }),
     enabled: !!selectedUnit,
     refetchInterval: 5000,
   });
@@ -611,8 +624,23 @@ export default function TV() {
   });
   const recentCall = calledEntregadores[0] || recentlyDelivering[0] || null;
 
+  // Se o usuário não tiver configurado playlist no banco, mostramos fallback: Rank -> Mapa
+  const activePlaylist = tvPlaylist.length > 0 ? tvPlaylist : [
+    { tipo: 'top_rank', id: 'default-rank', ordem: 1, volume: 0 },
+    ...(modulosTv.includes('screensaver_mapa') ? [{ tipo: 'mapa', id: 'default-map', ordem: 2, volume: 0 }] : [])
+  ];
+
+  // Roda o loop de slides mesmo pro fallback
+  useEffect(() => {
+    if (!isIdle || displayingCalled || displayingPagamento) return;
+    const t = setInterval(() => {
+      setCurrentSlideIndex((prev) => (prev + 1) % activePlaylist.length);
+    }, DISPLAY_TIME_MS);
+    return () => clearInterval(t);
+  }, [isIdle, displayingCalled, displayingPagamento, activePlaylist.length]);
+
   const renderPlaylistSlide = (isActive: boolean) => {
-    const slide = tvPlaylist[currentSlideIndex];
+    const slide = activePlaylist[currentSlideIndex];
     if (!slide) return null;
 
     const handleBagSelection = (e: any, h: any) => {
@@ -640,6 +668,21 @@ export default function TV() {
               allow="autoplay; encrypted-media; picture-in-picture"
               allowFullScreen
               title="YouTube Screensaver"
+            />
+          );
+        }
+        case 'mapa': {
+          const sisfoodB = (unidadeData as any)?.sisfood_pedidos_fila || [];
+          const saiposB = (unidadeData as any)?.saipos_pedidos_fila || [];
+          const pedidosFilaMerged = [...(Array.isArray(sisfoodB) ? sisfoodB : []), ...(Array.isArray(saiposB) ? saiposB : [])];
+          return (
+            <MapScreensaverWidget
+              entregadores={entregadores}
+              pedidosFila={pedidosFilaMerged}
+              storeLat={(unidadeData as any)?.lat ? parseFloat(String((unidadeData as any).lat).replace(',', '.')) : null}
+              storeLng={(unidadeData as any)?.lng ? parseFloat(String((unidadeData as any).lng).replace(',', '.')) : null}
+              storeCity={(unidadeData as any)?.cidade_clima}
+              storeState={(unidadeData as any)?.estado}
             />
           );
         }
@@ -752,3 +795,4 @@ export default function TV() {
     </div>
   );
 }
+

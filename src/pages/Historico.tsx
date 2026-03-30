@@ -220,7 +220,7 @@ export default function Historico() {
   // Query for fetching entregadores
   const { data: entregadores = [] } = useQuery({
     queryKey: ['entregadores', selectedUnit],
-    queryFn: () => fetchEntregadores({ unidade: selectedUnit }),
+    queryFn: () => fetchEntregadores({ unidade: selectedUnit, unidade_id: user?.unidadeId }),
   });
 
   // Buscar configuração da unidade para o webhook
@@ -687,3 +687,5 @@ export default function Historico() {
     </Layout>
   );
 }
+
+

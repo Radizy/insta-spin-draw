@@ -139,7 +139,7 @@ export default function Roteirista() {
   // Query for fetching available entregadores
   const { data: realEntregadores = [], isLoading: isRealLoading } = useQuery({
     queryKey: ['entregadores', selectedUnit, 'active'],
-    queryFn: () => fetchEntregadores({ unidade: selectedUnit, ativo: true }),
+    queryFn: () => fetchEntregadores({ unidade: selectedUnit, unidade_id: user?.unidadeId, ativo: true }),
     refetchInterval: 10000, // Aumentado para 10s (reunindo com Realtime é suficiente)
     staleTime: 5000, 
     enabled: !!selectedUnit && !isTrainingMode,
@@ -293,9 +293,10 @@ export default function Roteirista() {
       } else if (data) {
         const unitId = data.id;
         setActiveUnitId(unitId);
-        setEntregasNaFila((data as any).entregas_na_fila ?? 0);
-        const pedidosBanco = (data as any).sisfood_pedidos_fila;
-        setPedidosFila(Array.isArray(pedidosBanco) ? pedidosBanco : []);
+        setEntregasNaFila(((data as any).entregas_na_fila ?? 0) + ((data as any).entregas_na_fila_saipos ?? 0));
+        const sisfoodB = (data as any).sisfood_pedidos_fila || [];
+        const saiposB = (data as any).saipos_pedidos_fila || [];
+        setPedidosFila([...(Array.isArray(sisfoodB) ? sisfoodB : []), ...(Array.isArray(saiposB) ? saiposB : [])]);
 
         channel = supabase
           .channel(`rt_fila_${unitId}`)
@@ -309,12 +310,15 @@ export default function Roteirista() {
             },
             (payload: any) => {
               if (payload.new) {
-                if (payload.new.entregas_na_fila !== undefined) {
-                   setEntregasNaFila(payload.new.entregas_na_fila);
-                }
-                if (payload.new.sisfood_pedidos_fila !== undefined) {
-                   setPedidosFila(Array.isArray(payload.new.sisfood_pedidos_fila) ? payload.new.sisfood_pedidos_fila : []);
-                }
+                // Soma as duas entregas em fila (Sisfood + Saipos), protegendo contra NaN com fallback para o dado atual
+                const sisfF = payload.new.entregas_na_fila !== undefined ? payload.new.entregas_na_fila : ((data as any).entregas_na_fila ?? 0);
+                const saipF = payload.new.entregas_na_fila_saipos !== undefined ? payload.new.entregas_na_fila_saipos : ((data as any).entregas_na_fila_saipos ?? 0);
+                setEntregasNaFila(sisfF + saipF);
+
+                const sisfoodF = payload.new.sisfood_pedidos_fila !== undefined ? payload.new.sisfood_pedidos_fila : ((data as any).sisfood_pedidos_fila || []);
+                const saiposF = payload.new.saipos_pedidos_fila !== undefined ? payload.new.saipos_pedidos_fila : ((data as any).saipos_pedidos_fila || []);
+                
+                setPedidosFila([...(Array.isArray(sisfoodF) ? sisfoodF : []), ...(Array.isArray(saiposF) ? saiposF : [])]);
               }
             }
           )
@@ -340,7 +344,7 @@ export default function Roteirista() {
       
       const { data, error } = await supabase
         .from('unidades')
-        .select('sisfood_pedidos_fila, entregas_na_fila')
+        .select('sisfood_pedidos_fila, entregas_na_fila, saipos_pedidos_fila, entregas_na_fila_saipos')
         .ilike('nome_loja', `%${searchName}%`)
         .maybeSingle();
       
@@ -354,9 +358,10 @@ export default function Roteirista() {
   // Efeito para sincronizar os dados do Polling com o estado local para garantir consistência
   useEffect(() => {
     if (sisfoodUnitData) {
-      const pedidos = (sisfoodUnitData as any).sisfood_pedidos_fila;
-      setPedidosFila(Array.isArray(pedidos) ? pedidos : []);
-      setEntregasNaFila((sisfoodUnitData as any).entregas_na_fila ?? 0);
+      const pedidosS = (sisfoodUnitData as any).sisfood_pedidos_fila || [];
+      const pedidosP = (sisfoodUnitData as any).saipos_pedidos_fila || [];
+      setPedidosFila([...(Array.isArray(pedidosS) ? pedidosS : []), ...(Array.isArray(pedidosP) ? pedidosP : [])]);
+      setEntregasNaFila(((sisfoodUnitData as any).entregas_na_fila ?? 0) + ((sisfoodUnitData as any).entregas_na_fila_saipos ?? 0));
     }
   }, [sisfoodUnitData]);
 
@@ -1454,3 +1459,4 @@ export default function Roteirista() {
     </Layout>
   );
 }
+

@@ -229,3 +229,5 @@ export function TopRankWidget({ unidadeId, availableQueue = [], deliveringQueue 
         </div>
     );
 }
+
+

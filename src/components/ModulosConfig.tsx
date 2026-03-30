@@ -28,6 +28,26 @@ export function ModulosConfig() {
   const { selectedUnit } = useUnit();
   const queryClient = useQueryClient();
 
+  // Query para resolver o ID da unidade a partir do nome selecionado (para usuários que acabaram de criar a loja)
+  const { data: currentUnitData } = useQuery({
+    queryKey: ['unidade-detalhes-modulos', selectedUnit, user?.franquiaId],
+    queryFn: async () => {
+      if (!selectedUnit || !user?.franquiaId) return null;
+      const searchName = selectedUnit === 'POA' ? 'Poá' : (selectedUnit === 'ITAQUA' ? 'Itaquaquecetuba' : selectedUnit);
+      const { data, error } = await supabase
+        .from('unidades')
+        .select('id')
+        .eq('franquia_id', user.franquiaId)
+        .ilike('nome_loja', `%${searchName}%`)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedUnit && !!user?.franquiaId,
+  });
+
+  const resolvedUnidadeId = currentUnitData?.id || user?.unidadeId;
+
   const { data: modulos = [], isLoading: loadingModulos } = useQuery<Modulo[]>({
     queryKey: ['modulos'],
     queryFn: async () => {
@@ -299,8 +319,8 @@ export function ModulosConfig() {
         )}
 
         {/* TV Screensaver Playlist */}
-        {user?.franquiaId && selectedUnit && user?.unidadeId && (
-          <TvPlaylistManager franquiaId={user.franquiaId} unidadeId={user.unidadeId} />
+        {user?.franquiaId && selectedUnit && resolvedUnidadeId && (
+          <TvPlaylistManager franquiaId={user.franquiaId} unidadeId={resolvedUnidadeId} />
         )}
 
         {/* Integração Planilha (Google Sheets) */}

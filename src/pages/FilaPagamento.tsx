@@ -57,7 +57,7 @@ export default function FilaPagamento() {
   // Motoboys da unidade atual
   const { data: entregadores = [] } = useQuery<Entregador[]>({
     queryKey: ['entregadores-pagamento', selectedUnit],
-    queryFn: () => fetchEntregadores({ unidade: selectedUnit as Unidade }),
+    queryFn: () => fetchEntregadores({ unidade: selectedUnit, unidade_id: user?.unidadeId as Unidade }),
     enabled: !!selectedUnit,
     refetchInterval: 10000,
   });
@@ -644,3 +644,5 @@ export default function FilaPagamento() {
     </Layout>
   );
 }
+
+

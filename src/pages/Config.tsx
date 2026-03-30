@@ -150,8 +150,8 @@ export default function Config() {
 
   // Query for fetching entregadores
   const { data: entregadores = [], isLoading } = useQuery({
-    queryKey: ['entregadores', selectedUnit],
-    queryFn: () => fetchEntregadores({ unidade: selectedUnit }),
+    queryKey: ['entregadores', selectedUnit, resolvedUnidadeId],
+    queryFn: () => fetchEntregadores({ unidade: selectedUnit, unidade_id: resolvedUnidadeId || user?.unidadeId }),
   });
 
   // Configuração da franquia (para reaproveitar tv_tts / ElevenLabs)
@@ -340,6 +340,7 @@ export default function Config() {
         nome: formData.nome,
         telefone: formData.telefone,
         unidade: formData.unidade,
+        unidade_id: resolvedUnidadeId || user?.unidadeId || null,
         status: 'disponivel',
         ativo: true,
         dias_trabalho: formData.dias_trabalho,
@@ -858,16 +859,14 @@ export default function Config() {
               </TabsTrigger>
             )}
 
-            {isModuloAtivoLocal('whatsapp') && (
-              <TabsTrigger
-                value="webhook"
-                className="flex-1 sm:flex-none gap-2 px-4 py-2.5 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all duration-300"
-              >
-                <Globe className="w-4 h-4" />
-                <span className="hidden sm:inline">Intetrações</span>
-                <span className="sm:hidden">WhatsApp</span>
-              </TabsTrigger>
-            )}
+            <TabsTrigger
+              value="webhook"
+              className="flex-1 sm:flex-none gap-2 px-4 py-2.5 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all duration-300"
+            >
+              <Globe className="w-4 h-4" />
+              <span className="hidden sm:inline">Integrações</span>
+              <span className="sm:hidden">Webhooks</span>
+            </TabsTrigger>
 
             {user?.role === 'admin_franquia' && (
               <TabsTrigger
@@ -1674,3 +1673,5 @@ export default function Config() {
     </Layout>
   );
 }
+
+

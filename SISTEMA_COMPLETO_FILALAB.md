@@ -24,10 +24,12 @@ Os 5 módulos principais são:
 Esses módulos podem ser geridos livremente pelo painel Super Admin na visualização e edição de uma franquia.
 
 ### Versão do Sistema
-- **Versão Atual**: `2.6.2` (Março 2026)
+- **Versão Atual**: `2.6.3` (Março 2026)
 - **Últimas Implementações**:
+    - **Strict Multi-Franquias (Vazamento de Lojas)**: O backend da API (`fetchEntregadores`) blindado contra string solta de `unidade` ("ITAQUA"). A filtragem e inserção passa a ser obrigatoriamente exigida pelo `unidade_id` (UUID), isolando perfeitamente lojas 100% homônimas de franquias parceiras distintas.
+    - **Módulo TV Screensaver - Radar**: TV Premium agora suporta mídia dinâmica `mapa` e `top_rank` em sua constraint de verificação para exibir um radar de entregas ao vivo na tela de repouso dos roteiristas.
+    - **Integração Push-Config Independente**: Tela Mestra "Integrações" desbloqueada mesmo se o WhatsApp estiver desligado, impedindo a inabilitação em cascata acidental do Sisfood e Saipos.
     - **Integração Expo Push (Motoboy App)**: Disparo de notificações push nativas via backend.
-    - **Tela de TV e Roteirista Otimizados**: Modal de "Não Apareceu" alterado para card flutuante não-bloqueante (bottom-40), com auto-close em 10s.
     - **Fila de Disponíveis e Entregando Refinadas**: Botão de retorno renomeado de `Finalizar` para `Deixar Disponível`. Adicionado botão de atalho `Em Entrega` na Fila de Disponíveis.
     - **Otimização de Network Polling**: Redução do intervalo de busca para `saidas-hoje` (Roteirista) e `historico-rank` (TV) para cada 5 minutos, diminuindo a carga no banco de dados e melhorando a performance geral.
     - **Organização de Scripts**: Todos os scripts SQL e scripts auxiliares (.js, .ps1) foram centralizados na pasta `/scripts` para um ambiente de desenvolvimento mais limpo.
@@ -590,7 +592,7 @@ Armazena a fila de exibição (Screensaver) do módulo de TV Premium de cada uni
 CREATE TABLE tv_playlist (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   unidade_id UUID NOT NULL REFERENCES unidades(id) ON DELETE CASCADE,
-  tipo TEXT NOT NULL, -- 'imagem', 'video', 'youtube', 'clima'
+  tipo TEXT NOT NULL, -- Constraint ATUALIZADA ('imagem', 'video', 'youtube', 'mapa', 'aviso', 'noticia', 'clima', 'top_rank')
   url TEXT,
   duracao INTEGER NOT NULL DEFAULT 15,
   volume INTEGER DEFAULT 0,

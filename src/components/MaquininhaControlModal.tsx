@@ -43,7 +43,7 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
     // Queries
     const { data: entregadores = [], isLoading: isLoadingEntregadores } = useQuery({
         queryKey: ['entregadores-maquininhas', selectedUnit],
-        queryFn: () => fetchEntregadores({ unidade: selectedUnit, ativo: true }),
+        queryFn: () => fetchEntregadores({ unidade: selectedUnit, unidade_id: user?.unidadeId, ativo: true }),
         enabled: open && !!selectedUnit
     });
 
@@ -392,3 +392,5 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
         </Dialog>
     );
 }
+
+

@@ -31,16 +31,27 @@ export function DadosDaLoja() {
   const { data: config, isLoading } = useQuery({
     queryKey: ['system-config', selectedUnit],
     queryFn: async () => {
-      const { data, error } = await supabase
+      if (!user?.unidadeId) return null;
+      let { data, error } = await supabase
         .from('system_config')
         .select('*')
-        .eq('unidade', selectedUnit)
+        .eq('unidade_id', user.unidadeId)
         .maybeSingle();
+
+      if (!data) {
+         // Fallback legacy caso lojas antigas só tenham salvo por nome em "unidade"
+         const { data: fallbackData } = await supabase
+           .from('system_config')
+           .select('*')
+           .eq('unidade', selectedUnit)
+           .maybeSingle();
+         data = fallbackData;
+      }
 
       if (error && error.code !== 'PGRST116') throw error;
       return data;
     },
-    enabled: !!selectedUnit,
+    enabled: !!selectedUnit && !!user?.unidadeId,
   });
 
   useEffect(() => {
@@ -135,6 +146,8 @@ export function DadosDaLoja() {
         numero: payload.numero,
         latitude: payload.latitude ? parseFloat(payload.latitude.replace(',', '.')) : null,
         longitude: payload.longitude ? parseFloat(payload.longitude.replace(',', '.')) : null,
+        unidade: selectedUnit,
+        unidade_id: user.unidadeId
       };
 
       if (config) {
@@ -146,7 +159,7 @@ export function DadosDaLoja() {
       } else {
         const { error } = await supabase
           .from('system_config')
-          .insert({ unidade: selectedUnit, ...dadosParaSalvar } as any);
+          .insert({ ...dadosParaSalvar } as any);
         if (error) throw error;
       }
     },

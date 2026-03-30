@@ -14,6 +14,7 @@ import { useQueryClient, useMutation } from '@tanstack/react-query';
 import scriptItaqua from '../../tampermonkey_ITAQUA.js?raw';
 import scriptPoa from '../../tampermonkey_POA.js?raw';
 import scriptSuzano from '../../tampermonkey_SUZANO.js?raw';
+import scriptSaiposRaw from '../../tampermonkey_saipos.js?raw';
 
 interface WebhookConfigProps {
   overrideUnidadeId?: string;
@@ -43,7 +44,6 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
     staleTime: 10 * 60 * 1000,
   });
 
-  // Query para verificar se o módulo está ativo para esta unidade específica
   const { data: unidadeModulo } = useQuery({
     queryKey: ['unidade-modulo-sisfood', unidadeId],
     queryFn: async () => {
@@ -53,6 +53,23 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
         .select('*')
         .eq('unidade_id', unidadeId)
         .eq('modulo_codigo', 'sisfood_integration')
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!unidadeId,
+  });
+
+  const { data: saiposModulo } = useQuery({
+    queryKey: ['unidade-modulo-saipos', unidadeId],
+    queryFn: async () => {
+      if (!unidadeId) return null;
+      const { data, error } = await supabase
+        .from('unidade_modulos')
+        .select('*')
+        .eq('unidade_id', unidadeId)
+        .eq('modulo_codigo', 'saipos_integration')
         .maybeSingle();
       
       if (error) throw error;
@@ -92,6 +109,37 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
     }
   });
 
+  const toggleSaiposMutation = useMutation({
+    mutationFn: async (ativo: boolean) => {
+      if (!unidadeId) return;
+
+      if (saiposModulo) {
+        const { error } = await supabase
+          .from('unidade_modulos')
+          .update({ ativo })
+          .eq('id', saiposModulo.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('unidade_modulos')
+          .insert({
+            unidade_id: unidadeId,
+            modulo_codigo: 'saipos_integration',
+            ativo,
+          });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['unidade-modulo-saipos', unidadeId] });
+      toast.success('Integração Saipos atualizada!');
+    },
+    onError: (error) => {
+      console.error('Erro ao atualizar Saipos:', error);
+      toast.error('Erro ao salvar configuração.');
+    }
+  });
+
   if (!user || !unidadeId) {
     return (
       <div className="flex items-center justify-center p-10">
@@ -103,6 +151,9 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
   const modulosAtivos = franquiaConfig?.modulos_ativos || [];
   const isSisfoodGlobalAtivo = modulosAtivos.includes('sisfood_integration');
   const isSisfoodUnidadeAtivo = unidadeModulo?.ativo ?? false;
+
+  const isSaiposGlobalAtivo = modulosAtivos.includes('saipos_integration');
+  const isSaiposUnidadeAtivo = saiposModulo?.ativo ?? false;
 
   const copyScript = (codigo: string) => {
     navigator.clipboard.writeText(codigo);
@@ -118,6 +169,15 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
     if (unitUpper.includes('SUZANO')) return scriptSuzano;
     
     return `// Selecione uma loja válida (ITAQUA, POA ou SUZANO) no topo do painel\n// para exibir o script FilaLab da sua cidade correspondente.`;
+  };
+
+  const getSaiposScript = () => {
+    if (!selectedUnit) return `// Selecione uma loja no topo do painel`;
+    let raw = scriptSaiposRaw;
+    raw = raw.replace('{{NOME_DA_LOJA}}', selectedUnit);
+    raw = raw.replace('{{WEBHOOK_URL}}', 'https://kegbvaikqelwezpehlhf.supabase.co/functions/v1/webhook-saipos');
+    raw = raw.replace('{{API_KEY}}', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtlZ2J2YWlrcWVsd2V6cGVobGhmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2NDc4MzUsImV4cCI6MjA4NzIyMzgzNX0.hIRjDR4D6p8RAsnWMhkF1stRDr_oa0yMsqukCPADyh0');
+    return raw;
   };
 
   return (
@@ -226,6 +286,98 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
                       <code>{getSisfoodScript()}</code>
                     </pre>
                     <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-[#1e1e1e] to-transparent pointer-events-none rounded-b-xl" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isSaiposGlobalAtivo && (
+        <div className="bg-gradient-to-br from-card to-card/50 border border-primary/20 rounded-2xl p-6 md:p-8 space-y-6 shadow-xl shadow-primary/5 mt-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-primary/5 rounded-xl border border-primary/10 gap-4">
+            <div className="space-y-0.5">
+              <Label className="text-base font-bold">Uso por Unidade (Saipos)</Label>
+              <p className="text-sm text-muted-foreground">
+                Habilite esta opção para permitir que a unidade "{selectedUnit}" utilize a integração com Saipos.
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <Switch
+                checked={isSaiposUnidadeAtivo}
+                onCheckedChange={(checked) => toggleSaiposMutation.mutate(checked)}
+                disabled={toggleSaiposMutation.isPending}
+              />
+            </div>
+          </div>
+
+          {isSaiposUnidadeAtivo && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-primary/10 rounded-xl">
+                      <LinkIcon className="w-6 h-6 text-primary" />
+                    </div>
+                    <h2 className="text-2xl font-bold tracking-tight text-foreground/90">
+                      Integração SAIPOS
+                    </h2>
+                  </div>
+                  <p className="text-sm text-muted-foreground ml-14">
+                    Integração transparente com o Kanban do Saipos (Modo Leitura).
+                  </p>
+                </div>
+                <div className="px-3 py-1 bg-green-500/10 text-green-500 rounded-full text-xs font-bold uppercase tracking-wider border border-green-500/20">
+                  Módulo Ativo
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <h3 className="text-lg font-bold">Instalação Saipos</h3>
+                  <ol className="relative border-l border-primary/20 ml-3 space-y-8">
+                    <li className="pl-6">
+                      <div className="absolute w-6 h-6 bg-card rounded-full -left-3 border-2 border-primary flex items-center justify-center font-bold text-xs text-primary shadow-sm">1</div>
+                      <h4 className="font-semibold text-foreground mb-1">Passo 1: Instale o Tampermonkey</h4>
+                      <p className="text-sm text-muted-foreground mb-3">No navegador que roda a página de Busca de Clientes (Kanban) do Saipos, adicione a extensão.</p>
+                      <Button variant="outline" size="sm" asChild className="gap-2 h-8">
+                        <a href="https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo" target="_blank" rel="noopener noreferrer">
+                          <Download className="w-3.5 h-3.5" />
+                          Google Chrome
+                        </a>
+                      </Button>
+                    </li>
+                    
+                    <li className="pl-6">
+                      <div className="absolute w-6 h-6 bg-card rounded-full -left-3 border-2 border-primary flex items-center justify-center font-bold text-xs text-primary shadow-sm">2</div>
+                      <h4 className="font-semibold text-foreground mb-1">Passo 2: Configure o Script</h4>
+                      <p className="text-sm text-muted-foreground">Copie o script gerado dinamicamente para a loja <b>{selectedUnit}</b>, cole no Tampermonkey e salve!</p>
+                    </li>
+                  </ol>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold flex items-center gap-2">
+                      <Code2 className="w-4 h-4 text-primary" />
+                      Script Saipos Atual
+                    </h3>
+                    <Button 
+                      size="sm" 
+                      variant={copied ? "default" : "secondary"}
+                      onClick={() => copyScript(getSaiposScript())}
+                      className="h-8 gap-1.5 transition-all text-xs"
+                    >
+                      {copied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copied ? 'Copiado!' : 'Copiar'}
+                    </Button>
+                  </div>
+                  <div className="relative">
+                    <pre className="p-4 bg-[#1e1e1e] text-[#d4d4d4] rounded-xl text-xs overflow-auto max-h-[400px] font-mono border border-border/10 custom-scrollbar shadow-inner">
+                      <code>{getSaiposScript()}</code>
+                    </pre>
                   </div>
                 </div>
               </div>
