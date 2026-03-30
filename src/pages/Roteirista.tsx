@@ -274,25 +274,17 @@ export default function Roteirista() {
   };
 
   useEffect(() => {
-    if (!selectedUnit) return;
+    if (!resolvedUnitId) return;
 
     let channel: any = null;
 
     const fetchFilaInicial = async () => {
-      // Logic para mapear códigos em nomes reais do banco para busca ilike
-      const getSearchName = (unit: string) => {
-        if (unit === 'POA') return 'Po'; // Pega Poá
-        if (unit === 'ITAQUA') return 'Itaqua'; // Pega Itaquaquecetuba
-        return unit;
-      };
-      
-      const searchName = getSearchName(selectedUnit as string);
-      console.log("[FILALAB] Buscando fila inicial para a unidade:", selectedUnit, "usando termo:", searchName);
+      console.log("[FILALAB] Buscando fila inicial para unidade_id:", resolvedUnitId);
       
       const { data, error } = await supabase
         .from('unidades')
         .select('*')
-        .ilike('nome_loja', `%${searchName}%`)
+        .eq('id', resolvedUnitId)
         .maybeSingle();
 
       if (error) {
@@ -343,26 +335,24 @@ export default function Roteirista() {
         supabase.removeChannel(channel);
       }
     };
-  }, [selectedUnit]);
+  }, [resolvedUnitId]);
 
   // Query para monitorar a fila em tempo real (para os alertas de atraso e exibição) - 30s
   const { data: sisfoodUnitData } = useQuery({
-    queryKey: ['unidade-fila-sisfood-monitor', selectedUnit],
+    queryKey: ['unidade-fila-sisfood-monitor', resolvedUnitId],
     queryFn: async () => {
-      if (!selectedUnit) return null;
-      
-      const searchName = selectedUnit === 'POA' ? 'Poá' : (selectedUnit === 'ITAQUA' ? 'Itaquaquecetuba' : selectedUnit);
+      if (!resolvedUnitId) return null;
       
       const { data, error } = await supabase
         .from('unidades')
         .select('sisfood_pedidos_fila, entregas_na_fila, saipos_pedidos_fila, entregas_na_fila_saipos, saipos_mapa_pedidos')
-        .ilike('nome_loja', `%${searchName}%`)
+        .eq('id', resolvedUnitId)
         .maybeSingle();
       
       if (error) throw error;
       return data;
     },
-    enabled: !!selectedUnit,
+    enabled: !!resolvedUnitId,
     refetchInterval: 30000,
   });
 
