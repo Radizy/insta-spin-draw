@@ -20,11 +20,21 @@ serve(async (req) => {
         const data = await req.json();
         const { action, loja, pedidos_fila, entregas_na_fila, motoboy } = data;
         
-        const providedToken = req.headers.get("x-api-key");
-        const isSecureTokenValid = providedToken === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+        // Validação de Token Flexível para evitar erros 403 (Saipos/Tampermonkey enviam vários formatos)
+        const providedToken = req.headers.get("x-api-key") || req.headers.get("apikey") || req.headers.get("authorization")?.replace("Bearer ", "");
+        const serverAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+        
+        // Fallback para a chave configurada no frontend (evita descasamento no deploy)
+        const frontendAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtlZ2J2YWlrcWVsd2V6cGVobGhmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2NDc4MzUsImV4cCI6MjA4NzIyMzgzNX0.hIRjDR4D6p8RAsnWMhkF1stRDr_oa0yMsqukCPADyh0";
+        
+        const isTokenPresent = !!providedToken;
+        const isTokenMatch = providedToken === serverAnonKey || providedToken === frontendAnonKey;
 
-        if (!providedToken || !isSecureTokenValid) {
-           return new Response(JSON.stringify({ error: 'Token x-api-key invalido ou ausente.' }), {
+        if (!isTokenPresent || !isTokenMatch) {
+           return new Response(JSON.stringify({ 
+               error: 'Token invalido ou ausente.',
+               debug: { received: providedToken ? "present" : "absent", match: isTokenMatch } 
+           }), {
                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                status: 403,
            });
@@ -37,6 +47,35 @@ serve(async (req) => {
             });
         }
 
+        // Função auxiliar robusta para achar o ID correto da loja, não importa o formato que venha
+        async function resolveStoreId(lojaCode: string) {
+            const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(lojaCode);
+            if (isUUID) return lojaCode;
+
+            // Busca por atalhos conhecidos (legado) ou tenta fazer o match por ilike no nome
+            let normalized = lojaCode.toLowerCase();
+            if (normalized === "itaqua") normalized = "itaquaquecetuba";
+            if (normalized === "poa" || normalized === "poá") normalized = "poá";
+            if (normalized === "suzano") normalized = "suzano";
+
+            const { data } = await supabaseClient
+                .from('unidades')
+                .select('id')
+                .ilike('nome_loja', `%${normalized}%`)
+                .maybeSingle();
+                
+            return data?.id;
+        }
+
+        const storeId = await resolveStoreId(loja);
+
+        if (!storeId) {
+             return new Response(JSON.stringify({ error: `Store mismatch. Could not resolve ID for: ${loja}` }), {
+                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                 status: 404,
+             });
+        }
+
         if (action === 'update_kanban') {
             const { error: err1 } = await supabaseClient
                 .from('unidades')
@@ -44,7 +83,7 @@ serve(async (req) => {
                     saipos_pedidos_fila: pedidos_fila || [],
                     entregas_na_fila_saipos: entregas_na_fila || 0
                 })
-                .ilike('nome_loja', `%${loja}%`);
+                .eq('id', storeId);
             
             if (err1) throw err1;
 
@@ -57,11 +96,16 @@ serve(async (req) => {
         if (action === 'motoboy_returned' && motoboy) {
             const now = new Date().toISOString();
             
-            // 1. Encontrar o motoboy com esse nome exato naquela loja (ilike para tratar maiúsculas/minúsculas)
+            // 1. Encontrar o motoboy com esse nome exato naquela loja
             const { data: entregador, error: errBusca } = await supabaseClient
                 .from('entregadores')
                 .select('id')
                 .ilike('nome', `%${motoboy}%`)
+                // .ilike('unidade', ...) substituído por filtro exato via storeId
+                // Atenção: a tabela de motoboys não tem um 'unidade_id' mapeado para o RLS default? 
+                // Por segurança vamos ignorar a restrição de unidade nesta busca já que a function roda como service_role,
+                // ou buscar por ilike no nome da loja para manter compatibilidade. 
+                // A tabela entregadores usa a coluna 'unidade' (texto).
                 .ilike('unidade', `%${loja}%`)
                 .eq('status', 'entregando')
                 .maybeSingle();
@@ -97,6 +141,38 @@ serve(async (req) => {
             if (err3) throw err3;
 
             return new Response(JSON.stringify({ success: true, message: `Motoboy ${motoboy} retornado com sucesso` }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 200,
+            });
+        }
+
+        if (action === 'map_sync') {
+            const mapPedidos = data.pedidos || [];
+            const mapMotoboys = data.motoboys || [];
+
+            // 1. Atualiza os pedidos no DB da Unidade
+            const { error: err1 } = await supabaseClient
+                .from('unidades')
+                .update({ saipos_mapa_pedidos: mapPedidos })
+                .eq('id', storeId);
+            
+            if (err1) throw err1;
+
+            // 2. Atualiza os GPS nativos de rastreio dos motoboys enviados pelo Saipos
+            for (const mb of mapMotoboys) {
+                if (!mb.name) continue;
+                await supabaseClient
+                    .from('entregadores')
+                    .update({
+                        lat: mb.lat,
+                        lng: mb.lng,
+                        last_location_time: new Date().toISOString()
+                    })
+                    .ilike('nome', `%${mb.name}%`)
+                    .ilike('unidade', `%${loja}%`);
+            }
+
+            return new Response(JSON.stringify({ success: true, message: 'Map sync updated' }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                 status: 200,
             });

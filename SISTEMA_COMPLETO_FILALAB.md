@@ -26,7 +26,12 @@ Esses módulos podem ser geridos livremente pelo painel Super Admin na visualiza
 ### Versão do Sistema
 - **Versão Atual**: `2.6.3` (Março 2026)
 - **Últimas Implementações**:
-    - **Strict Multi-Franquias (Vazamento de Lojas)**: O backend da API (`fetchEntregadores`) blindado contra string solta de `unidade` ("ITAQUA"). A filtragem e inserção passa a ser obrigatoriamente exigida pelo `unidade_id` (UUID), isolando perfeitamente lojas 100% homônimas de franquias parceiras distintas.
+    - **Migração SaaS Multi-Tenant (UUID Strict)**: O sistema foi migrado de uma dependência baseada em nomes de lojas (strings) para o uso de **UUIDs (`unidade_id`)** como chave primária em todas as operações. Isso garante que lojas com nomes iguais (ex: "ITAQUA") em franquias diferentes nunca misturem seus dados.
+    - **Edge Function `auth-login` Dinâmico**: Refatorada para permitir que `super_admin` carregue todas as unidades do sistema via `availableUnits`. Implementado um mapeador robuso que utiliza o UUID da unidade como fallback.
+    - **Persistência Agnostica (`DadosDaLoja.tsx`)**: Substituído o padrão `insert/update` por `upsert` com `onConflict: 'unidade_id'`, eliminando registros duplicados na tabela `system_config`.
+    - **Webhook Saipos SaaS-Ready**: Refatorado para utilizar a função `resolveStoreId`, que identifica a loja corretamente (via UUID ou nome normalizado) antes de processar pedidos ou GPS.
+    - **Visualização de Geocodificação no Roteirista**: A query de localização da loja no mapa agora utiliza `unidade_id`, garantindo que a "casinha" (marker da loja) apareça corretamente para todas as unidades.
+    - **Strict Multi-Franquias (Vazamento de Lojas)**: O backend da API (`fetchEntregadores`) blindado contra string solta de `unidade`. A filtragem e inserção passa a ser obrigatoriamente exigida pelo `unidade_id` (UUID), isolando perfeitamente lojas 100% homônimas de franquias parceiras distintas.
     - **Módulo TV Screensaver - Radar**: TV Premium agora suporta mídia dinâmica `mapa` e `top_rank` em sua constraint de verificação para exibir um radar de entregas ao vivo na tela de repouso dos roteiristas.
     - **Integração Push-Config Independente**: Tela Mestra "Integrações" desbloqueada mesmo se o WhatsApp estiver desligado, impedindo a inabilitação em cascata acidental do Sisfood e Saipos.
     - **Integração Expo Push (Motoboy App)**: Disparo de notificações push nativas via backend.
@@ -778,15 +783,19 @@ CREATE TABLE global_config (
 ```
 
 #### system_config
-Configurações por unidade (nome da loja, webhook URL).
+Configurações por unidade (nome da loja, webhook URL). Centralizada no uso de `unidade_id` para persistência SaaS.
 ```sql
 CREATE TABLE system_config (
   id UUID PRIMARY KEY,
   unidade TEXT NOT NULL,
+  unidade_id UUID UNIQUE REFERENCES unidades(id),
   nome_loja TEXT,
   webhook_url TEXT,
-  created_at TIMESTAMP WITH TIME ZONE,
-  updated_at TIMESTAMP WITH TIME ZONE
+  saipos_mapa_pedidos JSONB DEFAULT '[]',
+  saipos_pedidos_fila JSONB DEFAULT '[]',
+  entregas_na_fila_saipos INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 ```
 

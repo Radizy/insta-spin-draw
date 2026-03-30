@@ -229,13 +229,13 @@ export default function Historico() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('unidades')
-        .select('config_sheets_url')
-        .eq('id', user?.unidadeId)
+        .select('id, config_sheets_url')
+        .eq('nome_loja', selectedUnit)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
-    enabled: !!user?.unidadeId,
+    enabled: !!selectedUnit,
   });
 
   useEffect(() => {
@@ -333,7 +333,7 @@ export default function Historico() {
       const { error } = await supabase
         .from('unidades')
         .update({ config_sheets_url: webhookUrl })
-        .eq('id', user.unidadeId);
+        .eq('nome_loja', selectedUnit);
 
       if (error) throw error;
 
@@ -611,7 +611,7 @@ export default function Historico() {
         </TabsContent>
 
         <TabsContent value="analytics" className="m-0">
-          <AnalyticsDashboard dataInicio={dataInicio} dataFim={dataFim} />
+          <AnalyticsDashboard dataInicio={dataInicio} dataFim={dataFim} unidadeId={unitData?.id || ''} unidadeNome={selectedUnit as string} />
         </TabsContent>
       </Tabs>
 

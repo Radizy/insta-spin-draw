@@ -183,15 +183,32 @@ serve(async (req) => {
     // Buscar unidades disponíveis
     let availableUnits: Array<{ id: string; nome_loja: string; unidade_nome: string }> | undefined;
 
-    if (data.franquia_id) {
-      const mapNomeLojaToUnidade = (nome_loja: string): string => {
-        const nome = nome_loja.toLowerCase();
-        if (nome.includes("itaqua")) return "ITAQUA";
-        if (nome.includes("poá") || nome.includes("poa")) return "POA";
-        if (nome.includes("suzano")) return "SUZANO";
-        return data.unidade;
-      };
+    // Mapeamento de nome de loja para código de unidade.
+    // Usa o nome_loja normalizado como fallback universal para lojas novas.
+    const mapNomeLojaToUnidade = (nome_loja: string, id: string): string => {
+      const nome = nome_loja.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      if (nome.includes("itaqua")) return "ITAQUA";
+      if (nome.includes("poa") || nome.includes("poa")) return "POA";
+      if (nome.includes("suzano")) return "SUZANO";
+      // Fallback: usa o id UUID como código único, evitando conflitos
+      return id;
+    };
 
+    if (effectiveRole === "super_admin") {
+      // Super Admin vê TODAS as unidades do sistema
+      const { data: allUnits } = await supabase
+        .from("unidades")
+        .select("id, nome_loja")
+        .order("nome_loja");
+
+      if (allUnits && allUnits.length > 0) {
+        availableUnits = allUnits.map((u: any) => ({
+          id: u.id,
+          nome_loja: u.nome_loja,
+          unidade_nome: mapNomeLojaToUnidade(u.nome_loja, u.id),
+        }));
+      }
+    } else if (data.franquia_id) {
       const { data: userUnits, error: unitsError } = await supabase
         .from("user_unidades")
         .select("unidade_id, unidades!inner(id, nome_loja)")
@@ -201,7 +218,7 @@ serve(async (req) => {
         availableUnits = userUnits.map((uu: any) => ({
           id: uu.unidades.id,
           nome_loja: uu.unidades.nome_loja,
-          unidade_nome: mapNomeLojaToUnidade(uu.unidades.nome_loja),
+          unidade_nome: mapNomeLojaToUnidade(uu.unidades.nome_loja, uu.unidades.id),
         }));
       }
     }

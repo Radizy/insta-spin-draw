@@ -26,6 +26,8 @@ import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 interface AnalyticsDashboardProps {
     dataInicio: Date;
     dataFim: Date;
+    unidadeId: string;
+    unidadeNome: string;
 }
 
 interface MetricResult {
@@ -38,7 +40,7 @@ interface MetricResult {
     pontualidade_ranking: { nome: string; tempo_medio: number }[];
 }
 
-export function AnalyticsDashboard({ dataInicio, dataFim }: AnalyticsDashboardProps) {
+export function AnalyticsDashboard({ dataInicio, dataFim, unidadeId, unidadeNome }: AnalyticsDashboardProps) {
     const { user } = useAuth();
 
     const { data: franquiaConfig } = useQuery({
@@ -60,20 +62,20 @@ export function AnalyticsDashboard({ dataInicio, dataFim }: AnalyticsDashboardPr
     const isMachineModuleActive = franquiaConfig?.modulos_ativos?.includes('controle_maquininhas');
 
     const { data: metrics, isLoading, isError } = useQuery({
-        queryKey: ['analytics_pro_metrics', user?.unidadeId, dataInicio.toISOString(), dataFim.toISOString()],
+        queryKey: ['analytics_pro_metrics', unidadeId, dataInicio.toISOString(), dataFim.toISOString()],
         queryFn: async () => {
             console.log('[Analytics] Chamando RPC com:', {
-                p_unidade_id: user.unidadeId,
+                p_unidade_id: unidadeId,
                 datetime_inicio: dataInicio.toISOString(),
                 datetime_fim: dataFim.toISOString(),
-                unidade_nome: user.unidade
+                unidade_nome: unidadeNome
             });
 
             const { data, error } = await supabase.rpc('get_analytics_pro_metrics', {
-                p_unidade_id: user.unidadeId,
+                p_unidade_id: unidadeId,
                 datetime_inicio: dataInicio.toISOString(),
                 datetime_fim: dataFim.toISOString(),
-                p_unidade_nome: user.unidade
+                p_unidade_nome: unidadeNome
             });
 
             if (error) {
@@ -84,7 +86,7 @@ export function AnalyticsDashboard({ dataInicio, dataFim }: AnalyticsDashboardPr
             console.log('[Analytics] Dados recebidos:', data);
             return data as unknown as MetricResult;
         },
-        enabled: !!user?.unidade,
+        enabled: !!unidadeId && !!unidadeNome,
         staleTime: 5 * 60 * 1000, // 5 minutos de cache
     });
 
@@ -104,7 +106,7 @@ export function AnalyticsDashboard({ dataInicio, dataFim }: AnalyticsDashboardPr
                     <h2 className="text-2xl font-bold tracking-tight">Estatísticas da Loja</h2>
                     <div className="flex flex-col gap-1 mt-1">
                         <p className="text-muted-foreground text-sm">
-                            Métricas de performance isoladas para <b>{user?.unidade}</b>
+                            Métricas de performance isoladas para <b>{unidadeNome}</b>
                         </p>
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-primary/10 text-primary w-fit px-2 py-0.5 rounded-md border border-primary/20">
                             <Info className="w-3.5 h-3.5" />

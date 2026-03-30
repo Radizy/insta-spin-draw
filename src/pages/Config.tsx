@@ -315,8 +315,8 @@ export default function Config() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.nome.trim() || !formData.telefone.trim()) {
-      toast.error('Preencha todos os campos');
+    if (!formData.nome.trim()) {
+      toast.error('Preencha o nome do motoboy');
       return;
     }
 
@@ -328,7 +328,7 @@ export default function Config() {
         id: editingEntregador.id,
         data: {
           nome: formData.nome,
-          telefone: formData.telefone,
+          telefone: formData.telefone.trim() || 'S/N',
           dias_trabalho: formData.dias_trabalho,
           usar_turno_padrao: formData.usar_turno_padrao,
           turno_inicio: turnoInicio,
@@ -338,7 +338,7 @@ export default function Config() {
     } else {
       createMutation.mutate({
         nome: formData.nome,
-        telefone: formData.telefone,
+        telefone: formData.telefone.trim() || 'S/N',
         unidade: formData.unidade,
         unidade_id: resolvedUnidadeId || user?.unidadeId || null,
         status: 'disponivel',
@@ -347,6 +347,7 @@ export default function Config() {
         usar_turno_padrao: formData.usar_turno_padrao,
         turno_inicio: turnoInicio,
         turno_fim: turnoFim,
+        whatsapp_ativo: false,
       });
     }
   };
@@ -1311,51 +1312,7 @@ export default function Config() {
               </div>
             </div>
 
-            {/* Turno */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label>Turno</Label>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="turno-padrao"
-                    checked={formData.usar_turno_padrao}
-                    onCheckedChange={(checked) =>
-                      setFormData((prev) => ({ ...prev, usar_turno_padrao: checked }))
-                    }
-                  />
-                  <Label htmlFor="turno-padrao" className="text-sm font-normal cursor-pointer">
-                    Turno padrão (16:00 - 02:00)
-                  </Label>
-                </div>
-              </div>
 
-              {!formData.usar_turno_padrao && (
-                <div className="grid grid-cols-2 gap-4 p-4 bg-secondary/50 rounded-lg">
-                  <div className="space-y-2">
-                    <Label htmlFor="turno-inicio">Início</Label>
-                    <Input
-                      id="turno-inicio"
-                      type="time"
-                      value={formData.turno_inicio}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, turno_inicio: e.target.value }))
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="turno-fim">Fim</Label>
-                    <Input
-                      id="turno-fim"
-                      type="time"
-                      value={formData.turno_fim}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, turno_fim: e.target.value }))
-                      }
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
 
             {/* WhatsApp toggle por motoboy */}
             {editingEntregador && isModuloAtivoLocal('whatsapp') && (

@@ -181,7 +181,7 @@ export default function TV() {
     queryKey: ['unidade-cidade-clima', user?.unidadeId],
     queryFn: async () => {
       if (!user?.unidadeId) return null;
-      const { data, error } = await supabase.from('unidades').select('cidade_clima, estado, lat, lng, exibir_fila_tv, sisfood_pedidos_fila, saipos_pedidos_fila').eq('id', user.unidadeId).maybeSingle();
+      const { data, error } = await supabase.from('unidades').select('cidade_clima, estado, lat, lng, exibir_fila_tv, sisfood_pedidos_fila, saipos_pedidos_fila, saipos_mapa_pedidos').eq('id', user.unidadeId).maybeSingle();
       if (error) return null;
       return data;
     },
@@ -675,10 +675,13 @@ export default function TV() {
           const sisfoodB = (unidadeData as any)?.sisfood_pedidos_fila || [];
           const saiposB = (unidadeData as any)?.saipos_pedidos_fila || [];
           const pedidosFilaMerged = [...(Array.isArray(sisfoodB) ? sisfoodB : []), ...(Array.isArray(saiposB) ? saiposB : [])];
+          const saiposMapa = (unidadeData as any)?.saipos_mapa_pedidos || [];
+
           return (
             <MapScreensaverWidget
               entregadores={entregadores}
               pedidosFila={pedidosFilaMerged}
+              pedidosMapa={saiposMapa}
               storeLat={(unidadeData as any)?.lat ? parseFloat(String((unidadeData as any).lat).replace(',', '.')) : null}
               storeLng={(unidadeData as any)?.lng ? parseFloat(String((unidadeData as any).lng).replace(',', '.')) : null}
               storeCity={(unidadeData as any)?.cidade_clima}

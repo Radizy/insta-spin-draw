@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useUnit } from '@/contexts/UnitContext';
@@ -7,18 +7,36 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Loader2, Store, MapPin } from 'lucide-react';
+import { Loader2, Store, MapPin, Navigation } from 'lucide-react';
 import { FranquiaBagsSection } from './FranquiaBagsSection';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Corrigir ícone padrão do Leaflet
+const DefaultIcon = L.icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
+L.Marker.prototype.options.icon = DefaultIcon;
 
 export function DadosDaLoja() {
   const { selectedUnit } = useUnit();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstance = useRef<L.Map | null>(null);
+  const markerRef = useRef<L.Marker | null>(null);
 
   const [formData, setFormData] = useState({
     nome_loja: '',
     cep: '',
     endereco: '',
+    rua: '',
+    bairro: '',
+    cidade: '',
+    estado: '',
     numero: '',
     latitude: '',
     longitude: '',
@@ -27,49 +45,82 @@ export function DadosDaLoja() {
   const [isSearchingCep, setIsSearchingCep] = useState(false);
   const [isSearchingCoords, setIsSearchingCoords] = useState(false);
 
-  // Load config data
+  // Resolve o ID real da unidade selecionada a partir de availableUnits ou diretamente de user.unidadeId
+  const resolvedUnitId = user?.availableUnits?.find(
+    (u) => u.unidade_nome === selectedUnit || u.nome_loja === selectedUnit
+  )?.id ?? user?.unidadeId ?? null;
+
   const { data: config, isLoading } = useQuery({
-    queryKey: ['system-config', selectedUnit],
+    queryKey: ['system-config', resolvedUnitId],
     queryFn: async () => {
-      if (!user?.unidadeId) return null;
+      if (!resolvedUnitId) return null;
+
+      // Busca pela unidade_id (UUID real), que é único e inequívoco
       let { data, error } = await supabase
         .from('system_config')
         .select('*')
-        .eq('unidade_id', user.unidadeId)
+        .eq('unidade_id', resolvedUnitId)
         .maybeSingle();
-
-      if (!data) {
-         // Fallback legacy caso lojas antigas só tenham salvo por nome em "unidade"
-         const { data: fallbackData } = await supabase
-           .from('system_config')
-           .select('*')
-           .eq('unidade', selectedUnit)
-           .maybeSingle();
-         data = fallbackData;
-      }
 
       if (error && error.code !== 'PGRST116') throw error;
       return data;
     },
-    enabled: !!selectedUnit && !!user?.unidadeId,
+    enabled: !!resolvedUnitId,
   });
 
   useEffect(() => {
     if (config) {
+      const lat = config.latitude ? String(config.latitude) : '';
+      const lng = config.longitude ? String(config.longitude) : '';
+      
       setFormData({
         nome_loja: config.nome_loja || '',
-        cep: (config as any).cep || '',
-        endereco: (config as any).endereco || '',
-        numero: (config as any).numero || '',
-        latitude: (config as any).latitude ? String((config as any).latitude) : '',
-        longitude: (config as any).longitude ? String((config as any).longitude) : '',
+        cep: config.cep || '',
+        endereco: config.endereco || '',
+        rua: config.rua || '',
+        bairro: config.bairro || '',
+        cidade: config.cidade || '',
+        estado: config.estado || '',
+        numero: config.numero || '',
+        latitude: lat,
+        longitude: lng,
       });
-    } else {
-      setFormData({
-        nome_loja: '', cep: '', endereco: '', numero: '', latitude: '', longitude: ''
-      });
+
+      if (mapInstance.current && markerRef.current && lat && lng) {
+          const newPos = L.latLng(parseFloat(lat), parseFloat(lng));
+          markerRef.current.setLatLng(newPos);
+          mapInstance.current.setView(newPos, 16);
+      }
     }
   }, [config]);
+
+  useEffect(() => {
+    if (!mapRef.current || mapInstance.current) return;
+
+    const initialLat = formData.latitude ? parseFloat(formData.latitude) : -23.5505;
+    const initialLng = formData.longitude ? parseFloat(formData.longitude) : -46.6333;
+
+    mapInstance.current = L.map(mapRef.current).setView([initialLat, initialLng], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapInstance.current);
+
+    markerRef.current = L.marker([initialLat, initialLng], { draggable: true }).addTo(mapInstance.current);
+
+    markerRef.current.on('dragend', (event) => {
+      const position = event.target.getLatLng();
+      setFormData(prev => ({
+        ...prev,
+        latitude: position.lat.toFixed(6),
+        longitude: position.lng.toFixed(6)
+      }));
+    });
+
+    return () => {
+      if (mapInstance.current) {
+        mapInstance.current.remove();
+        mapInstance.current = null;
+      }
+    };
+  }, []);
 
   const searchCep = async () => {
     const limpo = formData.cep.replace(/\D/g, '');
@@ -77,59 +128,54 @@ export function DadosDaLoja() {
       toast.error('CEP inválido');
       return;
     }
-
     setIsSearchingCep(true);
     try {
       const res = await fetch(`https://viacep.com.br/ws/${limpo}/json/`);
       const data = await res.json();
-      
       if (data.erro) {
         toast.error('CEP não encontrado');
       } else {
-        const enderecoCompleto = `${data.logradouro}, ${data.bairro}, ${data.localidade} - ${data.uf}`;
         setFormData(prev => ({
           ...prev,
-          endereco: enderecoCompleto,
+          rua: data.logradouro || '',
+          bairro: data.bairro || '',
+          cidade: data.localidade || '',
+          estado: data.uf || '',
+          endereco: `${data.logradouro}, ${data.bairro}, ${data.localidade} - ${data.uf}`,
         }));
-        toast.success('Endereço localizado via CEP!');
+        toast.success('Endereço localizado!');
       }
     } catch (err) {
-      toast.error('Erro ao consultar o ViaCEP');
-      console.error(err);
+      toast.error('Erro ViaCEP');
     } finally {
       setIsSearchingCep(false);
     }
   };
 
   const searchCoordinates = async () => {
-    if (!formData.endereco || !formData.numero) {
-      toast.error('Preencha o endereço completo e o número primeiro.');
+    if (!formData.rua || !formData.numero || !formData.cidade) {
+      toast.error('Preencha Rua, Número e Cidade.');
       return;
     }
-
     setIsSearchingCoords(true);
     try {
-      const parts = formData.endereco.split(',');
-      const logradouro = parts[0]?.trim();
-      const resto = parts.slice(1).join(',').trim();
-      const addressQuery = `${logradouro}, ${formData.numero}, ${resto}, Brasil`;
-      
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressQuery)}`);
+      const query = `${formData.rua}, ${formData.numero}, ${formData.bairro}, ${formData.cidade}, ${formData.estado}, Brasil`;
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
       const data = await res.json();
-      
       if (data && data.length > 0) {
-        setFormData(p => ({
-          ...p,
-          latitude: data[0].lat,
-          longitude: data[0].lon
-        }));
-        toast.success('Coordenadas auto-preenchidas com sucesso!');
+        const { lat, lon } = data[0];
+        setFormData(p => ({ ...p, latitude: lat, longitude: lon }));
+        if (mapInstance.current && markerRef.current) {
+            const newPos = L.latLng(parseFloat(lat), parseFloat(lon));
+            markerRef.current.setLatLng(newPos);
+            mapInstance.current.setView(newPos, 17);
+        }
+        toast.success('Coordenadas localizadas!');
       } else {
-        toast.error('Não foi possível achar as coordenadas para este endereço.');
+        toast.error('Não localizado.');
       }
     } catch (err) {
-      toast.error('Erro na busca de coordenadas da loja.');
-      console.error(err);
+      toast.error('Erro Nominatim');
     } finally {
       setIsSearchingCoords(false);
     }
@@ -137,51 +183,44 @@ export function DadosDaLoja() {
 
   const saveMutation = useMutation({
     mutationFn: async (payload: typeof formData) => {
-      if (!selectedUnit) return;
+      if (!resolvedUnitId) {
+        toast.error('Unidade não identificada. Selecione a loja no menu.');
+        return;
+      }
+
+      // Descobre o nome_loja real desta unidade
+      const match = user?.availableUnits?.find(
+        (u) => u.id === resolvedUnitId
+      );
+      const nomeLojaReal = match?.nome_loja || selectedUnit || '';
 
       const dadosParaSalvar = {
-        nome_loja: payload.nome_loja,
+        nome_loja: payload.nome_loja || nomeLojaReal,
         cep: payload.cep,
-        endereco: payload.endereco,
+        rua: payload.rua,
+        bairro: payload.bairro,
+        cidade: payload.cidade,
+        estado: payload.estado,
         numero: payload.numero,
-        latitude: payload.latitude ? parseFloat(payload.latitude.replace(',', '.')) : null,
-        longitude: payload.longitude ? parseFloat(payload.longitude.replace(',', '.')) : null,
-        unidade: selectedUnit,
-        unidade_id: user.unidadeId
+        latitude: payload.latitude ? parseFloat(String(payload.latitude).replace(',', '.')) : null,
+        longitude: payload.longitude ? parseFloat(String(payload.longitude).replace(',', '.')) : null,
+        unidade: nomeLojaReal,   // guarda o nome real
+        unidade_id: resolvedUnitId, // guarda o UUID real
       };
 
-      if (config) {
-        const { error } = await supabase
-          .from('system_config')
-          .update(dadosParaSalvar as any)
-          .eq('id', config.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('system_config')
-          .insert({ ...dadosParaSalvar } as any);
-        if (error) throw error;
-      }
+      // Upsert com base em unidade_id — garante um único registro por loja, sem duplicados
+      const { error } = await supabase
+        .from('system_config')
+        .upsert(dadosParaSalvar as any, { onConflict: 'unidade_id' });
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['system-config'] });
-      toast.success('Dados da loja salvos com sucesso!');
-    },
-    onError: (err) => {
-      toast.error('Erro ao salvar. Lembre-se de rodar a migration de banco de dados.');
-      console.error(err);
+      toast.success('Dados salvos!');
     },
   });
 
-  if (!user) return null;
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  if (isLoading) return <div className="flex justify-center py-12"><Loader2 className="animate-spin" /></div>;
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -189,141 +228,73 @@ export function DadosDaLoja() {
         <div className="flex items-center gap-3 border-b pb-4">
           <Store className="w-6 h-6 text-primary" />
           <div>
-            <h2 className="text-xl font-bold font-mono">Dados e Endereço da Loja</h2>
-            <p className="text-sm text-muted-foreground">Configurações globais e localização no mapa</p>
+            <h2 className="text-xl font-bold font-mono">Configuração Física da Loja</h2>
           </div>
         </div>
 
         <div className="space-y-4">
-          {/* Nome da Loja */}
-          <div className="space-y-2">
-            <Label htmlFor="nome-loja">Nome da Unidade (Mostrado na TV e no Sisfood)</Label>
-            <Input
-              id="nome-loja"
-              value={formData.nome_loja}
-              onChange={(e) => setFormData(p => ({ ...p, nome_loja: e.target.value }))}
-              placeholder="Ex: FilaLab Matriz"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+                <Label>Nome da Unidade</Label>
+                <Input value={formData.nome_loja} onChange={e => setFormData(p => ({...p, nome_loja: e.target.value}))} />
+            </div>
+            <div className="space-y-2">
+                <Label>CEP</Label>
+                <div className="flex gap-2">
+                    <Input value={formData.cep} onChange={e => setFormData(p => ({...p, cep: e.target.value}))} />
+                    <Button onClick={searchCep} disabled={isSearchingCep}>{isSearchingCep ? <Loader2 className="animate-spin" /> : 'Buscar'}</Button>
+                </div>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* CEP */}
-            <div className="space-y-2">
-              <Label htmlFor="cep">CEP</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="cep"
-                  maxLength={9}
-                  value={formData.cep}
-                  onChange={(e) => setFormData(p => ({ ...p, cep: e.target.value }))}
-                  placeholder="00000-000"
-                />
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={searchCep}
-                  disabled={isSearchingCep || formData.cep.length < 8}
-                >
-                  {isSearchingCep ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Buscar'}
-                </Button>
+          <div className="flex gap-4">
+              <div className="flex-1 space-y-2">
+                  <Label>Rua</Label>
+                  <Input value={formData.rua} onChange={e => setFormData(p => ({...p, rua: e.target.value}))} />
               </div>
-            </div>
-
-            {/* Endereço */}
-            <div className="space-y-2">
-              <Label htmlFor="endereco">Endereço Completo (ViaCEP)</Label>
-              <Input
-                id="endereco"
-                value={formData.endereco}
-                onChange={(e) => setFormData(p => ({ ...p, endereco: e.target.value }))}
-                placeholder="Rua, Bairro, Cidade - UF"
-              />
-            </div>
+              <div className="w-24 space-y-2">
+                  <Label>Número</Label>
+                  <Input value={formData.numero} onChange={e => setFormData(p => ({...p, numero: e.target.value}))} />
+              </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Numero */}
-            <div className="space-y-2">
-              <Label htmlFor="numero">Número</Label>
-              <Input
-                id="numero"
-                value={formData.numero}
-                onChange={(e) => setFormData(p => ({ ...p, numero: e.target.value }))}
-                placeholder="Ex: 123"
-              />
-            </div>
-
-            {/* Latitude e Longitude */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="latitude">Latitude</Label>
-                <Button 
-                   type="button" 
-                   variant="ghost" 
-                   size="sm" 
-                   className="h-6 text-xs px-2 text-primary hover:bg-primary/10"
-                   onClick={searchCoordinates}
-                   disabled={isSearchingCoords || !formData.endereco || !formData.numero}
-                >
-                  {isSearchingCoords ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <MapPin className="w-3 h-3 mr-1" />}
-                  Buscar Auto
-                </Button>
+              <div className="space-y-2">
+                  <Label>Bairro</Label>
+                  <Input value={formData.bairro} onChange={e => setFormData(p => ({...p, bairro: e.target.value}))} />
               </div>
-              <Input
-                id="latitude"
-                type="text"
-                value={formData.latitude}
-                onChange={(e) => setFormData(p => ({ ...p, latitude: e.target.value }))}
-                placeholder="-23.5505"
-              />
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center h-6">
-                 <Label htmlFor="longitude">Longitude</Label>
+              <div className="space-y-2">
+                  <Label>Cidade</Label>
+                  <Input value={formData.cidade} onChange={e => setFormData(p => ({...p, cidade: e.target.value}))} />
               </div>
-              <Input
-                id="longitude"
-                type="text"
-                value={formData.longitude}
-                onChange={(e) => setFormData(p => ({ ...p, longitude: e.target.value }))}
-                placeholder="-46.6333"
-              />
-            </div>
+              <div className="space-y-2">
+                  <Label>UF</Label>
+                  <Input maxLength={2} value={formData.estado} onChange={e => setFormData(p => ({...p, estado: e.target.value.toUpperCase()}))} />
+              </div>
           </div>
 
-          <div className="bg-secondary/30 border border-border p-3 rounded-md flex items-start gap-3 mt-4">
-            <MapPin className="min-w-[20px] h-5 text-muted-foreground mt-0.5" />
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              <strong>Importante:</strong> Pegue as coordenadas (Latitude e Longitude) exatas da sua loja no Google Maps para que a exibição da base no rastreamento dos motoboys (Painel do Roteirista) fique mais precisa.
-            </p>
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2"><Navigation className="w-4 h-4" /> Ajuste o Pin no Mapa </Label>
+            <div ref={mapRef} className="w-full h-[300px] rounded-lg border" />
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+                <Label className="flex justify-between">Latitude <Button variant="ghost" size="sm" className="h-4 text-[10px]" onClick={searchCoordinates} disabled={isSearchingCoords}>Localizar Auto</Button></Label>
+                <Input value={formData.latitude} onChange={e => setFormData(p => ({...p, latitude: e.target.value}))} />
+            </div>
+            <div className="space-y-2">
+                <Label>Longitude</Label>
+                <Input value={formData.longitude} onChange={e => setFormData(p => ({...p, longitude: e.target.value}))} />
+            </div>
+          </div>
         </div>
 
         <div className="pt-4 border-t flex justify-end">
-          <Button
-            type="button"
-            className="min-w-[150px]"
-            onClick={() => saveMutation.mutate(formData)}
-            disabled={saveMutation.isPending}
-          >
-            {saveMutation.isPending ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                Salvando...
-              </>
-            ) : (
-              'Salvar Dados da Loja'
-            )}
-          </Button>
+          <Button onClick={() => saveMutation.mutate(formData)} disabled={saveMutation.isPending}>{saveMutation.isPending ? 'Salvando...' : 'Salvar Dados'}</Button>
         </div>
       </div>
-
-      {user?.franquiaId && (
-        <div className="mt-8">
-          <FranquiaBagsSection franquiaId={user.franquiaId} />
-        </div>
-      )}
+      {user?.franquiaId && <FranquiaBagsSection franquiaId={user.franquiaId} />}
     </div>
   );
 }

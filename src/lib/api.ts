@@ -782,6 +782,26 @@ export async function fetchUnidadeModulos(unidadeId: string): Promise<UnidadeMod
 }
 
 export async function isModuloAtivo(unidadeId: string, moduloCodigo: string): Promise<boolean> {
+  // 1. Checa primeiro a permissão Mestre (Franquia)
+  const { data: und } = await supabase
+    .from('unidades')
+    .select('franquia_id')
+    .eq('id', unidadeId)
+    .maybeSingle();
+
+  if (und && und.franquia_id) {
+    const { data: fra } = await supabase
+      .from('franquias')
+      .select('modulos_ativos')
+      .eq('id', und.franquia_id)
+      .maybeSingle();
+
+    if (fra && fra.modulos_ativos && Array.isArray(fra.modulos_ativos)) {
+      if (fra.modulos_ativos.includes(moduloCodigo)) return true;
+    }
+  }
+
+  // 2. Fallback Opcional (Unidade)
   const { data, error } = await supabase
     .from('unidade_modulos')
     .select('ativo, data_expiracao')

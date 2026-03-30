@@ -60,17 +60,9 @@ export function FranquiaPlanoManager({ overrideUnidadeId }: FranquiaPlanoManager
 
   // Modules active for this unit
   const { data: unitModulos = [], isLoading: loadingUnit } = useQuery<UnidadeModuloRow[]>({
-    queryKey: ['unidade-modulos', unidadeId],
-    enabled: !!unidadeId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('unidade_modulos')
-        .select('id, modulo_codigo, ativo, data_ativacao')
-        .eq('unidade_id', unidadeId!)
-        .eq('ativo', true);
-      if (error) throw error;
-      return data as any;
-    },
+    queryKey: ['unidade-modulos-legacy', unidadeId],
+    enabled: false, // Legacy disabled - we rely on the Franchise master list now.
+    queryFn: async () => [],
   });
 
   // Franchise info
@@ -80,7 +72,7 @@ export function FranquiaPlanoManager({ overrideUnidadeId }: FranquiaPlanoManager
     queryFn: async () => {
       const { data, error } = await supabase
         .from('franquias')
-        .select('nome_franquia, status_pagamento, data_vencimento')
+        .select('nome_franquia, status_pagamento, data_vencimento, modulos_ativos')
         .eq('id', franquiaId!)
         .maybeSingle();
       if (error) throw error;
@@ -88,7 +80,9 @@ export function FranquiaPlanoManager({ overrideUnidadeId }: FranquiaPlanoManager
     },
   });
 
-  const activeCodes = new Set(unitModulos.map((um) => um.modulo_codigo));
+  // Ativação visual reflete puramente a ordem do Master SuperAdmin (Franquia)
+  const masterActive = Array.isArray(franquia?.modulos_ativos) ? franquia.modulos_ativos : [];
+  const activeCodes = new Set(masterActive);
 
   const toggleModuleMutation = useMutation({
     mutationFn: async ({ codigo, activate }: { codigo: string; activate: boolean }) => {
@@ -180,11 +174,11 @@ export function FranquiaPlanoManager({ overrideUnidadeId }: FranquiaPlanoManager
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {unitModulos.map((um) => {
-                  const m = allModulos.find(mod => mod.codigo === um.modulo_codigo);
+                {masterActive.map((codigoAtivo) => {
+                  const m = allModulos.find(mod => mod.codigo === codigoAtivo);
                   if (!m) return null;
                   return (
-                    <div key={um.id} className="relative flex flex-col p-4 border border-primary/20 bg-primary/5 rounded-xl transition-all hover:bg-primary/10 hover:border-primary/30 group">
+                    <div key={m.id} className="relative flex flex-col p-4 border border-primary/20 bg-primary/5 rounded-xl transition-all hover:bg-primary/10 hover:border-primary/30 group">
                       <div className="absolute top-3 right-3">
                         <div className="flex items-center gap-1.5 px-2 py-1 bg-green-500/10 text-green-500 rounded-md text-[10px] font-bold uppercase tracking-wider border border-green-500/20">
                           <Check className="w-3 h-3" />
@@ -195,15 +189,6 @@ export function FranquiaPlanoManager({ overrideUnidadeId }: FranquiaPlanoManager
                       <p className="text-xs text-muted-foreground/80 mt-1 mb-3 line-clamp-2 min-h-[32px]">{m.descricao}</p>
                       <div className="mt-auto pt-3 border-t border-primary/10 flex items-center justify-between">
                         <span className="text-[10px] text-muted-foreground font-mono bg-background/50 px-2 py-0.5 rounded-md">{m.codigo}</span>
-                        <Button
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-7 text-[11px] px-3 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                          onClick={() => toggleModuleMutation.mutate({ codigo: um.modulo_codigo, activate: false })}
-                          disabled={toggleModuleMutation.isPending}
-                        >
-                          Desativar
-                        </Button>
                       </div>
                     </div>
                   );
@@ -233,15 +218,6 @@ export function FranquiaPlanoManager({ overrideUnidadeId }: FranquiaPlanoManager
                         <span className="text-xs font-bold text-muted-foreground">
                           {m.preco_mensal ? `R$ ${m.preco_mensal.toFixed(2)}/mês` : 'Gratuito'}
                         </span>
-                        <Button 
-                          variant="secondary" 
-                          size="sm" 
-                          className="h-7 text-[11px] px-3 hover:bg-primary hover:text-primary-foreground"
-                          onClick={() => toggleModuleMutation.mutate({ codigo: m.codigo, activate: true })}
-                          disabled={toggleModuleMutation.isPending}
-                        >
-                          <Plus className="w-3 h-3 mr-1" /> Adicionar
-                        </Button>
                       </div>
                     </div>
                   );

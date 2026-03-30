@@ -112,20 +112,26 @@ export default function Roteirista() {
       { id: 'metro', label: 'BAG Metro', value: 'BAG Metro', icone_url: null },
     ];
 
+  // Resolve o ID real da unidade selecionada (igual ao DadosDaLoja)
+  const resolvedUnitId = user?.availableUnits?.find(
+    (u: any) => u.unidade_nome === selectedUnit || u.nome_loja === selectedUnit
+  )?.id ?? user?.unidadeId ?? null;
+
   // Config da unidade para pegar as coordenadas da loja
   const { data: systemConfig } = useQuery({
-    queryKey: ['system-config', selectedUnit],
+    queryKey: ['system-config', resolvedUnitId],
     queryFn: async () => {
+      if (!resolvedUnitId) return null;
       const { data, error } = await supabase
         .from('system_config')
         .select('*')
-        .eq('unidade', selectedUnit)
+        .eq('unidade_id', resolvedUnitId)
         .maybeSingle();
 
       if (error && error.code !== 'PGRST116') throw error;
       return data;
     },
-    enabled: !!selectedUnit,
+    enabled: !!resolvedUnitId,
   });
 
   // [x] Otimização de renderização React (React.memo, useMemo, useCallback)
@@ -231,6 +237,7 @@ export default function Roteirista() {
   // ======= Fila em Tempo Real do SISFOOD =======
   const [entregasNaFila, setEntregasNaFila] = useState<number | null>(null);
   const [pedidosFila, setPedidosFila] = useState<any[]>([]);
+  const [pedidosMapa, setPedidosMapa] = useState<any[]>([]);
   const [activeUnitId, setActiveUnitId] = useState<string | null>(null);
 
   // Helper robusto para extrair timestamp de diversos formatos do Sisfood
@@ -297,6 +304,7 @@ export default function Roteirista() {
         const sisfoodB = (data as any).sisfood_pedidos_fila || [];
         const saiposB = (data as any).saipos_pedidos_fila || [];
         setPedidosFila([...(Array.isArray(sisfoodB) ? sisfoodB : []), ...(Array.isArray(saiposB) ? saiposB : [])]);
+        setPedidosMapa((data as any).saipos_mapa_pedidos || []);
 
         channel = supabase
           .channel(`rt_fila_${unitId}`)
@@ -319,6 +327,9 @@ export default function Roteirista() {
                 const saiposF = payload.new.saipos_pedidos_fila !== undefined ? payload.new.saipos_pedidos_fila : ((data as any).saipos_pedidos_fila || []);
                 
                 setPedidosFila([...(Array.isArray(sisfoodF) ? sisfoodF : []), ...(Array.isArray(saiposF) ? saiposF : [])]);
+
+                const saiposMapaF = payload.new.saipos_mapa_pedidos !== undefined ? payload.new.saipos_mapa_pedidos : ((data as any).saipos_mapa_pedidos || []);
+                setPedidosMapa(saiposMapaF);
               }
             }
           )
@@ -344,7 +355,7 @@ export default function Roteirista() {
       
       const { data, error } = await supabase
         .from('unidades')
-        .select('sisfood_pedidos_fila, entregas_na_fila, saipos_pedidos_fila, entregas_na_fila_saipos')
+        .select('sisfood_pedidos_fila, entregas_na_fila, saipos_pedidos_fila, entregas_na_fila_saipos, saipos_mapa_pedidos')
         .ilike('nome_loja', `%${searchName}%`)
         .maybeSingle();
       
@@ -362,6 +373,9 @@ export default function Roteirista() {
       const pedidosP = (sisfoodUnitData as any).saipos_pedidos_fila || [];
       setPedidosFila([...(Array.isArray(pedidosS) ? pedidosS : []), ...(Array.isArray(pedidosP) ? pedidosP : [])]);
       setEntregasNaFila(((sisfoodUnitData as any).entregas_na_fila ?? 0) + ((sisfoodUnitData as any).entregas_na_fila_saipos ?? 0));
+      
+      const mapaPedidos = (sisfoodUnitData as any).saipos_mapa_pedidos || [];
+      setPedidosMapa(mapaPedidos);
     }
   }, [sisfoodUnitData]);
 
@@ -1455,6 +1469,7 @@ export default function Roteirista() {
         storeCity={(systemConfig as any)?.cidade}
         storeState={(systemConfig as any)?.estado}
         pedidosFila={pedidosFila}
+        pedidosMapa={pedidosMapa}
       />
     </Layout>
   );

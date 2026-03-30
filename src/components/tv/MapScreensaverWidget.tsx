@@ -42,9 +42,10 @@ interface MapScreensaverWidgetProps {
     storeLng?: number | null;
     storeCity?: string;
     storeState?: string;
+    pedidosMapa?: any[];
 }
 
-export function MapScreensaverWidget({ entregadores, pedidosFila, storeLat, storeLng, storeCity, storeState }: MapScreensaverWidgetProps) {
+export function MapScreensaverWidget({ entregadores, pedidosFila, storeLat, storeLng, storeCity, storeState, pedidosMapa }: MapScreensaverWidgetProps) {
     const [activeMotoboys, setActiveMotoboys] = useState<Entregador[]>([]);
     const [geocodedFila, setGeocodedFila] = useState<any[]>([]);
     const [center, setCenter] = useState<[number, number]>([-23.55052, -46.633308]);
@@ -169,8 +170,27 @@ export function MapScreensaverWidget({ entregadores, pedidosFila, storeLat, stor
                     markersRef.current.push(marker);
                 }
             });
+
+            // Adiciona marcadores Georreferenciados diretamente da Integração Mapa Saipos
+            if (pedidosMapa && pedidosMapa.length > 0) {
+                pedidosMapa.forEach(pedido => {
+                    const latNum = parseFloat(pedido.lat);
+                    const lngNum = parseFloat(pedido.lng);
+                    if (!isNaN(latNum) && !isNaN(lngNum)) {
+                        const marker = L.marker([latNum, lngNum], {
+                            icon: createFilaIcon(),
+                            zIndexOffset: 600
+                        });
+                        
+                        // No screensaver da TV mostramos menos dados para ficar mais limpo
+                        marker.bindTooltip(`<span style="font-size: 14px; font-weight: bold;">📍 Saipos</span>`, { permanent: false, direction: 'top', className: 'custom-map-tooltip' });
+                        marker.addTo(mapInstance.current!);
+                        markersRef.current.push(marker);
+                    }
+                });
+            }
         }
-    }, [center, activeMotoboys, geocodedFila, storeLat, storeLng]);
+    }, [center, activeMotoboys, geocodedFila, storeLat, storeLng, pedidosMapa]);
 
     // Limpeza na desmontagem
     useEffect(() => {
