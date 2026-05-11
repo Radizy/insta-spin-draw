@@ -423,7 +423,6 @@ export default function Roteirista() {
   // Configurações da franquia para checar módulos ativos
   const { data: franquiaConfig } = useQuery<{ config_pagamento: any | null }>({
     queryKey: ['franquia-config', currentFranquiaId],
-    staleTime: 1000 * 60 * 60,
     queryFn: async () => {
       if (!currentFranquiaId) return { config_pagamento: null };
       const { data, error } = await supabase
