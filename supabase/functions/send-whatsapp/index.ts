@@ -82,14 +82,23 @@ serve(async (req) => {
       }
     }
 
-    if (!whatsappConfig) {
+    const GLOBAL_EVO_URL = Deno.env.get('EVOLUTION_URL') || 'https://dom-evolution-api.d0tdjo.easypanel.host';
+    const GLOBAL_EVO_KEY = Deno.env.get('EVOLUTION_API_KEY') || '429683C4C977415CAAFCCE10F7D57E11';
+
+    let evoUrl = whatsappConfig?.url || GLOBAL_EVO_URL;
+    let evoKey = whatsappConfig?.api_key || GLOBAL_EVO_KEY;
+    let evoInstance = whatsappConfig?.instance || (effectiveFranquiaId ? `filalab_${effectiveFranquiaId.replace(/-/g, '')}` : null);
+
+    if (!evoUrl || !evoKey || !evoInstance) {
       return new Response(
-        JSON.stringify({ error: 'WhatsApp configuration not found for this unidade/franquia' }),
+        JSON.stringify({ error: 'WhatsApp configuration not found and global defaults are missing' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const { url: EVOLUTION_URL, api_key: EVOLUTION_API_KEY, instance: EVOLUTION_INSTANCE } = whatsappConfig;
+    const EVOLUTION_URL = evoUrl;
+    const EVOLUTION_API_KEY = evoKey;
+    const EVOLUTION_INSTANCE = evoInstance;
 
     // Format phone number (remove non-digits and ensure country code)
     let formattedNumber = String(telefone).replace(/\D/g, '');

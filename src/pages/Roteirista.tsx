@@ -88,6 +88,7 @@ export default function Roteirista() {
   // Tipos de BAG configurados para a franquia da unidade atual
   const { data: franquiaBagTipos = [], isLoading: isLoadingBags } = useQuery<{ id: string; nome: string; descricao: string | null; ativo: boolean; franquia_id: string; icone_url: string | null; }[]>({
     queryKey: ['franquia-bag-tipos', user?.franquiaId],
+    staleTime: 1000 * 60 * 60,
     queryFn: async () => {
       if (!user?.franquiaId) {
         return [];
@@ -417,7 +418,9 @@ export default function Roteirista() {
 
   // Configurações da franquia para checar módulos ativos
   const { data: franquiaConfig } = useQuery<{ config_pagamento: any | null }>({
-    queryKey: ['franquia-config-roteirista', user?.franquiaId],
+    queryKey: ['franquia-config', user?.franquiaId],
+    staleTime: 1000 * 60 * 60,
+     staleTime: 1000 * 60 * 60,
     queryFn: async () => {
       if (!user?.franquiaId) return { config_pagamento: null };
       const { data, error } = await supabase

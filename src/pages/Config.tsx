@@ -156,7 +156,9 @@ export default function Config() {
 
   // Configuração da franquia (para reaproveitar tv_tts / ElevenLabs)
   const { data: franquiaConfig } = useQuery<{ config_pagamento: any | null }>({
-    queryKey: ['franquia-config-tv', user?.franquiaId],
+    queryKey: ['franquia-config', user?.franquiaId],
+    staleTime: 1000 * 60 * 60,
+     staleTime: 1000 * 60 * 60,
     queryFn: async () => {
       if (!user?.franquiaId) return { config_pagamento: null };
       const { data, error } = await supabase
@@ -190,6 +192,7 @@ export default function Config() {
     franquia_id: string;
   }[]>({
     queryKey: ['franquia-bag-tipos', user?.franquiaId],
+    staleTime: 1000 * 60 * 60,
     queryFn: async () => {
       if (!user?.franquiaId) return [];
       const { data, error } = await supabase

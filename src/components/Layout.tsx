@@ -48,6 +48,7 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
   // Módulo de maquininhas: verificar se está ativo para a franquia
   const { data: franquiaConfig } = useQuery({
     queryKey: ['franquia-config', user?.franquiaId],
+    staleTime: 1000 * 60 * 60,
     queryFn: async () => {
       if (!user?.franquiaId) return null;
       const { data, error } = await supabase

@@ -190,7 +190,9 @@ export default function TV() {
   });
 
   const { data: franquiaConfig } = useQuery({
-    queryKey: ['franquia-config-tv', user?.franquiaId],
+    queryKey: ['franquia-config', user?.franquiaId],
+    staleTime: 1000 * 60 * 60,
+     staleTime: 1000 * 60 * 60,
     queryFn: async () => {
       if (!user?.franquiaId) return { config_pagamento: null };
       const { data, error } = await supabase.from('franquias').select('config_pagamento').eq('id', user.franquiaId).maybeSingle();
@@ -251,6 +253,7 @@ export default function TV() {
 
   const { data: franquiaBagTipos = [] } = useQuery({
     queryKey: ['franquia-bag-tipos', user?.franquiaId],
+    staleTime: 1000 * 60 * 60,
     queryFn: async () => {
       if (!user?.franquiaId) return [];
       const { data, error } = await supabase.from('franquia_bag_tipos').select('*').eq('franquia_id', user.franquiaId).eq('ativo', true).order('created_at', { ascending: true });
