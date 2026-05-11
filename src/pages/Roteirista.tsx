@@ -861,12 +861,12 @@ export default function Roteirista() {
     <Layout>
       <BackButton />
 
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="mb-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold font-mono mb-2">Roteirista</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight font-mono mb-2 text-transparent bg-clip-text bg-gradient-to-r from-foreground to-foreground/70">Roteirista</h1>
+          <p className="text-muted-foreground text-lg">
             Controle da fila de entregas •{' '}
-            <span className="font-semibold text-foreground">{selectedUnit}</span>
+            <span className="font-semibold text-primary px-3 py-1 bg-primary/10 rounded-lg">{selectedUnit}</span>
           </p>
           <div className="flex items-center gap-2 mt-2">
             <span className="text-sm font-semibold tracking-wide text-muted-foreground">
@@ -1009,14 +1009,18 @@ export default function Roteirista() {
         <div className="fixed inset-0 bg-background/80 backdrop-blur-[2px] z-[100] transition-all duration-300 pointer-events-auto mix-blend-multiply dark:mix-blend-normal" />
       )}
 
-      {/* Botão Grande CHAMAR O PRÓXIMO */}
-      <div className={`mb-4 ${isTrainingMode && currentStep === 'chamar_entrega' ? 'relative z-[101] animate-pulse ring-4 ring-primary rounded-lg ring-offset-4 ring-offset-background' : ''}`}>
+      {/* Botão Grande CHAMAR O PRÓXIMO - Design Premium */}
+      <div className={`mb-8 ${isTrainingMode && currentStep === 'chamar_entrega' ? 'relative z-[101] animate-pulse ring-4 ring-primary rounded-[2rem] ring-offset-4 ring-offset-background' : ''}`}>
         <Button
           onClick={openCallDialog}
           disabled={!nextInQueue || isLoading}
-          className="w-full h-24 text-2xl font-bold font-mono bg-accent hover:bg-accent/90 text-accent-foreground gap-4"
+          className={`w-full h-28 sm:h-32 text-2xl sm:text-4xl font-extrabold font-mono gap-4 rounded-[2rem] transition-all duration-300 shadow-xl ${
+            nextInQueue 
+              ? 'bg-gradient-to-r from-primary to-emerald-500 hover:from-primary/90 hover:to-emerald-500/90 text-white shadow-primary/30 hover:shadow-primary/40 hover:scale-[1.01] active:scale-[0.99] border-0' 
+              : 'bg-muted text-muted-foreground border-2 border-dashed border-border hover:bg-muted'
+          }`}
         >
-          <Phone className="w-8 h-8" />
+          <Phone className={`w-8 h-8 sm:w-10 sm:h-10 ${nextInQueue ? 'animate-bounce' : ''}`} style={{ animationDuration: '2s' }} />
           {nextInQueue ? (
             <>CHAMAR: {nextInQueue.nome.toUpperCase()}</>
           ) : (
@@ -1026,27 +1030,29 @@ export default function Roteirista() {
       </div>
 
       {/* Stats Row + TV preview (ao vivo) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-3 h-3 rounded-full bg-status-available" />
-            <span className="text-sm text-muted-foreground">Na fila</span>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+        <div className="bg-card/80 backdrop-blur-md border border-border/50 rounded-[1.5rem] p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-3 h-3 rounded-full bg-status-available shadow-[0_0_8px_var(--status-available)]" />
+            <span className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">Na fila</span>
           </div>
-          <p className="text-3xl font-bold font-mono">{availableQueue.length}</p>
+          <p className="text-4xl sm:text-5xl font-extrabold font-mono text-foreground/90">{availableQueue.length}</p>
         </div>
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-3 h-3 rounded-full bg-status-called animate-pulse" />
-            <span className="text-sm text-muted-foreground">Chamados</span>
+        <div className="bg-card/80 backdrop-blur-md border border-border/50 rounded-[1.5rem] p-6 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-status-called/10 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none" />
+          <div className="flex items-center gap-2 mb-3 relative z-10">
+            <div className="w-3 h-3 rounded-full bg-status-called animate-pulse shadow-[0_0_8px_var(--status-called)]" />
+            <span className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">Chamados</span>
           </div>
-          <p className="text-3xl font-bold font-mono">{calledQueue.length}</p>
+          <p className="text-4xl sm:text-5xl font-extrabold font-mono text-foreground/90 relative z-10">{calledQueue.length}</p>
         </div>
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-3 h-3 rounded-full bg-status-delivering" />
-            <span className="text-sm text-muted-foreground">Entregando</span>
+        <div className="bg-card/80 backdrop-blur-md border border-border/50 rounded-[1.5rem] p-6 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
+          <div className="absolute bottom-0 right-0 w-24 h-24 bg-status-delivering/10 rounded-full blur-2xl -mr-10 -mb-10 pointer-events-none" />
+          <div className="flex items-center gap-2 mb-3 relative z-10">
+            <div className="w-3 h-3 rounded-full bg-status-delivering shadow-[0_0_8px_var(--status-delivering)]" />
+            <span className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">Entregando</span>
           </div>
-          <p className="text-3xl font-bold font-mono">{deliveringQueue.length}</p>
+          <p className="text-4xl sm:text-5xl font-extrabold font-mono text-foreground/90 relative z-10">{deliveringQueue.length}</p>
         </div>
         <TvPaymentPreview
           franquiaId={user?.franquiaId ?? null}
@@ -1124,13 +1130,13 @@ export default function Roteirista() {
                 <p className="text-muted-foreground">Nenhum entregador em entrega no momento</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {deliveringQueue.map((entregador, index) => (
                   <div
                     key={entregador.id}
-                    className="flex flex-col sm:flex-row sm:items-center gap-4 bg-card border border-border rounded-xl p-4"
+                    className="flex flex-col sm:flex-row sm:items-center gap-5 bg-card/80 backdrop-blur-sm border border-border/50 shadow-sm hover:shadow-md hover:border-orange-500/30 transition-all rounded-[1.5rem] p-6"
                   >
-                    <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-xl font-bold font-mono text-orange-600">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-400/20 to-orange-500/10 border border-orange-500/20 flex items-center justify-center text-2xl font-extrabold font-mono text-orange-500 shadow-inner">
                       {entregador.nome.charAt(0)}
                     </div>
                     <div className="flex-1 min-w-0 space-y-1">

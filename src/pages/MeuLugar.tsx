@@ -217,58 +217,69 @@ export default function MeuLugar() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      {/* Background orbs */}
+      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-primary/20 rounded-full blur-[120px] pointer-events-none -z-10" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-emerald-500/20 rounded-full blur-[120px] pointer-events-none -z-10" />
+
       {/* Header - Logo sem link */}
-      <header className="border-b border-border bg-card/50">
+      <header className="border-b border-white/10 bg-card/50 backdrop-blur-md sticky top-0 z-50">
         <div className="container py-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-              <Pizza className="w-5 h-5 text-primary-foreground" />
+          <div className="flex items-center justify-center sm:justify-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-emerald-400 flex items-center justify-center shadow-lg shadow-primary/20">
+              <Pizza className="w-5 h-5 text-white" />
             </div>
-            <span className="font-mono font-bold text-lg">FilaLab</span>
+            <span className="font-mono font-bold text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-foreground to-foreground/80">FilaLab</span>
           </div>
         </div>
       </header>
 
-      <div className="container py-8 max-w-md mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold font-mono mb-2">Meu Lugar na Fila</h1>
-          <p className="text-muted-foreground">
+      <div className="container py-12 max-w-md mx-auto relative z-10">
+        <div className="text-center mb-10">
+          <h1 className="text-4xl font-extrabold font-mono mb-3 tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-primary to-emerald-500">Meu Lugar</h1>
+          <p className="text-muted-foreground text-lg">
             Consulte sua posição atual na fila de entregas
           </p>
         </div>
 
         {/* Search Form */}
-        <form onSubmit={handleSearch} className="space-y-4 mb-8">
-          {/* Apenas telefone - unidade é detectada automaticamente pelo sistema */}
-          <div className="space-y-2">
-            <Label htmlFor="telefone">Seu telefone (com DDD)</Label>
-            <Input
-              id="telefone"
-              type="tel"
-              value={telefone}
-              onChange={(e) => setTelefone(e.target.value.replace(/\D/g, ''))}
-              placeholder="11999999999"
-              className="text-lg h-12"
-            />
-            {erroGeo && (
-              <p className="text-sm font-medium text-destructive mt-2">{erroGeo}</p>
-            )}
-          </div>
-
-          <Button
-            type="submit"
-            className="w-full h-12 text-lg gap-2"
-            disabled={telefone.length < 10 || isLocating}
-          >
-            {isLocating ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <Search className="w-5 h-5" />
-            )}
-            {isLocating ? 'Conectando...' : 'Consultar'}
-          </Button>
-        </form>
+        <Card className="border-white/10 bg-card/60 backdrop-blur-xl shadow-2xl rounded-[2rem] overflow-hidden mb-8">
+          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
+          <CardContent className="pt-8">
+            <form onSubmit={handleSearch} className="space-y-6">
+              {/* Apenas telefone - unidade é detectada automaticamente pelo sistema */}
+              <div className="space-y-3">
+                <Label htmlFor="telefone" className="text-sm font-semibold ml-1">Seu telefone (com DDD)</Label>
+                <Input
+                  id="telefone"
+                  type="tel"
+                  value={telefone}
+                  onChange={(e) => setTelefone(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Ex: 11999999999"
+                  className="h-14 bg-background/50 border-white/10 rounded-xl text-lg px-4"
+                  required
+                />
+                {erroGeo && (
+                  <p className="text-sm font-medium text-destructive mt-2">{erroGeo}</p>
+                )}
+              </div>
+              <Button
+                type="submit"
+                className="w-full h-14 text-lg font-bold rounded-xl bg-gradient-to-r from-primary to-emerald-500 hover:from-primary/90 hover:to-emerald-500/90 shadow-lg shadow-primary/25 border-0 transition-all hover:scale-[1.02]"
+                disabled={telefone.length < 10 || isLocating}
+              >
+                {isLocating ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Buscando...
+                  </>
+                ) : (
+                  'Ver posição na fila'
+                )}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
 
         {/* Result */}
         {renderResult()}

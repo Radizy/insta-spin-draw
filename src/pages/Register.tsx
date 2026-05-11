@@ -190,100 +190,112 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl">
-        <div className="text-center mb-6">
-          <div className="w-16 h-16 rounded-2xl bg-primary mx-auto mb-4 flex items-center justify-center">
-            <Pizza className="w-8 h-8 text-primary-foreground" />
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background Orbs */}
+      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-primary/20 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[120px] pointer-events-none" />
+
+      <div className="w-full max-w-2xl relative z-10 py-10">
+        <div className="text-center mb-8">
+          <div className="w-20 h-20 rounded-[2rem] bg-gradient-to-br from-primary to-emerald-500 mx-auto mb-6 flex items-center justify-center shadow-lg shadow-primary/20">
+            <Pizza className="w-10 h-10 text-white drop-shadow-md" />
           </div>
-          <h1 className="text-2xl font-bold font-mono">FilaLab</h1>
-          <p className="text-muted-foreground mt-2">Registre-se e comece seu trial de 7 dias</p>
+          <h1 className="text-4xl font-extrabold tracking-tight font-mono mb-2 text-transparent bg-clip-text bg-gradient-to-r from-foreground to-foreground/70">FilaLab</h1>
+          <p className="text-muted-foreground text-lg">Crie sua conta e ganhe 7 dias grátis</p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Criar nova conta</CardTitle>
-            <CardDescription>
-              Preencha os dados abaixo para começar a usar o FilaLab gratuitamente por 7 dias
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-card/80 backdrop-blur-xl border border-border/50 shadow-2xl rounded-[2rem] overflow-hidden relative">
+          <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
+          <div className="p-8 border-b border-border/50 bg-muted/20 relative z-10">
+            <h2 className="text-2xl font-bold font-mono">Nova Conta</h2>
+            <p className="text-muted-foreground mt-1">
+              Preencha seus dados comerciais para configurar o FilaLab.
+            </p>
+          </div>
+          <div className="p-8 relative z-10">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="nomeEmpresa">Nome da Empresa</Label>
+                  <Label htmlFor="nomeEmpresa" className="font-semibold text-foreground/80">Nome da Empresa</Label>
                   <Input
                     id="nomeEmpresa"
                     value={formData.nomeEmpresa}
                     onChange={(e) => handleChange('nomeEmpresa', e.target.value)}
                     placeholder="Ex: Pizzaria Dom João"
+                    className="bg-background/50 h-12 rounded-xl focus:ring-primary/20"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="cpfCnpj">CPF ou CNPJ</Label>
+                  <Label htmlFor="cpfCnpj" className="font-semibold text-foreground/80">CPF ou CNPJ</Label>
                   <Input
                     id="cpfCnpj"
                     value={formData.cpfCnpj}
                     onChange={(e) => handleChange('cpfCnpj', e.target.value)}
                     placeholder="000.000.000-00"
+                    className="bg-background/50 h-12 rounded-xl focus:ring-primary/20"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email" className="font-semibold text-foreground/80">Email</Label>
                   <Input
                     id="email"
                     type="email"
                     value={formData.email}
                     onChange={(e) => handleChange('email', e.target.value)}
                     placeholder="contato@empresa.com"
+                    className="bg-background/50 h-12 rounded-xl focus:ring-primary/20"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="telefone">Telefone</Label>
+                  <Label htmlFor="telefone" className="font-semibold text-foreground/80">Telefone</Label>
                   <Input
                     id="telefone"
                     value={formData.telefone}
                     onChange={(e) => handleChange('telefone', e.target.value)}
                     placeholder="(11) 99999-9999"
+                    className="bg-background/50 h-12 rounded-xl focus:ring-primary/20"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="nomeFranquia">Nome da Franquia</Label>
+                  <Label htmlFor="nomeFranquia" className="font-semibold text-foreground/80">Nome da Franquia</Label>
                   <Input
                     id="nomeFranquia"
                     value={formData.nomeFranquia}
                     onChange={(e) => handleChange('nomeFranquia', e.target.value)}
                     placeholder="Ex: Pizzaria SP"
+                    className="bg-background/50 h-12 rounded-xl focus:ring-primary/20"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="nomeLoja">Nome da Loja</Label>
+                  <Label htmlFor="nomeLoja" className="font-semibold text-foreground/80">Nome da Loja</Label>
                   <Input
                     id="nomeLoja"
                     value={formData.nomeLoja}
                     onChange={(e) => handleChange('nomeLoja', e.target.value)}
                     placeholder="Ex: Loja Centro"
+                    className="bg-background/50 h-12 rounded-xl focus:ring-primary/20"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="username">Usuário de acesso</Label>
+                  <Label htmlFor="username" className="font-semibold text-foreground/80">Usuário de acesso</Label>
                   <Input
                     id="username"
                     value={formData.username}
                     onChange={(e) => handleChange('username', e.target.value)}
                     placeholder="usuario"
                     autoComplete="username"
+                    className="bg-background/50 h-12 rounded-xl focus:ring-primary/20"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password">Senha</Label>
+                  <Label htmlFor="password" className="font-semibold text-foreground/80">Senha</Label>
                   <Input
                     id="password"
                     type="password"
@@ -291,11 +303,12 @@ export default function Register() {
                     onChange={(e) => handleChange('password', e.target.value)}
                     placeholder="••••••"
                     autoComplete="new-password"
+                    className="bg-background/50 h-12 rounded-xl focus:ring-primary/20"
                   />
                 </div>
 
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="confirmPassword">Confirmar Senha</Label>
+                  <Label htmlFor="confirmPassword" className="font-semibold text-foreground/80">Confirmar Senha</Label>
                   <Input
                     id="confirmPassword"
                     type="password"
@@ -303,53 +316,40 @@ export default function Register() {
                     onChange={(e) => handleChange('confirmPassword', e.target.value)}
                     placeholder="••••••"
                     autoComplete="new-password"
+                    className="bg-background/50 h-12 rounded-xl focus:ring-primary/20"
                   />
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <Label>Escolha seu plano</Label>
+              <div className="space-y-4 pt-4 border-t border-border/50">
+                <Label className="text-lg font-bold">Escolha seu plano</Label>
                 {loadingPlans ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
                   </div>
                 ) : (
-                  <RadioGroup value={formData.planoId} onValueChange={(value) => handleChange('planoId', value)}>
+                  <RadioGroup value={formData.planoId} onValueChange={(value) => handleChange('planoId', value)} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {plans.map((plan) => {
                       const modules = getPlanModules(plan.nome);
+                      const isSelected = formData.planoId === plan.id;
                       return (
-                        <div key={plan.id} className="flex items-start space-x-3 border rounded-lg p-4 hover:bg-accent/50 transition-colors">
+                        <div key={plan.id} className={`relative flex items-start space-x-3 border-2 rounded-2xl p-5 transition-all cursor-pointer ${isSelected ? 'border-primary bg-primary/5 shadow-md shadow-primary/10' : 'border-border/50 hover:border-primary/50 hover:bg-muted/30'}`} onClick={() => handleChange('planoId', plan.id)}>
                           <RadioGroupItem value={plan.id} id={plan.id} className="mt-1" />
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
-                              <Label htmlFor={plan.id} className="font-semibold cursor-pointer">
+                              <Label htmlFor={plan.id} className="font-bold text-lg cursor-pointer">
                                 {plan.nome}
                               </Label>
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Info className="w-4 h-4 text-primary cursor-help hover:text-primary/80 transition-colors" />
-                                  </TooltipTrigger>
-                                  <TooltipContent side="right" className="max-w-xs">
-                                    <div className="space-y-1">
-                                      <p className="font-semibold mb-2">{plan.nome}</p>
-                                      {modules.map((module, idx) => (
-                                        <p key={idx} className="text-xs">{module}</p>
-                                      ))}
-                                    </div>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
                             </div>
-                            <p className="text-sm font-semibold text-primary mt-1">
-                              {formatCurrency(plan.valor_base)}/mês após o trial
+                            <p className="text-sm font-extrabold text-primary mt-1 bg-primary/10 inline-block px-2 py-1 rounded-md">
+                              {formatCurrency(plan.valor_base)}/mês
                             </p>
-                            <div className="text-xs text-muted-foreground mt-2 space-y-0.5">
-                              {modules.slice(0, 3).map((module, idx) => (
-                                <p key={idx}>{module}</p>
+                            <div className="text-xs text-muted-foreground mt-3 space-y-1">
+                              {modules.slice(0, 4).map((module, idx) => (
+                                <p key={idx} className="flex items-center gap-1"><span className="w-1 h-1 rounded-full bg-primary/50" /> {module}</p>
                               ))}
-                              {modules.length > 3 && (
-                                <p className="text-primary font-medium">+ {modules.length - 3} recursos</p>
+                              {modules.length > 4 && (
+                                <p className="text-primary font-bold mt-1 text-[10px] uppercase tracking-wider">+ {modules.length - 4} recursos inclusos</p>
                               )}
                             </div>
                           </div>
@@ -360,39 +360,41 @@ export default function Register() {
                 )}
               </div>
 
-              <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
-                <p className="font-semibold mb-2">⚠️ Informações importantes:</p>
-                <ul className="space-y-1 list-disc list-inside">
-                  <li><strong>7 dias</strong> de trial gratuito</li>
-                  <li>Acesso completo a todos os recursos do plano escolhido</li>
-                  <li>Após 7 dias, inicia período de inadimplência se não pagar</li>
-                  <li><strong className="text-destructive">14 dias após inadimplência, todos os dados serão deletados permanentemente</strong></li>
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-5 text-sm text-foreground/80 shadow-inner">
+                <p className="font-bold text-amber-500 mb-2 flex items-center gap-2">
+                  <span className="text-lg">⏳</span> Informações sobre o Trial:
+                </p>
+                <ul className="space-y-1 list-disc list-inside ml-1">
+                  <li><strong>7 dias</strong> de acesso total gratuito ao sistema.</li>
+                  <li>Liberado todos os recursos do plano que você escolher.</li>
+                  <li>Após 7 dias, a assinatura iniciará e boletos serão gerados.</li>
+                  <li><strong className="text-destructive font-semibold">Sem pagamento:</strong> os dados expiram após 14 dias de inadimplência.</li>
                 </ul>
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex gap-4 pt-4">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => navigate('/login')}
-                  className="flex-1"
+                  className="flex-1 h-14 rounded-xl font-bold border-border/50 hover:bg-muted/50"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Voltar
                 </Button>
-                <Button type="submit" disabled={isLoading} className="flex-1">
-                  {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Criar conta
+                <Button type="submit" disabled={isLoading} className="flex-[2] h-14 rounded-xl font-bold bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all hover:scale-[1.02]">
+                  {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
+                  Finalizar Cadastro
                 </Button>
               </div>
             </form>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <p className="text-center text-xs text-muted-foreground mt-6">
+        <p className="text-center text-sm font-medium text-muted-foreground mt-8">
           Já tem uma conta?{' '}
-          <Link to="/login" className="text-primary hover:underline">
-            Fazer login
+          <Link to="/login" className="text-primary font-bold hover:underline">
+            Faça login aqui
           </Link>
         </p>
       </div>

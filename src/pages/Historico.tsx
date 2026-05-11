@@ -405,12 +405,12 @@ export default function Historico() {
         <span>Voltar ao Roteirista</span>
       </Link>
 
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-10 gap-6">
         <div>
-          <h1 className="text-3xl font-bold font-mono mb-2">Painel Analítico</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-4xl font-extrabold tracking-tight font-mono mb-2 text-transparent bg-clip-text bg-gradient-to-r from-foreground to-foreground/70">Painel Analítico</h1>
+          <p className="text-muted-foreground text-lg">
             Acompanhamento e contagem de entregas •{' '}
-            <span className="font-semibold text-foreground">{selectedUnit}</span>
+            <span className="font-semibold text-primary px-3 py-1 bg-primary/10 rounded-lg">{selectedUnit}</span>
           </p>
           <p className="text-xs text-amber-500 font-medium mt-1">
             * Registros com mais de 10 dias são removidos automaticamente do sistema para otimização.
@@ -463,12 +463,14 @@ export default function Historico() {
         </div>
 
         {/* Período Customizado (Global para ambas as abas) */}
-        <div className="bg-card border border-border rounded-lg p-4 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Clock className="w-5 h-5 text-muted-foreground" />
+        <div className="bg-card/80 backdrop-blur-md border border-border/50 shadow-sm rounded-2xl p-5 mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
+              <Clock className="w-6 h-6 text-primary" />
+            </div>
             <div>
-              <p className="text-sm font-semibold">Período Analisado</p>
-              <p className="text-xs text-muted-foreground">Defina a janela exata de tempo</p>
+              <p className="text-base font-bold text-foreground">Período Analisado</p>
+              <p className="text-sm text-muted-foreground">Defina a janela exata de tempo</p>
             </div>
           </div>
 
@@ -501,26 +503,28 @@ export default function Historico() {
         <TabsContent value="historico" className="m-0 space-y-6">
 
           {/* Stats */}
-          <div className="grid sm:grid-cols-2 gap-4 mb-8">
-            <div className="bg-card border border-border rounded-lg p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <History className="w-5 h-5 text-primary" />
+          <div className="grid sm:grid-cols-2 gap-6 mb-10">
+            <div className="bg-card/80 backdrop-blur-md border border-border/50 shadow-sm hover:shadow-md transition-shadow rounded-[1.5rem] p-6 relative overflow-hidden">
+              <div className="absolute -right-6 -top-6 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+              <div className="flex items-center gap-4 relative z-10">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center shadow-inner">
+                  <History className="w-6 h-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Total de saídas</p>
-                  <p className="text-2xl font-bold font-mono">{totalEntregas}</p>
+                  <p className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">Total de saídas</p>
+                  <p className="text-4xl font-extrabold font-mono mt-1 text-foreground/90">{totalEntregas}</p>
                 </div>
               </div>
             </div>
-            <div className="bg-card border border-border rounded-lg p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-status-available/10 flex items-center justify-center">
-                  <Users className="w-5 h-5 text-status-available" />
+            <div className="bg-card/80 backdrop-blur-md border border-border/50 shadow-sm hover:shadow-md transition-shadow rounded-[1.5rem] p-6 relative overflow-hidden">
+              <div className="absolute -right-6 -top-6 w-32 h-32 bg-status-available/5 rounded-full blur-3xl pointer-events-none" />
+              <div className="flex items-center gap-4 relative z-10">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-status-available/20 to-status-available/5 border border-status-available/20 flex items-center justify-center shadow-inner">
+                  <Users className="w-6 h-6 text-status-available" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Entregadores ativos</p>
-                  <p className="text-2xl font-bold font-mono">
+                  <p className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">Entregadores ativos</p>
+                  <p className="text-4xl font-extrabold font-mono mt-1 text-foreground/90">
                     {contagemPorEntregador.filter((e) => e.entregas > 0).length}
                   </p>
                 </div>

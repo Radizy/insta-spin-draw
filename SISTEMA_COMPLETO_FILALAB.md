@@ -26,6 +26,9 @@ Esses módulos podem ser geridos livremente pelo painel Super Admin na visualiza
 ### Versão do Sistema
 - **Versão Atual**: `2.6.3` (Março 2026)
 - **Últimas Implementações**:
+    - **Self-Service de WhatsApp (Evolution API)**: Painel de Integrações atualizado para permitir que o próprio Admin da Franquia conecte e gere o QR Code de seu dispositivo WhatsApp, utilizando credenciais padrão via variáveis de ambiente (`VITE_EVOLUTION_URL`), eliminando a necessidade de configuração manual pelo Super Admin.
+    - **Super Admin - Criação Nativa de Usuários**: Modal "Nova Franquia" aprimorado para permitir a criação automática de usuários administradores (`system_users`) vinculados à nova loja no momento do registro.
+    - **Dashboard Super Admin**: Interface "Geral" modernizada com atalhos de ações rápidas e exibição de dados reais das "Últimas 5 Lojas Registradas".
     - **Migração SaaS Multi-Tenant (UUID Strict)**: O sistema foi migrado de uma dependência baseada em nomes de lojas (strings) para o uso de **UUIDs (`unidade_id`)** como chave primária em todas as operações. Isso garante que lojas com nomes iguais (ex: "ITAQUA") em franquias diferentes nunca misturem seus dados.
     - **Edge Function `auth-login` Dinâmico**: Refatorada para permitir que `super_admin` carregue todas as unidades do sistema via `availableUnits`. Implementado um mapeador robuso que utiliza o UUID da unidade como fallback.
     - **Persistência Agnostica (`DadosDaLoja.tsx`)**: Substituído o padrão `insert/update` por `upsert` com `onConflict: 'unidade_id'`, eliminando registros duplicados na tabela `system_config`.

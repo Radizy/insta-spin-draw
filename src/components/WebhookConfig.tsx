@@ -2,8 +2,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useUnit } from '@/contexts/UnitContext';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Link as LinkIcon, Download, Code2, Copy, CheckCircle2 } from 'lucide-react';
-import { useState } from 'react';
+import { Loader2, Link as LinkIcon, Download, Code2, Copy, CheckCircle2, Smartphone, QrCode, RefreshCw, AlertTriangle } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
@@ -180,6 +180,156 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
     return raw;
   };
 
+  const [waStatus, setWaStatus] = useState<'loading' | 'connected' | 'disconnected' | 'error'>('loading');
+  const [waQrCode, setWaQrCode] = useState<string | null>(null);
+  const [waLoadingAction, setWaLoadingAction] = useState(false);
+  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+
+  const GLOBAL_EVO_URL = import.meta.env.VITE_EVOLUTION_URL || 'https://api-evolution.default.com.br';
+  const GLOBAL_EVO_KEY = import.meta.env.VITE_EVOLUTION_API_KEY || 'default-api-key';
+
+  const whatsappConfig = franquiaConfig?.whatsapp;
+  
+  const evoUrl = whatsappConfig?.url || GLOBAL_EVO_URL;
+  const evoKey = whatsappConfig?.api_key || GLOBAL_EVO_KEY;
+  const evoInstance = whatsappConfig?.instance || (user?.franquiaId ? `filalab_${user.franquiaId.replace(/-/g, '')}` : null);
+
+  const isWhatsappEnabled = !!(evoUrl && evoKey && evoInstance);
+
+  useEffect(() => {
+    if (isWhatsappEnabled) {
+      checkWaStatus();
+    }
+    return () => {
+      if (pollingInterval) clearInterval(pollingInterval);
+    };
+  }, [isWhatsappEnabled, evoUrl, evoKey, evoInstance]);
+
+  const checkWaStatus = async () => {
+    if (!evoUrl || !evoKey || !evoInstance) return;
+    setWaStatus('loading');
+    setWaQrCode(null);
+    try {
+      const res = await fetch(`${evoUrl}/instance/connectionState/${evoInstance}`, {
+        headers: { apikey: evoKey }
+      });
+      if (res.status === 404) {
+        setWaStatus('disconnected');
+        return;
+      }
+      if (!res.ok) throw new Error('Erro ao verificar status');
+      const data = await res.json();
+      if (data?.instance?.state === 'open') {
+        setWaStatus('connected');
+      } else {
+        setWaStatus('disconnected');
+      }
+    } catch (err) {
+      console.error('Check Wa Status Error:', err);
+      setWaStatus('error');
+    }
+  };
+
+  const generateWaQrCode = async () => {
+    if (!evoUrl || !evoKey || !evoInstance) return;
+    setWaLoadingAction(true);
+    try {
+      let res = await fetch(`${evoUrl}/instance/connect/${evoInstance}`, {
+        headers: { apikey: evoKey }
+      });
+
+      if (res.status === 404) {
+        const createRes = await fetch(`${evoUrl}/instance/create`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            apikey: evoKey 
+          },
+          body: JSON.stringify({
+            instanceName: evoInstance,
+            qrcode: true,
+          })
+        });
+        if (!createRes.ok) throw new Error('Erro ao criar instância');
+        const createData = await createRes.json();
+        
+        if (createData?.qrcode?.base64) {
+          setWaQrCode(createData.qrcode.base64);
+          setWaStatus('disconnected');
+        } else if (createData?.base64) {
+           setWaQrCode(createData.base64);
+           setWaStatus('disconnected');
+        } else {
+           res = await fetch(`${evoUrl}/instance/connect/${evoInstance}`, {
+             headers: { apikey: evoKey }
+           });
+           const connectData = await res.json();
+           if (connectData?.base64) setWaQrCode(connectData.base64);
+        }
+      } else if (!res.ok) {
+        throw new Error('Erro ao conectar');
+      } else {
+        const data = await res.json();
+        if (data?.base64) {
+          setWaQrCode(data.base64);
+          setWaStatus('disconnected');
+        } else if (data?.instance?.state === 'open') {
+          setWaStatus('connected');
+        }
+      }
+
+      startPolling();
+    } catch (err) {
+      console.error('Generate QR Code Error:', err);
+      toast.error('Erro ao gerar QR Code. Verifique se a Evolution API está acessível e as credenciais corretas.');
+      setWaStatus('error');
+    } finally {
+      setWaLoadingAction(false);
+    }
+  };
+
+  const disconnectWa = async () => {
+    if (!evoUrl || !evoKey || !evoInstance) return;
+    setWaLoadingAction(true);
+    try {
+      await fetch(`${evoUrl}/instance/logout/${evoInstance}`, {
+        method: 'DELETE',
+        headers: { apikey: evoKey }
+      });
+      setWaStatus('disconnected');
+      setWaQrCode(null);
+      if (pollingInterval) clearInterval(pollingInterval);
+      toast.success('WhatsApp desconectado.');
+    } catch (err) {
+      console.error('Disconnect Error:', err);
+      toast.error('Erro ao desconectar');
+    } finally {
+      setWaLoadingAction(false);
+    }
+  };
+
+  const startPolling = () => {
+    if (pollingInterval) clearInterval(pollingInterval);
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${evoUrl}/instance/connectionState/${evoInstance}`, {
+          headers: { apikey: evoKey }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.instance?.state === 'open') {
+            setWaStatus('connected');
+            setWaQrCode(null);
+            clearInterval(interval);
+            toast.success('WhatsApp conectado com sucesso!');
+          }
+        }
+      } catch (e) {
+      }
+    }, 5000);
+    setPollingInterval(interval);
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-card border border-border rounded-lg p-6 space-y-4">
@@ -188,6 +338,101 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
           As configurações de Nome da Loja foram movidas permanentemente para a aba "Dados da Loja".
         </p>
       </div>
+
+      {isWhatsappEnabled && (
+        <div className="bg-gradient-to-br from-card to-card/50 border border-green-500/20 rounded-2xl p-6 md:p-8 space-y-6 shadow-xl shadow-green-500/5 mt-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-green-500/5 rounded-xl border border-green-500/10 gap-4">
+            <div className="space-y-0.5">
+              <Label className="text-base font-bold text-green-600 dark:text-green-400 flex items-center gap-2">
+                <Smartphone className="w-5 h-5" />
+                Conexão WhatsApp (Evolution API)
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Escaneie o QR Code para conectar o WhatsApp da franquia e habilitar o envio de mensagens automáticas.
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              {waStatus === 'connected' ? (
+                <div className="px-3 py-1 bg-green-500/10 text-green-500 rounded-full text-xs font-bold uppercase tracking-wider border border-green-500/20 flex items-center gap-1">
+                  <CheckCircle2 className="w-4 h-4" />
+                  Conectado
+                </div>
+              ) : waStatus === 'loading' ? (
+                <div className="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-bold uppercase tracking-wider border border-primary/20 flex items-center gap-1">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Verificando...
+                </div>
+              ) : waStatus === 'error' ? (
+                <div className="px-3 py-1 bg-destructive/10 text-destructive rounded-full text-xs font-bold uppercase tracking-wider border border-destructive/20 flex items-center gap-1">
+                  <AlertTriangle className="w-4 h-4" />
+                  Erro
+                </div>
+              ) : (
+                <div className="px-3 py-1 bg-amber-500/10 text-amber-500 rounded-full text-xs font-bold uppercase tracking-wider border border-amber-500/20 flex items-center gap-1">
+                  <QrCode className="w-4 h-4" />
+                  Desconectado
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center justify-center p-6 bg-background/50 rounded-xl border border-border/50">
+            {waStatus === 'connected' ? (
+              <div className="text-center space-y-4">
+                <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto">
+                  <Smartphone className="w-10 h-10 text-green-500" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-bold text-lg">Dispositivo Conectado</h3>
+                  <p className="text-sm text-muted-foreground">Seu WhatsApp está pronto para enviar mensagens.</p>
+                </div>
+                <Button variant="destructive" onClick={disconnectWa} disabled={waLoadingAction}>
+                  {waLoadingAction ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  Desconectar WhatsApp
+                </Button>
+              </div>
+            ) : waStatus === 'loading' ? (
+              <div className="flex flex-col items-center justify-center py-10 space-y-4">
+                <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                <p className="text-muted-foreground font-medium">Verificando status da conexão...</p>
+              </div>
+            ) : waQrCode ? (
+              <div className="flex flex-col items-center justify-center space-y-6">
+                <div className="bg-white p-4 rounded-xl shadow-lg border border-border">
+                  <img src={waQrCode} alt="QR Code WhatsApp" className="w-64 h-64 object-contain" />
+                </div>
+                <div className="text-center space-y-1">
+                  <h3 className="font-bold text-lg">Leia o QR Code</h3>
+                  <p className="text-sm text-muted-foreground max-w-md">
+                    Abra o WhatsApp no seu celular, vá em Aparelhos Conectados e aponte a câmera para a tela.
+                  </p>
+                </div>
+                <Button variant="outline" onClick={generateWaQrCode} disabled={waLoadingAction}>
+                  {waLoadingAction ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                  Gerar Novo QR Code
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 space-y-4 text-center">
+                <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-2">
+                  <QrCode className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-bold text-lg">Conecte seu Aparelho</h3>
+                  <p className="text-sm text-muted-foreground max-w-md">
+                    Para enviar mensagens automáticas, você precisa conectar o seu WhatsApp à plataforma gerando um QR Code.
+                  </p>
+                </div>
+                <Button onClick={generateWaQrCode} disabled={waLoadingAction} className="mt-4">
+                  {waLoadingAction ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <QrCode className="w-4 h-4 mr-2" />}
+                  Gerar QR Code de Conexão
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {isSisfoodGlobalAtivo && (
         <div className="bg-gradient-to-br from-card to-card/50 border border-primary/20 rounded-2xl p-6 md:p-8 space-y-6 shadow-xl shadow-primary/5">

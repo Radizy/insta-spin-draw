@@ -373,60 +373,66 @@ export default function FilaPagamento() {
     <Layout>
       <BackButton />
 
+      {/* Background orbs */}
+      <div className="absolute top-20 right-20 w-96 h-96 bg-amber-500/10 rounded-full blur-[100px] pointer-events-none -z-10" />
+      <div className="absolute bottom-20 left-20 w-96 h-96 bg-primary/10 rounded-full blur-[100px] pointer-events-none -z-10" />
+
       {/* TOPO: ações principais */}
-      <div className="mb-6 space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+      <div className="mb-8 space-y-4 relative z-10">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex flex-wrap gap-3">
             <Button
               onClick={handleLiberarSenhas}
               disabled={loadingAcoes || !motoboysSemSenha.length}
-              className="gap-2"
+              className="gap-2 h-12 px-6 rounded-xl font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/20 transition-all hover:scale-[1.02]"
             >
-              <ArrowDownCircle className="w-4 h-4" />
-              Liberar senhas (motoboys na unidade)
+              <ArrowDownCircle className="w-5 h-5" />
+              Gerar Senhas ({motoboysSemSenha.length})
             </Button>
 
             <Button
               variant="secondary"
               onClick={handleChamarProximaSenha}
               disabled={loadingAcoes || !filaOrdenada.length}
-              className="gap-2"
+              className="gap-2 h-12 px-6 rounded-xl font-bold border border-primary/20 bg-primary/10 hover:bg-primary/20 text-primary shadow-sm transition-all hover:scale-[1.02]"
             >
-              <Ticket className="w-4 h-4" />
-              Chamar próxima senha
+              <Ticket className="w-5 h-5" />
+              Chamar Próxima
             </Button>
 
             <Button
               variant="outline"
               onClick={() => resetDailyMutation.mutate()}
               disabled={loadingAcoes || resetDailyMutation.isPending}
-              className="gap-2"
+              className="gap-2 h-12 px-6 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm transition-all hover:bg-muted/80"
             >
               <RotateCcw className="w-4 h-4" />
-              Reset diário (motoboys e histórico)
+              Reset Diário
             </Button>
           </div>
 
-          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-            <div>
-              <span className="block">Motoboys na unidade</span>
-              <span className="font-mono text-lg">{motoboysNaUnidade.length}</span>
+          <div className="flex flex-wrap gap-6 p-4 rounded-2xl bg-card/60 backdrop-blur-md border border-border/50 shadow-sm">
+            <div className="flex flex-col items-center">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Unidade</span>
+              <span className="font-mono text-2xl font-bold text-foreground">{motoboysNaUnidade.length}</span>
             </div>
-            <div>
-              <span className="block">Na fila de pagamento</span>
-              <span className="font-mono text-lg">{filaOrdenada.length}</span>
+            <div className="w-px bg-border/50" />
+            <div className="flex flex-col items-center">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Fila Pagamento</span>
+              <span className="font-mono text-2xl font-bold text-amber-500">{filaOrdenada.length}</span>
             </div>
-            <div>
-              <span className="block">Pagos hoje</span>
-              <span className="font-mono text-lg">{senhasPagas.length}</span>
+            <div className="w-px bg-border/50" />
+            <div className="flex flex-col items-center">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pagos</span>
+              <span className="font-mono text-2xl font-bold text-primary">{senhasPagas.length}</span>
             </div>
           </div>
         </div>
 
         {/* BLOCO CENTRAL: Senha atual + TV */}
-        <div className="grid grid-cols-1 lg:grid-cols-[2fr,1fr] gap-4">
-          <Card className="border-primary/40 bg-card/60">
-            <CardHeader>
+        <div className="grid grid-cols-1 lg:grid-cols-[2fr,1fr] gap-6 mt-6 relative z-10">
+          <Card className="border-border/50 bg-card/80 backdrop-blur-xl shadow-xl rounded-[2rem] overflow-hidden">
+            <CardHeader className="border-b border-border/50 bg-muted/20">
               <CardTitle className="flex items-center justify-between">
                 <span>Senha atual</span>
                 {senhaAtual && (

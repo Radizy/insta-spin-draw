@@ -787,11 +787,11 @@ export default function Config() {
         </div>
       </div>
 
-      <div className="mb-6 space-y-1">
-        <h1 className="text-2xl sm:text-3xl font-bold font-mono">Configuração</h1>
-        <p className="text-sm sm:text-base text-muted-foreground">
-          Gerencie os entregadores e configurações da unidade{' '}
-          <span className="font-semibold text-foreground">{selectedUnit}</span>
+      <div className="mb-10 space-y-3">
+        <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight font-mono text-transparent bg-clip-text bg-gradient-to-r from-foreground to-foreground/70">Configuração</h1>
+        <p className="text-muted-foreground text-lg">
+          Gerencie os entregadores e parâmetros da unidade{' '}
+          <span className="font-semibold text-primary px-3 py-1 bg-primary/10 rounded-lg ml-1">{selectedUnit}</span>
         </p>
       </div>
 
@@ -811,72 +811,72 @@ export default function Config() {
       )}
 
       <Tabs defaultValue={initialTab} className="space-y-6">
-        <div className="bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl p-1.5 shadow-sm">
-          <TabsList className="w-full flex flex-wrap sm:flex-nowrap items-center justify-start gap-1 bg-transparent h-auto p-0 border-none">
+        <div className="sticky top-0 z-40 py-2 bg-background/80 backdrop-blur-xl border-b border-border/50 mb-8">
+          <TabsList className="w-full flex flex-wrap sm:flex-nowrap items-center justify-start gap-2 bg-transparent h-auto p-0 border-none overflow-x-auto hide-scrollbar pb-2 sm:pb-0">
             <TabsTrigger
               value="motoboys"
-              className="flex-1 sm:flex-none gap-2 px-4 py-2.5 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all duration-300"
+              className="flex-1 sm:flex-none gap-2 px-6 py-2.5 rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-300 border border-transparent data-[state=active]:border-primary/20 hover:bg-muted/50"
             >
               <Users className="w-4 h-4" />
-              <span className="hidden sm:inline">Motoboys</span>
-              <span className="sm:hidden">Motos</span>
+              <span className="hidden sm:inline font-semibold">Motoboys</span>
+              <span className="sm:hidden font-semibold">Motos</span>
             </TabsTrigger>
 
             <TabsTrigger
               value="usuarios"
-              className="flex-1 sm:flex-none gap-2 px-4 py-2.5 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all duration-300"
+              className="flex-1 sm:flex-none gap-2 px-6 py-2.5 rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-300 border border-transparent data-[state=active]:border-primary/20 hover:bg-muted/50"
             >
               <Settings2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Usuários</span>
-              <span className="sm:hidden">Users</span>
+              <span className="hidden sm:inline font-semibold">Usuários</span>
+              <span className="sm:hidden font-semibold">Users</span>
             </TabsTrigger>
 
             <TabsTrigger
               value="modulos"
-              className="flex-1 sm:flex-none gap-2 px-4 py-2.5 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all duration-300"
+              className="flex-1 sm:flex-none gap-2 px-6 py-2.5 rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-300 border border-transparent data-[state=active]:border-primary/20 hover:bg-muted/50"
             >
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Módulos</span>
-              <span className="sm:hidden">Mods</span>
+              <span className="hidden sm:inline font-semibold">Módulos</span>
+              <span className="sm:hidden font-semibold">Mods</span>
             </TabsTrigger>
 
             <TabsTrigger
               value="loja"
-              className="flex-1 sm:flex-none gap-2 px-4 py-2.5 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all duration-300"
+              className="flex-1 sm:flex-none gap-2 px-6 py-2.5 rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-300 border border-transparent data-[state=active]:border-primary/20 hover:bg-muted/50"
             >
               <Store className="w-4 h-4" />
-              <span className="hidden sm:inline">Dados da Loja</span>
-              <span className="sm:hidden">Loja</span>
+              <span className="hidden sm:inline font-semibold">Dados da Loja</span>
+              <span className="sm:hidden font-semibold">Loja</span>
             </TabsTrigger>
 
             {isModuloAtivoLocal('controle_maquininhas') && (
               <TabsTrigger
                 value="maquininhas"
-                className="flex-1 sm:flex-none gap-2 px-4 py-2.5 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all duration-300"
+                className="flex-1 sm:flex-none gap-2 px-6 py-2.5 rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-300 border border-transparent data-[state=active]:border-primary/20 hover:bg-muted/50"
               >
                 <Smartphone className="w-4 h-4" />
-                <span className="hidden sm:inline">Maquininhas</span>
-                <span className="sm:hidden">Maqs</span>
+                <span className="hidden sm:inline font-semibold">Maquininhas</span>
+                <span className="sm:hidden font-semibold">Maqs</span>
               </TabsTrigger>
             )}
 
             <TabsTrigger
               value="webhook"
-              className="flex-1 sm:flex-none gap-2 px-4 py-2.5 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all duration-300"
+              className="flex-1 sm:flex-none gap-2 px-6 py-2.5 rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-300 border border-transparent data-[state=active]:border-primary/20 hover:bg-muted/50"
             >
               <Globe className="w-4 h-4" />
-              <span className="hidden sm:inline">Integrações</span>
-              <span className="sm:hidden">Webhooks</span>
+              <span className="hidden sm:inline font-semibold">Integrações</span>
+              <span className="sm:hidden font-semibold">Webhooks</span>
             </TabsTrigger>
 
             {user?.role === 'admin_franquia' && (
               <TabsTrigger
                 value="financeiro"
-                className="flex-1 sm:flex-none gap-2 px-4 py-2.5 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg transition-all duration-300"
+                className="flex-1 sm:flex-none gap-2 px-6 py-2.5 rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-300 border border-transparent data-[state=active]:border-primary/20 hover:bg-muted/50"
               >
                 <CreditCard className="w-4 h-4" />
-                <span className="hidden sm:inline">Financeiro</span>
-                <span className="sm:hidden">$</span>
+                <span className="hidden sm:inline font-semibold">Financeiro</span>
+                <span className="sm:hidden font-semibold">$</span>
               </TabsTrigger>
             )}
           </TabsList>

@@ -19,7 +19,8 @@ import { Switch } from '@/components/ui/switch';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { Loader2, Building2, Store, Users, Pencil, Plus, Trash2, Check, ChevronsUpDown, BarChart3, CalendarDays, DollarSign } from 'lucide-react';
+import { Loader2, Building2, Store, Users, Pencil, Plus, Trash2, Check, ChevronsUpDown, BarChart3, CalendarDays, DollarSign, Activity, Cpu, UserPlus, CheckCircle2 } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { Unidade } from '@/lib/api';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
@@ -422,6 +423,8 @@ export default function SuperAdmin() {
       evolution_url: '',
       evolution_instance: '',
       evolution_api_key: '',
+      new_user_username: '',
+      new_user_password: '',
     });
     setIsFranquiaDialogOpen(true);
   };
@@ -446,6 +449,8 @@ export default function SuperAdmin() {
       evolution_url: whatsapp.url || '',
       evolution_instance: whatsapp.instance || cfg.evolution_instance || '',
       evolution_api_key: whatsapp.api_key || '',
+      new_user_username: '',
+      new_user_password: '',
     });
     setIsFranquiaDialogOpen(true);
   };
@@ -512,8 +517,9 @@ export default function SuperAdmin() {
         throw new Error('Nome da franquia é obrigatório');
       }
 
-      if (franquiaForm.admin_user_ids.length === 0) {
-        throw new Error('Selecione pelo menos um usuário administrador para a franquia');
+      const hasNewUser = franquiaForm.new_user_username?.trim() && franquiaForm.new_user_password?.trim();
+      if (franquiaForm.admin_user_ids.length === 0 && !hasNewUser) {
+        throw new Error('Selecione pelo menos um usuário administrador ou crie um novo para a franquia');
       }
 
       const payload = {
@@ -558,12 +564,37 @@ export default function SuperAdmin() {
         franquiaId = data.id;
       }
 
+      // Criar novo usuário se preenchido
+      let finalAdminIds = [...franquiaForm.admin_user_ids];
+      
+      if (hasNewUser) {
+        const { data: newUser, error: createError } = await supabase
+          .from('system_users')
+          .insert([
+            {
+              username: franquiaForm.new_user_username.trim(),
+              password_hash: franquiaForm.new_user_password.trim(),
+              role: 'admin',
+              franquia_id: franquiaId,
+            },
+          ])
+          .select('id')
+          .single();
+          
+        if (createError) throw createError;
+        if (newUser) {
+          finalAdminIds.push(newUser.id);
+        }
+      }
+
       // Garante que os usuários selecionados sejam admins da franquia
-      const { error: userError } = await supabase
-        .from('system_users')
-        .update({ role: 'admin', franquia_id: franquiaId, unidade_id: null })
-        .in('id', franquiaForm.admin_user_ids);
-      if (userError) throw userError;
+      if (finalAdminIds.length > 0) {
+        const { error: userError } = await supabase
+          .from('system_users')
+          .update({ role: 'admin', franquia_id: franquiaId, unidade_id: null })
+          .in('id', finalAdminIds);
+        if (userError) throw userError;
+      }
 
       // Multi-loja: garante acesso dos admins a todas as lojas da franquia via user_unidades
       const lojasDaFranquia = unidades.filter((u) => u.franquia_id === franquiaId);
@@ -573,11 +604,11 @@ export default function SuperAdmin() {
         await supabase
           .from('user_unidades')
           .delete()
-          .in('user_id', franquiaForm.admin_user_ids)
+          .in('user_id', finalAdminIds)
           .in('unidade_id', unidadeIds);
 
         // Cria vínculos novos (admin multi-loja)
-        const novosVinculos = franquiaForm.admin_user_ids.flatMap((userId) =>
+        const novosVinculos = finalAdminIds.flatMap((userId) =>
           unidadeIds.map((uid) => ({ user_id: userId, unidade_id: uid }))
         );
         if (novosVinculos.length > 0) {
@@ -935,183 +966,279 @@ export default function SuperAdmin() {
 
   return (
     <Layout>
-      <div className="space-y-8">
-        <header className="space-y-4">
-          <div className="space-y-2">
-            <h1 className="text-2xl font-mono font-bold">Painel Super Admin</h1>
-            <p className="text-sm text-muted-foreground">
+      <div className="space-y-10">
+        <header className="relative w-full overflow-hidden rounded-[2rem] bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-8 border border-primary/10 shadow-sm">
+          <div className="absolute right-0 top-0 w-[500px] h-[500px] bg-primary/10 blur-[100px] rounded-full pointer-events-none -mr-20 -mt-20" />
+          <div className="relative z-10 space-y-3">
+            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight font-mono text-transparent bg-clip-text bg-gradient-to-r from-foreground to-foreground/70">Painel Super Admin</h1>
+            <p className="text-muted-foreground text-lg max-w-2xl">
               Gestão central do sistema, franquias, lojas, usuários e financeiro.
             </p>
           </div>
         </header>
 
-        <Tabs defaultValue="geral" className="space-y-6">
-          <TabsList className="w-full flex flex-wrap gap-2 overflow-x-auto rounded-lg bg-muted/40 p-1 border border-border sm:w-auto">
-            <TabsTrigger value="geral">Geral</TabsTrigger>
-            <TabsTrigger value="franquias">Franquias</TabsTrigger>
-            <TabsTrigger value="lojas">Lojas</TabsTrigger>
-            <TabsTrigger value="usuarios">Usuários</TabsTrigger>
-            <TabsTrigger value="planos">Planos</TabsTrigger>
-            <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
-            <TabsTrigger value="config">Config</TabsTrigger>
-            <TabsTrigger value="dados">Dados</TabsTrigger>
-            <TabsTrigger value="atualizacoes">Atualizações</TabsTrigger>
-          </TabsList>
+        <Tabs defaultValue="geral" className="space-y-8">
+          <div className="sticky top-0 z-40 py-2 bg-background/80 backdrop-blur-xl border-b border-border/50">
+            <TabsList className="w-full flex flex-wrap gap-2 overflow-x-auto bg-transparent border-0 p-0 sm:w-auto justify-start hide-scrollbar">
+              <TabsTrigger value="geral" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-full px-6 py-2 shadow-sm transition-all hover:bg-muted">Geral</TabsTrigger>
+              <TabsTrigger value="franquias" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-full px-6 py-2 shadow-sm transition-all hover:bg-muted">Franquias</TabsTrigger>
+              <TabsTrigger value="lojas" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-full px-6 py-2 shadow-sm transition-all hover:bg-muted">Lojas</TabsTrigger>
+              <TabsTrigger value="usuarios" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-full px-6 py-2 shadow-sm transition-all hover:bg-muted">Usuários</TabsTrigger>
+              <TabsTrigger value="planos" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-full px-6 py-2 shadow-sm transition-all hover:bg-muted">Planos</TabsTrigger>
+              <TabsTrigger value="financeiro" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-full px-6 py-2 shadow-sm transition-all hover:bg-muted">Financeiro</TabsTrigger>
+              <TabsTrigger value="config" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-full px-6 py-2 shadow-sm transition-all hover:bg-muted">Config</TabsTrigger>
+              <TabsTrigger value="dados" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-full px-6 py-2 shadow-sm transition-all hover:bg-muted">Dados</TabsTrigger>
+              <TabsTrigger value="atualizacoes" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-full px-6 py-2 shadow-sm transition-all hover:bg-muted">Atualizações</TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Aba Geral */}
           <TabsContent value="geral" className="space-y-6">
-            {/* Acesso rápido */}
-            <Card className="border-dashed border-border/70">
-              <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between space-y-0">
-                <div className="space-y-1">
-                  <CardTitle className="text-sm font-mono flex items-center gap-2">
-                    <Store className="w-4 h-4" /> Acesso rápido às lojas
-                  </CardTitle>
-                  <p className="text-xs text-muted-foreground">
-                    Escolha entre o painel administrativo master ou entrar em qualquer loja como super admin.
-                  </p>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                  <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={openCombobox}
-                        className="w-full sm:w-[400px] justify-between font-normal"
-                      >
-                        {selectedAdminUnit === 'MASTER'
-                          ? 'Painel Administrativo Master'
-                          : quickAccessUnits.find((u) => u.nome_loja === selectedAdminUnit)?.nome_loja
-                            ? (() => {
-                              const u = quickAccessUnits.find((u) => u.nome_loja === selectedAdminUnit)!;
-                              const f = franquias.find((f) => f.id === u.franquia_id);
-                              return f ? `${f.nome_franquia} / ${u.nome_loja}` : u.nome_loja;
-                            })()
-                            : 'Selecionar Loja/Franquia...'}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[400px] p-0" align="start">
-                      <Command>
-                        <CommandInput placeholder="Buscar loja ou franquia..." />
-                        <CommandList>
-                          <CommandEmpty>Nenhuma loja encontrada.</CommandEmpty>
-                          <CommandGroup heading="Ações">
-                            <CommandItem
-                              value="MASTER"
-                              onSelect={() => {
-                                setSelectedAdminUnit('MASTER');
-                                setOpenCombobox(false);
-                              }}
-                              className="font-medium text-primary"
-                            >
-                              <Check
-                                className={cn(
-                                  'mr-2 h-4 w-4',
-                                  selectedAdminUnit === 'MASTER' ? 'opacity-100' : 'opacity-0'
-                                )}
-                              />
-                              Painel Administrativo Master
-                            </CommandItem>
-                          </CommandGroup>
-                          <CommandGroup heading="Lojas Disponíveis">
-                            {quickAccessUnits.map((u) => {
-                              const franquia = franquias.find((f) => f.id === u.franquia_id);
-                              const label = franquia ? `${franquia.nome_franquia} / ${u.nome_loja}` : u.nome_loja;
-                              return (
+            <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
+              {/* Coluna Principal (2/3) */}
+              <div className="space-y-6 lg:col-span-2">
+                {/* Acesso rápido */}
+                <Card className="border-dashed border-border/70 bg-card/50 backdrop-blur-sm">
+                  <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between space-y-0">
+                    <div className="space-y-1">
+                      <CardTitle className="text-sm font-mono flex items-center gap-2">
+                        <Store className="w-4 h-4" /> Acesso rápido às lojas
+                      </CardTitle>
+                      <p className="text-xs text-muted-foreground">
+                        Escolha entre o painel administrativo master ou entrar em qualquer loja como super admin.
+                      </p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                      <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={openCombobox}
+                            className="w-full sm:w-[400px] justify-between font-normal"
+                          >
+                            {selectedAdminUnit === 'MASTER'
+                              ? 'Painel Administrativo Master'
+                              : quickAccessUnits.find((u) => u.nome_loja === selectedAdminUnit)?.nome_loja
+                                ? (() => {
+                                  const u = quickAccessUnits.find((u) => u.nome_loja === selectedAdminUnit)!;
+                                  const f = franquias.find((f) => f.id === u.franquia_id);
+                                  return f ? `${f.nome_franquia} / ${u.nome_loja}` : u.nome_loja;
+                                })()
+                                : 'Selecionar Loja/Franquia...'}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[400px] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Buscar loja ou franquia..." />
+                            <CommandList>
+                              <CommandEmpty>Nenhuma loja encontrada.</CommandEmpty>
+                              <CommandGroup heading="Ações">
                                 <CommandItem
-                                  key={u.id}
-                                  value={label}
+                                  value="MASTER"
                                   onSelect={() => {
-                                    setSelectedAdminUnit(u.nome_loja);
+                                    setSelectedAdminUnit('MASTER');
                                     setOpenCombobox(false);
                                   }}
+                                  className="font-medium text-primary"
                                 >
                                   <Check
                                     className={cn(
                                       'mr-2 h-4 w-4',
-                                      selectedAdminUnit === u.nome_loja ? 'opacity-100' : 'opacity-0'
+                                      selectedAdminUnit === 'MASTER' ? 'opacity-100' : 'opacity-0'
                                     )}
                                   />
-                                  {label}
+                                  Painel Administrativo Master
                                 </CommandItem>
-                              );
-                            })}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedAdminUnit('MASTER');
-                        navigate('/admin');
-                      }}
-                    >
-                      Painel master
-                    </Button>
-                    <Button
-                      type="button"
-                      disabled={selectedAdminUnit === 'MASTER'}
-                      className="bg-primary hover:bg-primary/90"
-                      onClick={async () => {
-                        if (selectedAdminUnit === 'MASTER') return;
-                        
-                        // Encontra a unidade completa baseada no nome da loja selecionada (selectedAdminUnit guarda o nome da loja)
-                        const unidadeSelecionada = quickAccessUnits.find((u) => u.nome_loja === selectedAdminUnit);
-                        
-                        if (unidadeSelecionada) {
-                          const slug = mapNomeLojaToUnidadeSlug(selectedAdminUnit);
-                          // Passa o slug (nome), unidadeId e franquiaId
-                          await changeUnit(slug as any, unidadeSelecionada.id, unidadeSelecionada.franquia_id);
-                          setSelectedUnit(slug as any);
-                          navigate('/roteirista');
-                        }
-                      }}
-                    >
-                      Entrar na loja
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-            </Card>
+                              </CommandGroup>
+                              <CommandGroup heading="Lojas Disponíveis">
+                                {quickAccessUnits.map((u) => {
+                                  const franquia = franquias.find((f) => f.id === u.franquia_id);
+                                  const label = franquia ? `${franquia.nome_franquia} / ${u.nome_loja}` : u.nome_loja;
+                                  return (
+                                    <CommandItem
+                                      key={u.id}
+                                      value={label}
+                                      onSelect={() => {
+                                        setSelectedAdminUnit(u.nome_loja);
+                                        setOpenCombobox(false);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          'mr-2 h-4 w-4',
+                                          selectedAdminUnit === u.nome_loja ? 'opacity-100' : 'opacity-0'
+                                        )}
+                                      />
+                                      {label}
+                                    </CommandItem>
+                                  );
+                                })}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedAdminUnit('MASTER');
+                            navigate('/admin');
+                          }}
+                        >
+                          Painel master
+                        </Button>
+                        <Button
+                          type="button"
+                          disabled={selectedAdminUnit === 'MASTER'}
+                          className="bg-primary hover:bg-primary/90"
+                          onClick={async () => {
+                            if (selectedAdminUnit === 'MASTER') return;
+                            
+                            // Encontra a unidade completa baseada no nome da loja selecionada (selectedAdminUnit guarda o nome da loja)
+                            const unidadeSelecionada = quickAccessUnits.find((u) => u.nome_loja === selectedAdminUnit);
+                            
+                            if (unidadeSelecionada) {
+                              const slug = mapNomeLojaToUnidadeSlug(selectedAdminUnit);
+                              // Passa o slug (nome), unidadeId e franquiaId
+                              await changeUnit(slug as any, unidadeSelecionada.id, unidadeSelecionada.franquia_id);
+                              setSelectedUnit(slug as any);
+                              navigate('/roteirista');
+                            }
+                          }}
+                        >
+                          Entrar na loja
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                </Card>
 
-            {/* Resumo rápido */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <Card className="relative overflow-hidden group border-muted/30 shadow-none bg-gradient-to-br from-indigo-500/10 via-background to-background">
-                <div className="absolute right-0 top-0 w-24 h-24 bg-gradient-to-br from-indigo-500/20 to-transparent rounded-bl-full pointer-events-none transition-transform group-hover:scale-110" />
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground z-10">Total de Franquias</CardTitle>
-                  <Building2 className="w-4 h-4 text-indigo-500 z-10" />
-                </CardHeader>
-                <CardContent>
-                  <p className="text-4xl font-mono font-bold text-foreground drop-shadow-sm">{totalFranquias}</p>
-                </CardContent>
-              </Card>
-              <Card className="relative overflow-hidden group border-muted/30 shadow-none bg-gradient-to-br from-emerald-500/10 via-background to-background">
-                <div className="absolute right-0 top-0 w-24 h-24 bg-gradient-to-br from-emerald-500/20 to-transparent rounded-bl-full pointer-events-none transition-transform group-hover:scale-110" />
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground z-10">Total de Lojas</CardTitle>
-                  <Store className="w-4 h-4 text-emerald-500 z-10" />
-                </CardHeader>
-                <CardContent>
-                  <p className="text-4xl font-mono font-bold text-foreground drop-shadow-sm">{totalLojas}</p>
-                </CardContent>
-              </Card>
-              <Card className="relative overflow-hidden group border-muted/30 shadow-none bg-gradient-to-br from-violet-500/10 via-background to-background">
-                <div className="absolute right-0 top-0 w-24 h-24 bg-gradient-to-br from-violet-500/20 to-transparent rounded-bl-full pointer-events-none transition-transform group-hover:scale-110" />
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground z-10">Usuários no Sistema</CardTitle>
-                  <Users className="w-4 h-4 text-violet-500 z-10" />
-                </CardHeader>
-                <CardContent>
-                  <p className="text-4xl font-mono font-bold text-foreground drop-shadow-sm">{totalUsuarios}</p>
-                </CardContent>
-              </Card>
+                {/* Resumo rápido */}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <Card className="relative overflow-hidden group border-border/50 shadow-md bg-card/60 backdrop-blur-md">
+                    <div className="absolute right-0 top-0 w-24 h-24 bg-gradient-to-br from-indigo-500/20 to-transparent rounded-bl-full pointer-events-none transition-transform group-hover:scale-110" />
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground z-10">Total de Franquias</CardTitle>
+                      <Building2 className="w-5 h-5 text-indigo-500 z-10" />
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-4xl font-mono font-bold text-foreground drop-shadow-sm">{totalFranquias}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="relative overflow-hidden group border-border/50 shadow-md bg-card/60 backdrop-blur-md">
+                    <div className="absolute right-0 top-0 w-24 h-24 bg-gradient-to-br from-emerald-500/20 to-transparent rounded-bl-full pointer-events-none transition-transform group-hover:scale-110" />
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground z-10">Total de Lojas</CardTitle>
+                      <Store className="w-5 h-5 text-emerald-500 z-10" />
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-4xl font-mono font-bold text-foreground drop-shadow-sm">{totalLojas}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="relative overflow-hidden group border-border/50 shadow-md bg-card/60 backdrop-blur-md">
+                    <div className="absolute right-0 top-0 w-24 h-24 bg-gradient-to-br from-violet-500/20 to-transparent rounded-bl-full pointer-events-none transition-transform group-hover:scale-110" />
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground z-10">Usuários no Sistema</CardTitle>
+                      <Users className="w-5 h-5 text-violet-500 z-10" />
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-4xl font-mono font-bold text-foreground drop-shadow-sm">{totalUsuarios}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Status do Sistema e Integrações */}
+                <Card className="border-border/50 bg-card/50 backdrop-blur-md shadow-lg">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-mono flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-emerald-500" /> Status do Sistema
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="p-4 rounded-xl bg-background/50 border border-border/50 flex flex-col gap-1">
+                        <span className="text-sm font-semibold text-muted-foreground">Banco de Dados</span>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="relative flex h-3 w-3">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                          </span>
+                          <span className="font-mono text-sm font-bold">Conectado (Supabase)</span>
+                        </div>
+                      </div>
+                      <div className="p-4 rounded-xl bg-background/50 border border-border/50 flex flex-col gap-1">
+                        <span className="text-sm font-semibold text-muted-foreground">Versão do Sistema</span>
+                        <div className="flex items-center gap-2 mt-1">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                          <span className="font-mono text-sm font-bold">v2.7.0 (Stable)</span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Coluna Lateral (1/3) */}
+              <div className="space-y-6">
+                {/* Card de Cadastro Rápido */}
+                <Card className="border-border/50 bg-gradient-to-br from-primary/10 via-card to-card relative overflow-hidden shadow-xl">
+                  <div className="absolute -right-10 -top-10 w-40 h-40 bg-primary/20 blur-3xl rounded-full pointer-events-none" />
+                  <CardHeader>
+                    <CardTitle className="text-lg font-mono flex items-center gap-2">
+                      <UserPlus className="w-5 h-5 text-primary" /> Novo Cliente
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-5">
+                    <p className="text-sm text-foreground/80 leading-relaxed">
+                      Utilize o fluxo de criação rápida para inicializar uma nova operação de cliente. O assistente criará a <strong>franquia base</strong> necessária para iniciar.
+                    </p>
+                    <Button 
+                      className="w-full gap-2 shadow-lg shadow-primary/20 h-12 rounded-xl text-md font-bold transition-transform hover:scale-[1.02]" 
+                      onClick={openNewFranquiaDialog}
+                    >
+                      <Plus className="w-5 h-5" /> Cadastrar Franquia
+                    </Button>
+                    <div className="text-xs text-muted-foreground text-center bg-background/50 p-3 rounded-lg border border-border/50">
+                      💡 Após criar a franquia, vá até a aba <strong>Usuários</strong> e crie uma conta administrativa vinculando-a à nova franquia.
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Últimas Lojas Cadastradas */}
+                <Card className="border-border/50 bg-card/50 backdrop-blur-sm shadow-md">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-mono flex items-center gap-2">
+                      <Store className="w-5 h-5 text-blue-500" /> Últimas Lojas
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {quickAccessUnits.slice(0, 5).map((u) => {
+                      const franquia = franquias.find((f) => f.id === u.franquia_id);
+                      return (
+                        <div key={u.id} className="flex items-center justify-between text-sm border-b border-border/30 pb-2 last:border-b-0 last:pb-0">
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-foreground">{u.nome_loja}</span>
+                            <span className="text-xs text-muted-foreground">{franquia ? franquia.nome_franquia : 'Sem Franquia'}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="relative flex h-2 w-2">
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            </span>
+                            <span className="text-xs font-mono text-muted-foreground">Ativa</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {quickAccessUnits.length === 0 && (
+                      <p className="text-sm text-muted-foreground">Nenhuma loja cadastrada.</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </TabsContent>
 
@@ -1758,6 +1885,37 @@ export default function SuperAdmin() {
                       Este usuário será o admin da franquia e terá acesso multi-loja.
                     </p>
                   </div>
+
+                  {/* Criar Novo Usuário Opcional */}
+                  {!editingFranquia && (
+                    <div className="space-y-2 border-t border-border/60 pt-4 mt-4">
+                      <Label>Ou Criar Novo Usuário Admin</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Preencha se deseja criar um novo usuário admin para esta franquia.
+                      </p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <Label htmlFor="new_username" className="text-xs">Usuário</Label>
+                          <Input
+                            id="new_username"
+                            value={franquiaForm.new_user_username}
+                            onChange={(e) => setFranquiaForm({ ...franquiaForm, new_user_username: e.target.value })}
+                            placeholder="username"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="new_password" className="text-xs">Senha</Label>
+                          <Input
+                            id="new_password"
+                            type="password"
+                            value={franquiaForm.new_user_password}
+                            onChange={(e) => setFranquiaForm({ ...franquiaForm, new_user_password: e.target.value })}
+                            placeholder="senha"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                 </div>
               </TabsContent>
