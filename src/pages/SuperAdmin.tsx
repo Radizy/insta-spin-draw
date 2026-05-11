@@ -30,6 +30,7 @@ import { FranquiaDescontosPanel } from '@/components/FranquiaDescontosPanel';
 import { BillingGatewayConfigPanel } from '@/components/BillingGatewayConfigPanel';
 import { DataExportImport } from '@/components/DataExportImport';
 import { SuperAdminFinanceiroTab } from '@/components/super-admin/SuperAdminFinanceiroTab';
+import { SuperAdminFranquiasTab } from '@/components/super-admin/SuperAdminFranquiasTab';
 
 interface Franquia {
   id: string;
@@ -1128,108 +1129,18 @@ export default function SuperAdmin() {
 
           {/* Aba Franquias */}
           <TabsContent value="franquias" className="space-y-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-lg font-mono font-semibold flex items-center gap-2">
-                <Building2 className="w-5 h-5" /> Franquias
-              </h2>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <Input
-                  placeholder="Filtrar por nome ou slug"
-                  value={searchFranquia}
-                  onChange={(e) => setSearchFranquia(e.target.value)}
-                  className="w-full sm:w-72"
-                />
-                <Button size="sm" className="gap-2" onClick={openNewFranquiaDialog}>
-                  <Plus className="w-4 h-4" /> Nova franquia
-                </Button>
-              </div>
-            </div>
-
-            {isLoadingFranquias ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-              </div>
-            ) : filteredFranquias.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhuma franquia encontrado.</p>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2">
-                {filteredFranquias.map((f) => {
-                  const lojasDaFranquia = unidades.filter((u) => u.franquia_id === f.id);
-                  const nomesLojas = lojasDaFranquia.map((u) => u.nome_loja).join(', ');
-                  return (
-                    <Card key={f.id} className="border-border">
-                      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <CardTitle className="flex items-center gap-2 text-base">
-                            {f.nome_franquia}
-                          </CardTitle>
-                          <p className="text-xs text-muted-foreground">slug: {f.slug}</p>
-                        </div>
-                        <div className="flex flex-wrap gap-2 justify-end w-full sm:w-auto">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => renovarFranquiaMutation.mutate(f)}
-                            title="Renovar manualmente"
-                            className="w-full sm:w-auto"
-                          >
-                            Renovar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleToggleFranquiaStatus(f)}
-                            title="Alternar status de pagamento"
-                            className="w-full sm:w-auto"
-                          >
-                            {f.status_pagamento === 'ativo' ? 'Inadimplente' : 'Ativar'}
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="outline"
-                            onClick={() => openEditFranquiaDialog(f)}
-                            title="Editar franquia"
-                            className="w-full sm:w-9 sm:h-9 sm:w-auto"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="outline"
-                            className="text-destructive hover:bg-destructive hover:text-destructive-foreground w-full sm:w-9 sm:h-9 sm:w-auto"
-                            onClick={() => handleDeleteFranquia(f)}
-                            title="Excluir franquia e todos os dados vinculados"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-2 text-sm">
-                        <p>
-                          <span className="font-medium">Lojas:</span> {lojasDaFranquia.length}
-                          {f.plano_limite_lojas && ` / ${f.plano_limite_lojas}`}
-                        </p>
-                        {lojasDaFranquia.length > 0 && (
-                          <p className="text-xs text-muted-foreground" title={nomesLojas}>
-                            {nomesLojas.length > 80 ? `${nomesLojas.slice(0, 77)}...` : nomesLojas}
-                          </p>
-                        )}
-                        <p>
-                          <span className="font-medium">Status pagamento:</span>{' '}
-                          {f.status_pagamento || 'não definido'}
-                        </p>
-                        <p>
-                          <span className="font-medium">Vencimento:</span>{' '}
-                          {f.data_vencimento
-                            ? new Date(f.data_vencimento).toLocaleDateString('pt-BR')
-                            : 'não definido'}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
+            <SuperAdminFranquiasTab
+              searchFranquia={searchFranquia}
+              setSearchFranquia={setSearchFranquia}
+              openNewFranquiaDialog={openNewFranquiaDialog}
+              isLoadingFranquias={isLoadingFranquias}
+              filteredFranquias={filteredFranquias}
+              unidades={unidades}
+              renovarFranquiaMutation={renovarFranquiaMutation}
+              handleToggleFranquiaStatus={handleToggleFranquiaStatus}
+              openEditFranquiaDialog={openEditFranquiaDialog}
+              handleDeleteFranquia={handleDeleteFranquia}
+            />
           </TabsContent>
 
           {/* Aba Lojas */}
@@ -1493,65 +1404,97 @@ export default function SuperAdmin() {
                     </div>
                   )}
 
-                  <div className="space-y-2">
-                    <Label>Responsáveis (admins da franquia)</Label>
-                    <Select
-                      value={franquiaForm.admin_user_ids[0] || ''}
-                      onValueChange={(v) =>
-                        setFranquiaForm({
-                          ...franquiaForm,
-                          admin_user_ids: v ? [v] : [],
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o usuário admin principal" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {users
-                          .filter((u) => !u.franquia_id || u.franquia_id === editingFranquia?.id)
-                          .map((u) => (
-                            <SelectItem key={u.id} value={u.id}>
-                              {u.username} ({u.role})
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Este usuário será o admin da franquia e terá acesso multi-loja.
-                    </p>
-                  </div>
-
-                  {/* Criar Novo Usuário Opcional */}
-                  {!editingFranquia && (
-                    <div className="space-y-2 border-t border-border/60 pt-4 mt-4">
-                      <Label>Ou Criar Novo Usuário Admin</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Preencha se deseja criar um novo usuário admin para esta franquia.
-                      </p>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <Label htmlFor="new_username" className="text-xs">Usuário</Label>
-                          <Input
-                            id="new_username"
-                            value={franquiaForm.new_user_username}
-                            onChange={(e) => setFranquiaForm({ ...franquiaForm, new_user_username: e.target.value })}
-                            placeholder="username"
-                          />
+                  {/* Gestão de Usuário Admin */}
+                  <div className="space-y-4 pt-4 mt-4 border-t border-border/60">
+                    <Label className="text-base font-semibold">Usuário Administrador da Franquia</Label>
+                    
+                    {!editingFranquia ? (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4 bg-muted/30 p-4 rounded-lg border border-border/50">
+                          <div className="space-y-1">
+                            <Label htmlFor="new_username" className="text-xs font-semibold">Novo Usuário (Login)</Label>
+                            <Input
+                              id="new_username"
+                              value={franquiaForm.new_user_username}
+                              onChange={(e) => setFranquiaForm({ ...franquiaForm, new_user_username: e.target.value })}
+                              placeholder="Ex: admin_loja"
+                              autoComplete="off"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label htmlFor="new_password" className="text-xs font-semibold">Senha</Label>
+                            <Input
+                              id="new_password"
+                              type="password"
+                              value={franquiaForm.new_user_password}
+                              onChange={(e) => setFranquiaForm({ ...franquiaForm, new_user_password: e.target.value })}
+                              placeholder="Senha de acesso"
+                              autoComplete="new-password"
+                            />
+                          </div>
                         </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="new_password" className="text-xs">Senha</Label>
-                          <Input
-                            id="new_password"
-                            type="password"
-                            value={franquiaForm.new_user_password}
-                            onChange={(e) => setFranquiaForm({ ...franquiaForm, new_user_password: e.target.value })}
-                            placeholder="senha"
-                          />
+                        
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <span className="w-full h-px bg-border/60"></span>
+                            <span className="text-xs whitespace-nowrap">Ou vincular existente</span>
+                            <span className="w-full h-px bg-border/60"></span>
+                          </div>
+                          <Select
+                            value={franquiaForm.admin_user_ids[0] || ''}
+                            onValueChange={(v) =>
+                              setFranquiaForm({
+                                ...franquiaForm,
+                                admin_user_ids: v && v !== 'none' ? [v] : [],
+                              })
+                            }
+                          >
+                            <SelectTrigger className="h-8">
+                              <SelectValue placeholder="Selecione caso não vá criar um novo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Nenhum (Criarei acima)</SelectItem>
+                              {users
+                                .filter((u) => !u.franquia_id || u.franquia_id === editingFranquia?.id)
+                                .map((u) => (
+                                  <SelectItem key={u.id} value={u.id}>
+                                    {u.username} ({u.role})
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="space-y-2">
+                        <Select
+                          value={franquiaForm.admin_user_ids[0] || ''}
+                          onValueChange={(v) =>
+                            setFranquiaForm({
+                              ...franquiaForm,
+                              admin_user_ids: v ? [v] : [],
+                            })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o usuário admin principal" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {users
+                              .filter((u) => !u.franquia_id || u.franquia_id === editingFranquia?.id)
+                              .map((u) => (
+                                <SelectItem key={u.id} value={u.id}>
+                                  {u.username} ({u.role})
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Este usuário é o admin da franquia e tem acesso multi-loja.
+                        </p>
+                      </div>
+                    )}
+                  </div>
 
                 </div>
               </TabsContent>
