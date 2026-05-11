@@ -248,6 +248,7 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
           body: JSON.stringify({
             instanceName: evoInstance,
             qrcode: true,
+            integration: "WHATSAPP-BAILEYS"
           })
         });
         if (!createRes.ok) throw new Error('Erro ao criar instância');
