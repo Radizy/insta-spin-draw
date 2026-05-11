@@ -1827,6 +1827,10 @@ ORDER BY valor_final DESC;
 
 ## 📝 CHANGELOG
 
+### v2.7.0 (2026-05-11)
+- ✅ **Aesthetic Refactor (Glassmorphism):** Refatoração estética profunda em todas as páginas do sistema (`Index`, `Login`, `Register`, `Roteirista`, `Config`, `FilaPagamento`, `MeuLugar`, `Historico`, `SuperAdmin`), adotando a linguagem visual premium *Glassmorphism* com tipografia de alto contraste e animações de estado.
+- ✅ **Plano de Automação Sisfood Backend:** Criação do plano arquitetural (`SISFOOD_AUTOMATION_PLAN.md`) para migração da baixa de pedidos do Tampermonkey (Client-Side) para Supabase Edge Functions (Server-Side).
+
 ### v2.6.2 (2026-03-21)
 - ✅ **App Motoboy (Expo React Native):** Frontend e Backend com notificações nativas Expo push ao longo das chamadas na tela de TV.
 - ✅ **Ações Roteirista (Semânticas):** Criação do atalho rápido (`Em Entrega`) e renomeação estratégica para `Deixar Disponível`.
@@ -1866,5 +1870,5 @@ ORDER BY valor_final DESC;
 
 **FIM DA DOCUMENTAÇÃO**
 
-*Este documento foi atualizado em 2026-03-12.*  
+*Este documento foi atualizado em 2026-05-11.*  
 *Todos os dados cadastrados, estruturas de tabelas, políticas RLS e funcionalidades foram extraídos diretamente do banco de dados e código-fonte.*
