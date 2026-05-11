@@ -26,7 +26,8 @@ serve(async (req) => {
         // Modo Passivo/Migração: Se não tem token (loja antiga), deixa passar por enquanto mas avisa
         if (!providedToken) {
            console.warn(`⚠️ [SECURITY] Chamada feita sem Token pela loja ${loja}. Considere atualizar o Tampermonkey.`);
-        } else if (!isSecureTokenValid) {
+        } else if (!isSecureTokenValid && providedToken !== Deno.env.get('SUPABASE_ANON_KEY')) {
+           // O Tampermonkey envia a ANON_KEY. Se não for nem a SERVICE ROLE nem a ANON KEY, bloqueia.
            console.error(`🛡️ [SECURITY] Tentativa de fraude/Token inválido rejeitado para loja ${loja}.`);
            return new Response(JSON.stringify({ error: 'Token x-api-key invalido.' }), {
                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
