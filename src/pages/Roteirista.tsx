@@ -82,27 +82,31 @@ export default function Roteirista() {
   const [returnToQueueOpen, setReturnToQueueOpen] = useState(false);
   const [actionEntregador, setActionEntregador] = useState<Entregador | null>(null);
   const [mapModalOpen, setMapModalOpen] = useState(false);
+  const [activeUnitId, setActiveUnitId] = useState<string | null>(null);
+  const [activeFranquiaId, setActiveFranquiaId] = useState<string | null>(null);
+
   const [isQueueModalOpen, setIsQueueModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Tipos de BAG configurados para a franquia da unidade atual
+  const currentFranquiaId = activeFranquiaId || user?.franquiaId;
   const { data: franquiaBagTipos = [], isLoading: isLoadingBags } = useQuery<{ id: string; nome: string; descricao: string | null; ativo: boolean; franquia_id: string; icone_url: string | null; }[]>({
-    queryKey: ['franquia-bag-tipos', user?.franquiaId],
+    queryKey: ['franquia-bag-tipos', currentFranquiaId],
     staleTime: 1000 * 60 * 60,
     queryFn: async () => {
-      if (!user?.franquiaId) {
+      if (!currentFranquiaId) {
         return [];
       }
       const { data, error } = await supabase
         .from('franquia_bag_tipos')
         .select('id, nome, descricao, ativo, franquia_id, icone_url')
-        .eq('franquia_id', user.franquiaId)
+        .eq('franquia_id', currentFranquiaId)
         .eq('ativo', true)
         .order('created_at', { ascending: true });
       if (error) throw error;
       return data as any;
     },
-    enabled: !!user?.franquiaId,
+    enabled: !!currentFranquiaId,
     staleTime: 1000 * 60 * 5, // 5 minutos (bag tipos mudam pouco)
   });
 
@@ -239,7 +243,6 @@ export default function Roteirista() {
   const [entregasNaFila, setEntregasNaFila] = useState<number | null>(null);
   const [pedidosFila, setPedidosFila] = useState<any[]>([]);
   const [pedidosMapa, setPedidosMapa] = useState<any[]>([]);
-  const [activeUnitId, setActiveUnitId] = useState<string | null>(null);
 
   // Helper robusto para extrair timestamp de diversos formatos do Sisfood
   const parseSisfoodTime = (timeStr: string) => {
@@ -293,6 +296,7 @@ export default function Roteirista() {
       } else if (data) {
         const unitId = data.id;
         setActiveUnitId(unitId);
+        setActiveFranquiaId(data.franquia_id);
         setEntregasNaFila(((data as any).entregas_na_fila ?? 0) + ((data as any).entregas_na_fila_saipos ?? 0));
         const sisfoodB = (data as any).sisfood_pedidos_fila || [];
         const saiposB = (data as any).saipos_pedidos_fila || [];
@@ -418,20 +422,19 @@ export default function Roteirista() {
 
   // Configurações da franquia para checar módulos ativos
   const { data: franquiaConfig } = useQuery<{ config_pagamento: any | null }>({
-    queryKey: ['franquia-config', user?.franquiaId],
+    queryKey: ['franquia-config', activeFranquiaId],
     staleTime: 1000 * 60 * 60,
-     staleTime: 1000 * 60 * 60,
     queryFn: async () => {
-      if (!user?.franquiaId) return { config_pagamento: null };
+      if (!activeFranquiaId) return { config_pagamento: null };
       const { data, error } = await supabase
         .from('franquias')
         .select('config_pagamento')
-        .eq('id', user.franquiaId)
+        .eq('id', activeFranquiaId)
         .maybeSingle();
       if (error) throw error;
       return (data as any) || { config_pagamento: null };
     },
-    enabled: !!user?.franquiaId,
+    enabled: !!activeFranquiaId,
   });
 
   const isWhatsappAtivo = (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes('whatsapp');
@@ -597,7 +600,7 @@ export default function Roteirista() {
 
         if (isWhatsappAtivo && selectedEntregador.whatsapp_ativo !== false) {
           await sendWhatsAppMessage(selectedEntregador.telefone, message, {
-            franquiaId: user?.franquiaId ?? null,
+            franquiaId: activeFranquiaId ?? null,
             unidadeId: null,
           });
         }
@@ -617,9 +620,9 @@ export default function Roteirista() {
       if (secondInQueue && isWhatsappAtivo && secondInQueue.whatsapp_ativo !== false) {
         setTimeout(async () => {
           try {
-            const alertMessage = `⚠️ Atenção ${secondInQueue.nome}! Você é o próximo da fila na unidade ${selectedUnit}. Fique alerta!`;
+            const alertMessage = `🚨 Atenção ${secondInQueue.nome}! Você é o próximo da fila na unidade ${selectedUnit}. Fique alerta!`;
             await sendWhatsAppMessage(secondInQueue.telefone, alertMessage, {
-              franquiaId: user?.franquiaId ?? null,
+              franquiaId: activeFranquiaId ?? null,
               unidadeId: null,
             });
             toast.info(`Alerta enviado para ${secondInQueue.nome}`);
@@ -670,7 +673,7 @@ export default function Roteirista() {
 
       if (isWhatsappAtivo && actionEntregador.whatsapp_ativo !== false) {
         await sendWhatsAppMessage(actionEntregador.telefone, message, {
-          franquiaId: user?.franquiaId ?? null,
+          franquiaId: currentFranquiaId ?? null,
           unidadeId: null,
         });
         toast.success(`Mensagem enviada para ${actionEntregador.nome}`);
@@ -1059,9 +1062,9 @@ export default function Roteirista() {
           <p className="text-4xl sm:text-5xl font-extrabold font-mono text-foreground/90 relative z-10">{deliveringQueue.length}</p>
         </div>
         <TvPaymentPreview
-          franquiaId={user?.franquiaId ?? null}
+          franquiaId={currentFranquiaId ?? null}
           unidadeNome={selectedUnit as any}
-          unidadeId={user?.unidadeId ?? null}
+          unidadeId={currentUnitIdToCheck ?? null}
           unidadeSlug={selectedUnit as any}
         />
       </div>
@@ -1268,7 +1271,7 @@ export default function Roteirista() {
 
               <div className="space-y-3">
                 <Label className="text-lg">Tipo de BAG</Label>
-                {isLoadingBags && user?.franquiaId ? (
+                {isLoadingBags && currentFranquiaId ? (
                   <div className="text-sm text-muted-foreground">Carregando tipos de BAG...</div>
                 ) : (
                   <RadioGroup
