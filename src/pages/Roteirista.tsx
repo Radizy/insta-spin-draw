@@ -437,24 +437,25 @@ export default function Roteirista() {
   const isWhatsappAtivo = (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes('whatsapp');
   
   // Query para verificar se o módulo Sisfood está ativo para esta unidade específica
+  const currentUnitIdToCheck = activeUnitId || user?.unidadeId;
   const { data: unidadeModuloSisfood } = useQuery({
-    queryKey: ['unidade-modulo-sisfood', user?.unidadeId],
+    queryKey: ['unidade-modulo-sisfood', currentUnitIdToCheck],
     queryFn: async () => {
-      if (!user?.unidadeId) return null;
+      if (!currentUnitIdToCheck) return null;
       const { data, error } = await supabase
         .from('unidade_modulos')
         .select('ativo')
-        .eq('unidade_id', user.unidadeId)
+        .eq('unidade_id', currentUnitIdToCheck)
         .eq('modulo_codigo', 'sisfood_integration')
         .maybeSingle();
       
       if (error) throw error;
       return data;
     },
-    enabled: !!user?.unidadeId,
+    enabled: !!currentUnitIdToCheck,
   });
 
-  const isSisfoodAtivo = (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes('sisfood_integration') && (unidadeModuloSisfood?.ativo ?? false);
+  const isSisfoodAtivo = (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes('sisfood_integration') && (unidadeModuloSisfood ? unidadeModuloSisfood.ativo : true);
 
   // Próximo da fila
   const nextInQueue = availableQueue[0] || null;
