@@ -422,19 +422,19 @@ export default function Roteirista() {
 
   // Configurações da franquia para checar módulos ativos
   const { data: franquiaConfig } = useQuery<{ config_pagamento: any | null }>({
-    queryKey: ['franquia-config', activeFranquiaId],
+    queryKey: ['franquia-config', currentFranquiaId],
     staleTime: 1000 * 60 * 60,
     queryFn: async () => {
-      if (!activeFranquiaId) return { config_pagamento: null };
+      if (!currentFranquiaId) return { config_pagamento: null };
       const { data, error } = await supabase
         .from('franquias')
         .select('config_pagamento')
-        .eq('id', activeFranquiaId)
+        .eq('id', currentFranquiaId)
         .maybeSingle();
       if (error) throw error;
       return (data as any) || { config_pagamento: null };
     },
-    enabled: !!activeFranquiaId,
+    enabled: !!currentFranquiaId,
   });
 
   const isWhatsappAtivo = (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes('whatsapp');
@@ -458,7 +458,10 @@ export default function Roteirista() {
     enabled: !!currentUnitIdToCheck,
   });
 
-  const isSisfoodAtivo = (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes('sisfood_integration') && (unidadeModuloSisfood ? unidadeModuloSisfood.ativo : true);
+  const franchiseHasSisfood = (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes('sisfood_integration');
+  const isSisfoodAtivo = 
+    (unidadeModuloSisfood?.ativo === true) || 
+    (franchiseHasSisfood && unidadeModuloSisfood?.ativo !== false);
 
   // Próximo da fila
   const nextInQueue = availableQueue[0] || null;
