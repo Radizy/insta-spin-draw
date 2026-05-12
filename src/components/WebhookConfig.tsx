@@ -10,11 +10,11 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 
-// Importa os arquivos físicos de cada loja em texto bruto (Raw String) para serem copiáveis
-import scriptItaqua from '../../tampermonkey_ITAQUA.js?raw';
-import scriptPoa from '../../tampermonkey_POA.js?raw';
-import scriptSuzano from '../../tampermonkey_SUZANO.js?raw';
+// Saipos script template (still file-based, uses placeholders)
 import scriptSaiposRaw from '../../tampermonkey_saipos.js?raw';
+
+const SUPABASE_URL_FILALAB = 'https://kegbvaikqelwezpehlhf.supabase.co';
+const ANON_KEY_FILALAB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtlZ2J2YWlrcWVsd2V6cGVobGhmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2NDc4MzUsImV4cCI6MjA4NzIyMzgzNX0.hIRjDR4D6p8RAsnWMhkF1stRDr_oa0yMsqukCPADyh0';
 
 interface WebhookConfigProps {
   overrideUnidadeId?: string;
@@ -164,12 +164,163 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
   };
 
   const getSisfoodScript = () => {
-    const unitUpper = (selectedUnit || '').toUpperCase();
-    if (unitUpper.includes('ITAQUA') || unitUpper.includes('ITAQUÁ')) return scriptItaqua;
-    if (unitUpper.includes('POA') || unitUpper.includes('POÁ')) return scriptPoa;
-    if (unitUpper.includes('SUZANO')) return scriptSuzano;
-    
-    return `// Selecione uma loja válida (ITAQUA, POA ou SUZANO) no topo do painel\n// para exibir o script FilaLab da sua cidade correspondente.`;
+    if (!unidadeId || !selectedUnit) {
+      return `// Selecione uma loja no topo do painel para gerar o script.`;
+    }
+    const nomeLoja = selectedUnit;
+    const unidadeIdLoja = unidadeId;
+    const versao = '12.0';
+
+    return `// ==UserScript==
+// @name         Integração SISFOOD x FilaLab (${nomeLoja.toUpperCase()}) - v${versao} (Auto-Gerado)
+// @namespace    http://tampermonkey.net/
+// @version      ${versao}
+// @description  Script gerado automaticamente pelo FilaLab para a loja ${nomeLoja}.
+// @match        https://app.sisfood.com.br/*
+// @grant        none
+// ==/UserScript==
+
+(function() {
+    console.log('🚀 [FILALAB ${nomeLoja.toUpperCase()} v${versao}] Iniciado!');
+    const API_FILALAB = '${SUPABASE_URL_FILALAB}/functions/v1/sisfood-webhook';
+    const SUPABASE_URL = '${SUPABASE_URL_FILALAB}';
+    const ANON_KEY = '${ANON_KEY_FILALAB}';
+
+    // CONFIGURAÇÃO DA UNIDADE (gerada automaticamente - NÃO EDITAR)
+    const LOJA_FIXA = '${nomeLoja}';
+    const UNIDADE_ID = '${unidadeIdLoja}';
+
+    let ultimaHashFila = '';
+    let ultimaContagemFila = -1;
+    window._filaAtualSisfood = [];
+
+    // ----- [PARTE 1: LEITURA] Interceptador de Rede -----
+    const XHR = XMLHttpRequest.prototype;
+    const send = XHR.send;
+    XHR.send = function(postData) {
+        this.addEventListener('load', function() {
+            if (this._url && this._url.includes('/listarJson')) {
+                try {
+                    const data = JSON.parse(this.responseText);
+                    let contagemFila = 0;
+                    const pedidosNaFila = [];
+                    window._filaAtualSisfood = [];
+                    if (data.pedidos && Array.isArray(data.pedidos)) {
+                        data.pedidos.forEach(pedido => {
+                            const status = pedido[4];
+                            if (status === 'Fila' || status === 'fila') {
+                                contagemFila++;
+                                let idDeVerdade = pedido[0];
+                                [14, 15, 13, 11, 10].forEach(idx => {
+                                    if (pedido[idx] && typeof pedido[idx] === 'number' && pedido[idx] > idDeVerdade) {
+                                        idDeVerdade = pedido[idx];
+                                    }
+                                });
+                                pedidosNaFila.push({
+                                    id: idDeVerdade,
+                                    id_interno: idDeVerdade,
+                                    comanda: pedido[7] || pedido[0],
+                                    hora_entrada: pedido[2] || '',
+                                    cliente: pedido[3] ? pedido[3].split(' / ')[0].trim() : 'Desconhecido',
+                                    telefone: pedido[3] && pedido[3].includes('/') ? pedido[3].split(' / ')[1].trim() : '',
+                                    endereco: pedido[9] || ''
+                                });
+                                window._filaAtualSisfood.push(String(pedido[0]).trim());
+                                window._filaAtualSisfood.push(String(idDeVerdade).trim());
+                            }
+                        });
+                    }
+                    const hashAtual = JSON.stringify(pedidosNaFila);
+                    if (hashAtual !== ultimaHashFila || contagemFila !== ultimaContagemFila) {
+                        console.log('🟢 [FILALAB ${nomeLoja.toUpperCase()}] Fila: ' + contagemFila + ' pedidos. Atualizando...');
+                        ultimaHashFila = hashAtual;
+                        ultimaContagemFila = contagemFila;
+                        enviarFilaLab(LOJA_FIXA, contagemFila, pedidosNaFila);
+                    }
+                } catch(err) {
+                    console.error('❌ [FILALAB ${nomeLoja.toUpperCase()}] Erro ao ler JSON:', err);
+                }
+            }
+        });
+        return send.apply(this, arguments);
+    };
+    const open = XHR.open;
+    XHR.open = function(method, url) { this._url = url; return open.apply(this, arguments); };
+
+    async function enviarFilaLab(lojaNome, filaCount, pedidosFila) {
+        try {
+            await fetch(API_FILALAB, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-api-key': ANON_KEY },
+                body: JSON.stringify({ loja: lojaNome, unidade_id: UNIDADE_ID, fila: filaCount, pedidos_fila: pedidosFila, sistema: 'SISFOOD_V12' })
+            });
+        } catch (e) { console.error('❌ [FILALAB ${nomeLoja.toUpperCase()}] Erro de Rede:', e); }
+    }
+
+    // ----- [PARTE 2: ESCRITA] Polling de Comandos -----
+    function findMotoboyIdByName(targetName) {
+        const normalTarget = targetName.toLowerCase().split(' ')[0].trim();
+        const forms = document.querySelectorAll('select option');
+        for(let opt of forms) {
+            if(opt.textContent.toLowerCase().includes(normalTarget)) return opt.value;
+        }
+        return null;
+    }
+
+    async function patchSupabaseStatus(cmdId, status) {
+        await fetch(SUPABASE_URL + '/rest/v1/sisfood_comandos?id=eq.' + cmdId, {
+            method: 'PATCH',
+            headers: { 'apikey': ANON_KEY, 'Authorization': 'Bearer ' + ANON_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: status })
+        });
+    }
+
+    async function despacharPedidoNoSisfood(cmd) {
+        return new Promise(async (resolve) => {
+            const codigosLimpos = cmd.cod_pedido_interno.replace(/\\s+/g, '');
+            const idMotoboy = findMotoboyIdByName(cmd.nome_motoboy);
+            if(!idMotoboy) {
+                console.warn('[FILALAB ${nomeLoja.toUpperCase()}] Motoboy não encontrado: ' + cmd.nome_motoboy + ' — marcando IGNORADO.');
+                await patchSupabaseStatus(cmd.id, 'IGNORADO');
+                return resolve(false);
+            }
+            const urlDespacho = window.location.pathname.replace('/tela', '') + '/statusPedidosLote';
+            const arrayPedidosFormatado = encodeURIComponent(codigosLimpos);
+            const form = 'pedidos=' + arrayPedidosFormatado + '&status=entrega&cod_motoboy=' + encodeURIComponent(idMotoboy);
+            console.log('🚀 [FILALAB ${nomeLoja.toUpperCase()}] Despachando ID ' + codigosLimpos + '...');
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', urlDespacho, true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhr.onreadystatechange = async function() {
+                if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
+                    await patchSupabaseStatus(cmd.id, 'EXECUTADO');
+                    console.log('✅ [FILALAB ${nomeLoja.toUpperCase()}] Pedido ' + codigosLimpos + ' despachado!');
+                    resolve(true);
+                } else if (this.readyState === XMLHttpRequest.DONE) { resolve(false); }
+            };
+            xhr.send(form);
+        });
+    }
+
+    async function pollComandos() {
+        try {
+            const resp = await fetch(SUPABASE_URL + '/rest/v1/sisfood_comandos?status=eq.PENDENTE&unidade_id=eq.' + UNIDADE_ID, {
+                headers: { 'apikey': ANON_KEY, 'Authorization': 'Bearer ' + ANON_KEY }
+            });
+            if(resp.ok) {
+                const comandos = await resp.json();
+                for(let cmd of comandos) {
+                    await despacharPedidoNoSisfood(cmd);
+                    await new Promise(r => setTimeout(r, 800));
+                }
+            }
+        } catch(e) {}
+    }
+
+    setInterval(pollComandos, 4000);
+})();
+`;
   };
 
   const getSaiposScript = () => {
