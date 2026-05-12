@@ -259,10 +259,22 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
 
     // ----- [PARTE 2: ESCRITA] Polling de Comandos -----
     function findMotoboyIdByName(targetName) {
-        const normalTarget = targetName.toLowerCase().split(' ')[0].trim();
-        const forms = document.querySelectorAll('select option');
-        for(let opt of forms) {
-            if(opt.textContent.toLowerCase().includes(normalTarget)) return opt.value;
+        const fullTarget = targetName.toLowerCase().trim();
+        const opts = Array.from(document.querySelectorAll('select option'));
+        // 1. Match exato
+        for(let opt of opts) {
+            if(opt.textContent.toLowerCase().trim() === fullTarget) return opt.value;
+        }
+        // 2. Contém o nome completo
+        for(let opt of opts) {
+            if(opt.textContent.toLowerCase().includes(fullTarget)) return opt.value;
+        }
+        // 3. Começa com o primeiro nome (mínimo 4 chars para evitar falso positivo)
+        const firstWord = fullTarget.split(' ')[0];
+        if (firstWord.length >= 4) {
+            for(let opt of opts) {
+                if(opt.textContent.toLowerCase().startsWith(firstWord)) return opt.value;
+            }
         }
         return null;
     }
