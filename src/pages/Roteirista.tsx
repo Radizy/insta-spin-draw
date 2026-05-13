@@ -457,10 +457,34 @@ export default function Roteirista() {
     enabled: !!currentUnitIdToCheck,
   });
 
+  // Query para verificar se o módulo Saipos está ativo para esta unidade específica
+  const { data: unidadeModuloSaipos } = useQuery({
+    queryKey: ['unidade-modulo-saipos', currentUnitIdToCheck],
+    queryFn: async () => {
+      if (!currentUnitIdToCheck) return null;
+      const { data, error } = await supabase
+        .from('unidade_modulos')
+        .select('ativo')
+        .eq('unidade_id', currentUnitIdToCheck)
+        .eq('modulo_codigo', 'saipos_integration')
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!currentUnitIdToCheck,
+  });
+
   const franchiseHasSisfood = (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes('sisfood_integration');
   const isSisfoodAtivo = 
     (unidadeModuloSisfood?.ativo === true) || 
     (franchiseHasSisfood && unidadeModuloSisfood?.ativo !== false);
+
+  const franchiseHasSaipos = (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes('saipos_integration');
+  const isSaiposAtivo = 
+    (unidadeModuloSaipos?.ativo === true) || 
+    (franchiseHasSaipos && unidadeModuloSaipos?.ativo !== false);
+
 
   // Próximo da fila
   const nextInQueue = availableQueue[0] || null;
@@ -877,17 +901,20 @@ export default function Roteirista() {
             Controle da fila de entregas •{' '}
             <span className="font-semibold text-primary px-3 py-1 bg-primary/10 rounded-lg">{selectedUnit}</span>
           </p>
-          <div className="flex items-center gap-2 mt-2">
-            <span className="text-sm font-semibold tracking-wide text-muted-foreground">
-              ENTREGAS NA FILA : <span className="font-mono text-foreground">{entregasNaFila !== null ? entregasNaFila : '...'}</span>
-            </span>
-            {entregasNaFila !== null && (
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" title="Ao vivo (Sisfood)"></span>
+          {(isSisfoodAtivo || isSaiposAtivo) && (
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-sm font-semibold tracking-wide text-muted-foreground">
+                ENTREGAS NA FILA : <span className="font-mono text-foreground">{entregasNaFila !== null ? entregasNaFila : '...'}</span>
               </span>
-            )}
-          </div>
+              {entregasNaFila !== null && (
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" title="Ao vivo"></span>
+                </span>
+              )}
+            </div>
+          )}
+
         </div>
 
         <div className="flex flex-col sm:flex-row w-full sm:w-auto items-stretch sm:items-center gap-3">
