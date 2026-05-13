@@ -797,54 +797,57 @@ function TvTtsConfigSection({ franquiaId, initialConfig }: TvTtsConfigSectionPro
         </div>
       </div>
 
-      <div className="space-y-4 border-t border-border pt-4 mt-2">
-        <div className="space-y-1">
-          <Label>ElevenLabs (opcional, usando seus créditos)</Label>
-          <p className="text-[11px] text-muted-foreground">
-            Preencha apenas se quiser usar sua própria conta ElevenLabs. Cada chamada consome créditos da sua conta.
-          </p>
-        </div>
-        <div className="grid gap-3 md:grid-cols-2">
+      {voiceModel === 'elevenlabs' && (
+        <div className="space-y-4 border-t border-border pt-4 mt-2 animate-in fade-in slide-in-from-top-2 duration-300">
           <div className="space-y-1">
-            <Label>API Key #1 (Primária) 🔑</Label>
-            <Input
-              type="password"
-              value={elevenApiKey}
-              onChange={(e) => setElevenApiKey(e.target.value)}
-              placeholder="xi-..."
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>API Key #2 (Backup) 🔄</Label>
-            <Input
-              type="password"
-              value={elevenApiKeySecondary}
-              onChange={(e) => setElevenApiKeySecondary(e.target.value)}
-              placeholder="xi-... (opcional)"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>API Key #3 (Backup Extra) 🔄</Label>
-            <Input
-              type="password"
-              value={elevenApiKeyTertiary}
-              onChange={(e) => setElevenApiKeyTertiary(e.target.value)}
-              placeholder="xi-... (opcional)"
-            />
-            <p className="text-[10px] text-muted-foreground mt-1">
-              Delay variável de 300-800ms entre tentativas
+            <Label>ElevenLabs (opcional, usando seus créditos)</Label>
+            <p className="text-[11px] text-muted-foreground">
+              Preencha apenas se quiser usar sua própria conta ElevenLabs. Cada chamada consome créditos da sua conta.
             </p>
           </div>
-          <div className="space-y-1">
-            <Label>Voice ID ElevenLabs 🎙️</Label>
-            <Input
-              value={elevenVoiceId}
-              onChange={(e) => setElevenVoiceId(e.target.value)}
-              placeholder="ID da voz (ex: JBFqnCBsd6RMkjVDRZzb)"
-            />
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-1">
+              <Label>API Key #1 (Primária) 🔑</Label>
+              <Input
+                type="password"
+                value={elevenApiKey}
+                onChange={(e) => setElevenApiKey(e.target.value)}
+                placeholder="xi-..."
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>API Key #2 (Backup) 🔄</Label>
+              <Input
+                type="password"
+                value={elevenApiKeySecondary}
+                onChange={(e) => setElevenApiKeySecondary(e.target.value)}
+                placeholder="xi-... (opcional)"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>API Key #3 (Backup Extra) 🔄</Label>
+              <Input
+                type="password"
+                value={elevenApiKeyTertiary}
+                onChange={(e) => setElevenApiKeyTertiary(e.target.value)}
+                placeholder="xi-... (opcional)"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Delay variável de 300-800ms entre tentativas
+              </p>
+            </div>
+            <div className="space-y-1">
+              <Label>Voice ID ElevenLabs 🎙️</Label>
+              <Input
+                value={elevenVoiceId}
+                onChange={(e) => setElevenVoiceId(e.target.value)}
+                placeholder="ID da voz (ex: JBFqnCBsd6RMkjVDRZzb)"
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
 
       <div className="space-y-3">
         <Label>Teste a voz selecionada</Label>
