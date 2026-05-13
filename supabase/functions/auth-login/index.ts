@@ -188,10 +188,10 @@ serve(async (req) => {
     const mapNomeLojaToUnidade = (nome_loja: string, id: string): string => {
       const nome = nome_loja.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       if (nome.includes("itaqua")) return "ITAQUA";
-      if (nome.includes("poa") || nome.includes("poa")) return "POA";
+      if (nome.includes("poa") || nome.includes("poá")) return "POA";
       if (nome.includes("suzano")) return "SUZANO";
-      // Fallback: usa o id UUID como código único, evitando conflitos
-      return id;
+      // Fallback: usa o nome da loja diretamente para exibição (UUID causava confusão)
+      return nome_loja;
     };
 
     if (effectiveRole === "super_admin") {
