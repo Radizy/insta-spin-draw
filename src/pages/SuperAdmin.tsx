@@ -453,6 +453,9 @@ export default function SuperAdmin() {
       let finalAdminIds = [...franquiaForm.admin_user_ids];
       
       if (hasNewUser) {
+        // Busca a primeira loja da franquia para vincular ao novo usuário
+        const primeiraLoja = unidades.find((u) => u.franquia_id === franquiaId);
+
         const { data: newUser, error: createError } = await supabase
           .from('system_users')
           .insert([
@@ -461,6 +464,9 @@ export default function SuperAdmin() {
               password_hash: franquiaForm.new_user_password.trim(),
               role: 'admin',
               franquia_id: franquiaId,
+              // Vincula à unidade correta da franquia (não à do admin logado)
+              unidade: primeiraLoja?.nome_loja ?? null,
+              unidade_id: primeiraLoja?.id ?? null,
             },
           ])
           .select('id')

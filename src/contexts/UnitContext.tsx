@@ -18,14 +18,30 @@ export function UnitProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    // Se o usuário logou e não tínhamos selecionado unidade no local storage, usa a dele
-    if (user && user.unidade && !localStorage.getItem(UNIT_STORAGE_KEY)) {
-      setSelectedUnit(user.unidade);
-      localStorage.setItem(UNIT_STORAGE_KEY, user.unidade);
-    } else if (!user) {
-      // Se deslogou, limpa a unidade
+    if (user) {
+      const storedUserId = localStorage.getItem(`${UNIT_STORAGE_KEY}_uid`);
+      const storedUnit = localStorage.getItem(UNIT_STORAGE_KEY);
+
+      if (storedUserId !== user.id) {
+        // Usuário diferente do que estava cacheado: sempre reseta para a unidade dele
+        localStorage.setItem(`${UNIT_STORAGE_KEY}_uid`, user.id);
+        if (user.unidade) {
+          setSelectedUnit(user.unidade as Unidade);
+          localStorage.setItem(UNIT_STORAGE_KEY, user.unidade);
+        } else {
+          setSelectedUnit(null);
+          localStorage.removeItem(UNIT_STORAGE_KEY);
+        }
+      } else if (!storedUnit && user.unidade) {
+        // Mesmo usuário, mas sem unidade no storage (primeira vez)
+        setSelectedUnit(user.unidade as Unidade);
+        localStorage.setItem(UNIT_STORAGE_KEY, user.unidade);
+      }
+    } else {
+      // Logout: limpa tudo
       setSelectedUnit(null);
       localStorage.removeItem(UNIT_STORAGE_KEY);
+      localStorage.removeItem(`${UNIT_STORAGE_KEY}_uid`);
     }
   }, [user]);
 
