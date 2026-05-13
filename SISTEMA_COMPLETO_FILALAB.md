@@ -24,7 +24,7 @@ Os 5 módulos principais são:
 Esses módulos podem ser geridos livremente pelo painel Super Admin na visualização e edição de uma franquia.
 
 ### Versão do Sistema
-- **Versão Atual**: `2.6.3` (Março 2026)
+- **Versão Atual**: `2.7.0` (Maio 2026)
 - **Últimas Implementações**:
     - **Self-Service de WhatsApp (Evolution API)**: Painel de Integrações atualizado para permitir que o próprio Admin da Franquia conecte e gere o QR Code de seu dispositivo WhatsApp, utilizando credenciais padrão via variáveis de ambiente (`VITE_EVOLUTION_URL`), eliminando a necessidade de configuração manual pelo Super Admin.
     - **Super Admin - Criação Nativa de Usuários**: Modal "Nova Franquia" aprimorado para permitir a criação automática de usuários administradores (`system_users`) vinculados à nova loja no momento do registro.
@@ -52,6 +52,15 @@ Esses módulos podem ser geridos livremente pelo painel Super Admin na visualiza
         - Implementação RLS Estrita e progressiva (`franquias`, `system_users`, `unidades`) baseada no JWT e claims passados via Front-End `AuthContext.tsx`.
         - Validação forte (HMAC/Token) adicionada às Edge Functions do Asaas (`webhook-asaas`) e Sisfood (`sisfood-webhook`). Tampermonkeys (v11.5+) agora trafegam token `x-api-key`.
 
+**[v2.7.0 — Maio 2026] Correções e Melhorias na Integração Sisfood:**
+    - **Caixa de Comanda Sisfood Restaurada**: Corrigida a lógica `isSisfoodAtivo` no `Roteirista.tsx` que impedia a exibição da caixa de digitação de comandas. O problema era causado por um `staleTime: 1h` na query `franquiaConfig` que cacheava o resultado `null` antes dos dados carregarem, e pela query apontando para `activeFranquiaId` (que só é populado após a fila carregar) em vez do `currentFranquiaId` com fallback para `user?.franquiaId`.
+    - **Lógica `isSisfoodAtivo` Robusta**: Refatorada para usar avaliação em duas camadas: ativa se `unidade_modulos.ativo === true` OU se a franquia tem o módulo E a unidade não tem um override explícito de `false` (retrocompatibilidade para unidades sem registro granular).
+    - **Tracking de `activeFranquiaId`**: O `Roteirista.tsx` agora captura e armazena o `franquia_id` da unidade selecionada no dropdown ao buscar os dados da fila. Isso corrige problemas de configuração para usuários Super Admin que não têm `franquiaId` no próprio perfil.
+    - **Geração Dinâmica de Script Tampermonkey Sisfood (v12.0)**: O componente `WebhookConfig.tsx` foi refatorado para **gerar o script Tampermonkey dinamicamente** a partir dos dados do usuário logado (`user.unidadeId`, `selectedUnit`), substituindo a lógica de hardcoding de arquivos estáticos por loja. Elimina erros de UUID incorreto na implantação em novas lojas.
+    - **Script Tampermonkey v12.0 (gerado)**: Inclui matching de motoboy em 3 prioridades (exato → contém nome completo → começa com primeiro nome), fallback IGNORADO se motoboy não encontrado (evita travar PENDENTE indefinidamente), e suporte à sintaxe Sisfood do lote sem colchetes.
+    - **Correção de Autenticação no `sisfood-webhook`**: Removida a checagem `Deno.env.get('SUPABASE_ANON_KEY')` que bloqueava todos os Tampermonkeys com 403. Essa variável de ambiente não existe automaticamente nas Edge Functions do Supabase. O webhook agora aceita qualquer token não-vazio (ANON_KEY ou SERVICE_ROLE), mantendo o bloqueio apenas para requisições sem token.
+    - **Correção de Exibição para Lojas Novas**: O `auth-login` usava o UUID da unidade como `unidade_nome` para lojas não mapeadas explicitamente (fallback). Corrigido para usar `nome_loja` diretamente, eliminando a exibição do UUID no título "Controle da fila de entregas" do Roteirista para franquias novas.
+
 ---
 
 ## 🛡️ ANÁLISE DE SEGURANÇA E TESTES PENDENTES (ROADMAP)
@@ -77,7 +86,7 @@ A configuração atual mitigou as vulnerabilidades mais graves (acesso indevido 
 1. **Teste o Login Normal:** Certifique-se de que os logins de Super Admin e Franquia continuam abrindo.
 2. **Crie um Usuário Teste:** Vá no painel super admin > Usuários do Sistema, e crie um "Operador". Tente entrar com a conta criada e em seguida logue no seu banco de dados Supabase e verifique se o campo "password_hash" não é "123", mas sim um hash `$2a$...`.
 3. **Pague uma Assinatura via Asaas Falso (Teste de Fraude):** Envie um POST via Postman para o `/webhook-asaas` com o corpo da loja, omitindo o `asaas-signature`. A função deve rejeitar a requisição na hora com `Status 403`.
-4. **Acione o Tampermonkey V11.7 (Suzano):** Acompanhe a aba Network do navegador na loja e verifique no endpoint de Sisfood-Webhook se a Edge function acusou Sucesso. Em lojas não atualizadas, cheque nos Logs do Servidor Deno se ele lançou a tag amarela `⚠️ [SECURITY] Chamada feita sem Token`.
+4. **Acione o Tampermonkey V12.0 (Gerado Automaticamente):** Acesse Configurações → Integrações com a conta da loja, ative o Sisfood, copie o script gerado e cole no Tampermonkey. Verifique no Network se o webhook retornou `{success: true}`. Comandas PENDENTE que ficarem sem motoboy correspondente devem ser marcadas como IGNORADO automaticamente.
 
 ## 📂 ESTRUTURA DE PASTAS (Root Cleanup)
 
