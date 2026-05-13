@@ -121,15 +121,15 @@ export default function Config() {
     queryKey: ['unidade-detalhes', selectedUnit],
     queryFn: async () => {
       if (!selectedUnit) return null;
-      
+
       const searchName = selectedUnit === 'POA' ? 'Poá' : (selectedUnit === 'ITAQUA' ? 'Itaquaquecetuba' : selectedUnit);
-      
+
       const { data, error } = await supabase
         .from('unidades')
         .select('id, nome_loja')
         .ilike('nome_loja', `%${searchName}%`)
         .maybeSingle();
-      
+
       if (error) throw error;
       return data;
     },
@@ -157,8 +157,6 @@ export default function Config() {
   // Configuração da franquia (para reaproveitar tv_tts / ElevenLabs)
   const { data: franquiaConfig } = useQuery<{ config_pagamento: any | null }>({
     queryKey: ['franquia-config', user?.franquiaId],
-    staleTime: 1000 * 60 * 60,
-     staleTime: 1000 * 60 * 60,
     queryFn: async () => {
       if (!user?.franquiaId) return { config_pagamento: null };
       const { data, error } = await supabase
@@ -388,8 +386,24 @@ export default function Config() {
     });
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir este entregador?')) {
+      const entregador = entregadores.find((e) => e.id === id);
+      
+      if (entregador?.tts_voice_path) {
+        try {
+          const { error: storageError } = await supabase.storage
+            .from('motoboy_voices')
+            .remove([entregador.tts_voice_path]);
+            
+          if (storageError) {
+            console.error('Erro ao excluir áudio do storage:', storageError);
+          }
+        } catch (e) {
+          console.error('Erro ao excluir áudio do storage:', e);
+        }
+      }
+      
       deleteMutation.mutate(id);
     }
   };
@@ -1190,8 +1204,8 @@ export default function Config() {
           <div className="space-y-6">
             {/* Gerenciador de Plano (admin_franquia) */}
             {user?.role === 'admin_franquia' && (
-              <FranquiaPlanoManager 
-                overrideUnidadeId={resolvedUnidadeId} 
+              <FranquiaPlanoManager
+                overrideUnidadeId={resolvedUnidadeId}
               />
             )}
 
@@ -1385,14 +1399,14 @@ export default function Config() {
               </div>
             )}
 
-            {/* Voz fixa ElevenLabs por motoboy */}
+            {/* Voz fixa por motoboy */}
             {editingEntregador && (
               <div className="space-y-3 border border-border rounded-lg p-4 bg-secondary/40">
                 <div className="flex items-center justify-between gap-2">
                   <div>
-                    <Label>Voz personalizada (ElevenLabs)</Label>
+                    <Label>Voz personalizada ({(franquiaConfig?.config_pagamento as any)?.tv_tts?.voice_model === 'google' ? 'Google' : 'ElevenLabs'})</Label>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Gera um MP3 fixo com o nome deste motoboy usando seus créditos ElevenLabs.
+                      Gera um MP3 fixo com o nome deste motoboy usando seus créditos {(franquiaConfig?.config_pagamento as any)?.tv_tts?.voice_model === 'google' ? 'Google' : 'ElevenLabs'}.
                       Depois a TV usa sempre esse arquivo, sem gastar créditos de novo.
                     </p>
                   </div>
@@ -1477,18 +1491,36 @@ export default function Config() {
 
                     const tvTts = (franquiaConfig?.config_pagamento as any)?.tv_tts;
                     const elevenVoiceId = tvTts?.eleven_voice_id as string | undefined;
+                    const googleVoiceName = tvTts?.google_voice_name as string | undefined;
 
-                    if (!tvTts || tvTts.voice_model !== 'elevenlabs' || !elevenVoiceId) {
-                      toast.error('Configure o ElevenLabs na aba Módulos (voz da TV) antes de gerar.');
+                    const isEleven = tvTts?.voice_model === 'elevenlabs';
+                    const isGoogle = tvTts?.voice_model === 'google';
+
+                    if (!tvTts || (!isEleven && !isGoogle)) {
+                      toast.error('Configure um provedor de voz (Google ou ElevenLabs) na aba Módulos antes de gerar.');
+                      return;
+                    }
+
+                    if (isEleven && !elevenVoiceId) {
+                      toast.error('Configure o Voice ID do ElevenLabs antes de gerar.');
+                      return;
+                    }
+
+                    if (isGoogle && !googleVoiceName) {
+                      toast.error('Configure a voz do Google antes de gerar.');
                       return;
                     }
 
                     try {
                       setIsGeneratingVoice(true);
                       const texto = `${editingEntregador.nome}, é a sua vez!`;
+                      const path = `${user.franquiaId}/${editingEntregador.id}.mp3`;
+                      const isGoogle = (franquiaConfig?.config_pagamento as any)?.tv_tts?.voice_model === 'google';
 
                       const response = await fetch(
-                        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`,
+                        isGoogle
+                          ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-tts`
+                          : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`,
                         {
                           method: 'POST',
                           headers: {
@@ -1496,37 +1528,49 @@ export default function Config() {
                             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
                             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
                           },
-                          body: JSON.stringify({
-                            text: texto,
-                            voiceId: elevenVoiceId,
-                            franquiaId: user.franquiaId,
-                          }),
+                          body: JSON.stringify(
+                            isGoogle
+                              ? {
+                                text: texto,
+                                voice_name: (franquiaConfig?.config_pagamento as any)?.tv_tts?.google_voice_name,
+                                filename: path,
+                                franquia_id: user.franquiaId,
+                                api_key: (franquiaConfig?.config_pagamento as any)?.tv_tts?.google_api_key || undefined
+                              }
+                              : {
+                                text: texto,
+                                voiceId: tvTts?.eleven_voice_id,
+                                franquiaId: user.franquiaId,
+                              }
+                          ),
                         },
                       );
 
                       if (!response.ok) {
                         const errText = await response.text();
-                        console.error('Erro ElevenLabs ao gerar voz fixa:', errText);
-                        toast.error('Erro ao gerar voz. O sistema tentou com todas as chaves configuradas.');
+                        console.error('Erro ao gerar voz:', errText);
+                        toast.error('Erro ao gerar voz.');
                         return;
                       }
 
-                      const audioBlob = await response.blob();
-                      const path = `${user.franquiaId}/${editingEntregador.id}.mp3`;
+                      // Se for ElevenLabs, ainda precisamos fazer o upload do blob aqui
+                      if (!isGoogle) {
+                        const audioBlob = await response.blob();
+                        const { error: uploadError } = await supabase.storage
+                          .from('motoboy_voices')
+                          .upload(path, audioBlob, {
+                            upsert: true,
+                            contentType: 'audio/mpeg',
+                          });
 
-                      const { error: uploadError } = await supabase.storage
-                        .from('motoboy_voices')
-                        .upload(path, audioBlob, {
-                          upsert: true,
-                          contentType: 'audio/mpeg',
-                        });
-
-                      if (uploadError) {
-                        console.error('Erro ao salvar MP3 no storage:', uploadError);
-                        toast.error('Erro ao salvar o arquivo de voz.');
-                        return;
+                        if (uploadError) {
+                          console.error('Erro ao salvar MP3 no storage:', uploadError);
+                          toast.error('Erro ao salvar o arquivo de voz.');
+                          return;
+                        }
                       }
 
+                      // Atualiza o banco de dados (comum para ambos)
                       const updated = await updateEntregador(editingEntregador.id, {
                         tts_voice_path: path,
                       });
@@ -1548,7 +1592,9 @@ export default function Config() {
                       Gerando voz...
                     </>
                   ) : (
-                    '🔊 Gerar voz personalizada (ElevenLabs)'
+                    (franquiaConfig?.config_pagamento as any)?.tv_tts?.voice_model === 'google' 
+                      ? '🔊 Gerar voz personalizada (Google)' 
+                      : '🔊 Gerar voz personalizada (ElevenLabs)'
                   )}
                 </Button>
               </div>

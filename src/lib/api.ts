@@ -110,6 +110,7 @@ export interface SystemUpdate {
   status: 'lancado' | 'planejado' | 'em_desenvolvimento' | 'ideia_enviada';
   data_publicacao: string;
   ordem: number;
+  descricao?: string;
   created_at: string;
 }
 

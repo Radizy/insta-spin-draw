@@ -24,8 +24,10 @@ Os 5 módulos principais são:
 Esses módulos podem ser geridos livremente pelo painel Super Admin na visualização e edição de uma franquia.
 
 ### Versão do Sistema
-- **Versão Atual**: `2.7.0` (Maio 2026)
+- **Versão Atual**: `2.7.1` (Maio 2026)
 - **Últimas Implementações**:
+    - **Vozes mais realistas com Google TTS**: Agora é possível gerar vozes mais realistas usando o Google TTS (temporariamente gratuito).
+    - **Geração de voz do motoboy inteligente**: O botão "Gerar Voz" no cadastro do motoboy agora detecta automaticamente se a franquia usa Google ou ElevenLabs.
     - **Self-Service de WhatsApp (Evolution API)**: Painel de Integrações atualizado para permitir que o próprio Admin da Franquia conecte e gere o QR Code de seu dispositivo WhatsApp, utilizando credenciais padrão via variáveis de ambiente (`VITE_EVOLUTION_URL`), eliminando a necessidade de configuração manual pelo Super Admin.
     - **Super Admin - Criação Nativa de Usuários**: Modal "Nova Franquia" aprimorado para permitir a criação automática de usuários administradores (`system_users`) vinculados à nova loja no momento do registro.
     - **Dashboard Super Admin**: Interface "Geral" modernizada com atalhos de ações rápidas e exibição de dados reais das "Últimas 5 Lojas Registradas".
@@ -122,7 +124,7 @@ Para manter a manutenabilidade, o diretório raiz foi limpo, restando apenas arq
 - **Tempo Real**: Supabase Realtime para atualizações instantâneas
 
 ### Integrações Externas
-- **ElevenLabs**: Text-to-Speech para chamadas de motoboys na TV
+- **ElevenLabs / Google TTS**: Text-to-Speech para chamadas de motoboys na TV
 - **WhatsApp (Evolution API)**: Envio de mensagens automáticas
 - **Google Sheets**: Webhook para exportação de dados
 - **Asaas**: Gateway de pagamento para cobranças recorrentes

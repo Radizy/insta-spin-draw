@@ -497,6 +497,7 @@ interface TvTtsConfigSectionProps {
 }
 
 function TvTtsConfigSection({ franquiaId, initialConfig }: TvTtsConfigSectionProps) {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [enabled, setEnabled] = useState<boolean>(initialConfig?.enabled ?? true);
   const [voiceModel, setVoiceModel] = useState<string>(initialConfig?.voice_model ?? 'browser_clara');
@@ -510,6 +511,8 @@ function TvTtsConfigSection({ franquiaId, initialConfig }: TvTtsConfigSectionPro
     initialConfig?.elevenlabs_api_key_tertiary ?? '',
   );
   const [elevenVoiceId, setElevenVoiceId] = useState<string>(initialConfig?.eleven_voice_id ?? '');
+  const [googleVoiceName, setGoogleVoiceName] = useState<string>(initialConfig?.google_voice_name ?? 'pt-BR-Neural2-B');
+  const [googleApiKey, setGoogleApiKey] = useState<string>(initialConfig?.google_api_key ?? '');
   const [ringtoneId, setRingtoneId] = useState<string>(initialConfig?.ringtone_id ?? 'classic_short');
   const [idleTimeSeconds, setIdleTimeSeconds] = useState<number>(initialConfig?.idle_time_seconds ?? 15);
 
@@ -599,6 +602,8 @@ function TvTtsConfigSection({ franquiaId, initialConfig }: TvTtsConfigSectionPro
           elevenlabs_api_key_secondary: elevenApiKeySecondary || undefined,
           elevenlabs_api_key_tertiary: elevenApiKeyTertiary || undefined,
           eleven_voice_id: elevenVoiceId || undefined,
+          google_api_key: googleApiKey || undefined,
+          google_voice_name: googleVoiceName || undefined,
           ringtone_id: ringtoneId || undefined,
           idle_time_seconds: idleTimeSeconds,
         },
@@ -661,9 +666,58 @@ function TvTtsConfigSection({ franquiaId, initialConfig }: TvTtsConfigSectionPro
     }
   };
 
+  const playWithGoogle = async (text: string) => {
+    if (!googleVoiceName || voiceModel !== 'google') {
+      await speak(text);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-tts`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ 
+            text, 
+            voice_name: googleVoiceName, 
+            filename: `teste_voz.mp3`, 
+            franquia_id: franquiaId,
+            api_key: googleApiKey || undefined
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error('Erro Google TTS (teste):', errText);
+        toast.error('Erro ao testar voz Google, usando voz do navegador.');
+        await speak(text);
+        return;
+      }
+
+      const data = await response.json();
+      const audioUrl = data.publicUrl;
+      const audio = new Audio(audioUrl);
+      audio.volume = (volume ?? 100) / 100;
+      await audio.play();
+    } catch (e) {
+      console.error('Erro ao chamar Google TTS (teste):', e);
+      toast.error('Erro ao testar voz Google, usando voz do navegador.');
+      await speak(text);
+    }
+  };
+
   const handleTest = (text: string) => {
     if (voiceModel === 'elevenlabs') {
       return playWithElevenLabs(text);
+    }
+    if (voiceModel === 'google') {
+      return playWithGoogle(text);
     }
     return speak(text);
   };
@@ -734,6 +788,10 @@ function TvTtsConfigSection({ franquiaId, initialConfig }: TvTtsConfigSectionPro
                 🎧 ElevenLabs (paga, usando seus créditos)
               </div>
               <SelectItem value="elevenlabs">Usar ElevenLabs (se configurado abaixo)</SelectItem>
+              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-2">
+                🔍 Google Cloud TTS (alternativa)
+              </div>
+              <SelectItem value="google">Usar Google Cloud TTS (configurado abaixo)</SelectItem>
             </SelectContent>
           </Select>
           <p className="text-[11px] text-muted-foreground mt-1">
@@ -844,6 +902,42 @@ function TvTtsConfigSection({ franquiaId, initialConfig }: TvTtsConfigSectionPro
                 placeholder="ID da voz (ex: JBFqnCBsd6RMkjVDRZzb)"
               />
             </div>
+          </div>
+        </div>
+      )}
+
+      {voiceModel === 'google' && (
+        <div className="space-y-4 border-t border-border pt-4 mt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="space-y-1">
+            <Label>Google Cloud TTS (opcional, usando seus créditos)</Label>
+            <p className="text-[11px] text-muted-foreground">
+              Preencha se quiser usar sua própria chave do Google Cloud. Caso contrário, o sistema tentará usar a chave padrão.
+            </p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-1">
+              <Label>Selecione a Voz 🎙️</Label>
+              <Select value={googleVoiceName} onValueChange={setGoogleVoiceName}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a voz do Google" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pt-BR-Neural2-B">pt-BR-Neural2-B (Masculina)</SelectItem>
+                  <SelectItem value="pt-BR-Neural2-C">pt-BR-Neural2-C (Feminina)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {user?.role === 'super_admin' && (
+              <div className="space-y-1">
+                <Label>API Key Google Cloud 🔑</Label>
+                <Input
+                  type="password"
+                  value={googleApiKey}
+                  onChange={(e) => setGoogleApiKey(e.target.value)}
+                  placeholder="AIzaSy..."
+                />
+              </div>
+            )}
           </div>
         </div>
       )}

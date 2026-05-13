@@ -87,6 +87,7 @@ export function SuperAdminUpdates() {
                 tipo: formData.tipo ?? currentData.tipo,
                 status: formData.status ?? currentData.status,
                 data_publicacao: formData.data_publicacao ?? currentData.data_publicacao,
+                descricao: formData.descricao ?? currentData.descricao,
             }
         });
         toast.success('Atualização salva!');
@@ -184,6 +185,12 @@ export function SuperAdminUpdates() {
                                                                                 className="font-bold text-sm h-8"
                                                                                 placeholder="Título"
                                                                             />
+                                                                            <Input
+                                                                                value={formData.descricao || ''}
+                                                                                onChange={e => setFormData({ ...formData, descricao: e.target.value })}
+                                                                                className="text-xs h-8"
+                                                                                placeholder="Descrição (aparece ao passar o mouse)"
+                                                                            />
                                                                             <div className="flex flex-col gap-2">
                                                                                 <Select
                                                                                     value={formData.tipo}
@@ -205,7 +212,10 @@ export function SuperAdminUpdates() {
                                                                         </div>
                                                                     ) : (
                                                                         <div className="space-y-1.5">
-                                                                            <div className="font-semibold text-sm leading-tight text-foreground/90">
+                                                                            <div 
+                                                                                className="font-semibold text-sm leading-tight text-foreground/90 cursor-help"
+                                                                                title={update.descricao}
+                                                                            >
                                                                                 {update.titulo}
                                                                             </div>
                                                                             
