@@ -120,11 +120,50 @@ export const TURNO_PADRAO = {
   fim: '02:00:00',
 };
 
-// Horário do expediente para histórico (17:00 às 02:00)
 export const HORARIO_EXPEDIENTE = {
-  inicio: 17,
-  fim: 2,
+  inicio: 17, // 17:00
+  fim: 3,    // 03:00 (dia seguinte)
 };
+
+/**
+ * Calcula o período de início e fim do expediente atual.
+ * Se for antes das 03:00, considera que ainda estamos no expediente do dia anterior.
+ */
+export function getExpedientePeriod() {
+  const now = new Date();
+  const currentHour = now.getHours();
+  let dataInicio: Date;
+  let dataFim: Date;
+
+  if (currentHour < HORARIO_EXPEDIENTE.fim) {
+    // Madrugada: o expediente começou ontem às 17h e termina hoje às 3h
+    dataInicio = new Date(now);
+    dataInicio.setDate(dataInicio.getDate() - 1);
+    dataInicio.setHours(HORARIO_EXPEDIENTE.inicio, 0, 0, 0);
+    
+    dataFim = new Date(now);
+    dataFim.setHours(HORARIO_EXPEDIENTE.fim, 0, 0, 0);
+  } else if (currentHour >= HORARIO_EXPEDIENTE.inicio) {
+    // Noite: o expediente começou hoje às 17h e termina amanhã às 3h
+    dataInicio = new Date(now);
+    dataInicio.setHours(HORARIO_EXPEDIENTE.inicio, 0, 0, 0);
+    
+    dataFim = new Date(now);
+    dataFim.setDate(dataFim.getDate() + 1);
+    dataFim.setHours(HORARIO_EXPEDIENTE.fim, 0, 0, 0);
+  } else {
+    // Entre 03:00 e 17:00: Intervalo entre turnos. 
+    // Mostramos o resultado do turno que ACABOU (ontem 17h às hoje 3h)
+    dataInicio = new Date(now);
+    dataInicio.setDate(dataInicio.getDate() - 1);
+    dataInicio.setHours(HORARIO_EXPEDIENTE.inicio, 0, 0, 0);
+    
+    dataFim = new Date(now);
+    dataFim.setHours(HORARIO_EXPEDIENTE.fim, 0, 0, 0);
+  }
+
+  return { dataInicio, dataFim };
+}
 
 // Verifica se o horário atual está dentro do turno
 export function isWithinShift(turnoInicio: string, turnoFim: string): boolean {
@@ -467,17 +506,24 @@ export async function sendDispatchWebhook(params: {
 
 // Histórico de entregas
 export async function fetchHistoricoEntregas(filters: {
-  unidade: Unidade;
+  unidade?: Unidade;
+  unidade_id?: string | null;
   dataInicio: string;
   dataFim: string;
 }): Promise<HistoricoEntrega[]> {
-  const { data, error } = await supabase
+  let query = supabase
     .from('historico_entregas')
     .select('*')
-    .eq('unidade', filters.unidade)
     .gte('hora_saida', filters.dataInicio)
-    .lte('hora_saida', filters.dataFim)
-    .order('hora_saida', { ascending: false });
+    .lte('hora_saida', filters.dataFim);
+
+  if (filters.unidade_id) {
+    query = query.eq('unidade_id', filters.unidade_id);
+  } else if (filters.unidade) {
+    query = query.eq('unidade', filters.unidade);
+  }
+
+  const { data, error } = await query.order('hora_saida', { ascending: false });
 
   if (error) {
     throw new Error('Failed to fetch historico: ' + error.message);
@@ -531,15 +577,28 @@ export async function updateHistoricoEntrega(
 
 export async function registrarRetornoEntrega(
   entregador_id: string,
-  unidade: string
+  unidade: string,
+  unidade_id?: string | null
 ): Promise<void> {
-  // Otimizado: Update direto com filtro, economizando um SELECT
-  const { error } = await supabase
+  // Segurança: Só atualiza registros das últimas 24 horas para evitar corrupção de histórico antigo
+  const limitDate = new Date();
+  limitDate.setHours(limitDate.getHours() - 24);
+
+  const query = supabase
     .from('historico_entregas')
     .update({ hora_retorno: new Date().toISOString() })
     .eq('entregador_id', entregador_id)
-    .eq('unidade', unidade)
-    .is('hora_retorno', null);
+    .is('hora_retorno', null)
+    .gte('created_at', limitDate.toISOString());
+
+  // Filtra por unidade_id se disponível, caso contrário usa o nome (legado)
+  if (unidade_id) {
+    query.eq('unidade_id', unidade_id);
+  } else {
+    query.eq('unidade', unidade);
+  }
+
+  const { error } = await query;
 
   if (error) {
     console.error('[API] Erro ao registrar retorno:', error.message);
@@ -548,15 +607,28 @@ export async function registrarRetornoEntrega(
 
 export async function atualizarSaidaEntrega(
   entregador_id: string,
-  unidade: string
+  unidade: string,
+  unidade_id?: string | null
 ): Promise<void> {
-  // Otimizado: Update direto com filtro, economizando um SELECT
-  const { error } = await supabase
+  // Segurança: Só atualiza registros das últimas 24 horas para evitar corrupção de histórico antigo
+  const limitDate = new Date();
+  limitDate.setHours(limitDate.getHours() - 24);
+
+  const query = supabase
     .from('historico_entregas')
     .update({ hora_saida: new Date().toISOString() })
     .eq('entregador_id', entregador_id)
-    .eq('unidade', unidade)
-    .is('hora_retorno', null);
+    .is('hora_retorno', null)
+    .gte('created_at', limitDate.toISOString());
+
+  // Filtra por unidade_id se disponível, caso contrário usa o nome (legado)
+  if (unidade_id) {
+    query.eq('unidade_id', unidade_id);
+  } else {
+    query.eq('unidade', unidade);
+  }
+
+  const { error } = await query;
 
   if (error) {
     console.error('[API] Erro ao atualizar saída:', error.message);

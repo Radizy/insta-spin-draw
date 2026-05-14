@@ -732,7 +732,7 @@ export default function Roteirista() {
       });
 
       // Finaliza a entrega batendo a hora de retorno (fecha o timer do Analytics Pro)
-      await registrarRetornoEntrega(actionEntregador.id, selectedUnit);
+      await registrarRetornoEntrega(actionEntregador.id, selectedUnit, activeUnitId);
       queryClient.invalidateQueries({ queryKey: ['saidas-dia', selectedUnit] });
 
       toast.success(`${actionEntregador.nome} retornou para a fila`);

@@ -12,7 +12,7 @@ import {
   hasRecentCheckin,
   shouldShowInQueue,
   Entregador,
-  HORARIO_EXPEDIENTE,
+  getExpedientePeriod,
   sendWhatsAppMessage,
   SenhaPagamento,
   fetchSenhasPagamento,
@@ -33,10 +33,10 @@ import { supabase } from '@/integrations/supabase/client';
 const DEFAULT_CALL_AUDIO_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
 const RINGTONE_OPTIONS = [
-  { id: 'classic_short', name: 'Clássico curto (padrão)', url: DEFAULT_CALL_AUDIO_URL },
+  { id: 'classic_short', name: 'ClÃ¡ssico curto (padrÃ£o)', url: DEFAULT_CALL_AUDIO_URL },
   { id: 'digital_ping', name: 'Ping digital suave', url: 'https://assets.mixkit.co/active_storage/sfx/2850/2850-preview.mp3' },
   { id: 'doorbell_soft', name: 'Campainha suave', url: 'https://assets.mixkit.co/active_storage/sfx/2868/2868-preview.mp3' },
-  { id: 'notification_fast', name: 'Notificação rápida', url: 'https://assets.mixkit.co/active_storage/sfx/2770/2770-preview.mp3' },
+  { id: 'notification_fast', name: 'NotificaÃ§Ã£o rÃ¡pida', url: 'https://assets.mixkit.co/active_storage/sfx/2770/2770-preview.mp3' },
   { id: 'alert_subtle', name: 'Alerta sutil', url: 'https://assets.mixkit.co/active_storage/sfx/2735/2735-preview.mp3' },
   { id: 'bell_soft', name: 'Sino suave', url: 'https://assets.mixkit.co/active_storage/sfx/2577/2577-preview.mp3' },
   { id: 'game_level_up', name: 'Som tipo app de entregas 1', url: 'https://assets.mixkit.co/active_storage/sfx/2010/2010-preview.mp3' },
@@ -60,8 +60,8 @@ interface CalledEntregadorInfo {
 
 /**
  * Converte qualquer URL do YouTube para uma URL de embed segura.
- * Suporta: vídeos normais, lives, youtu.be, playlists, e shorts.
- * Usa youtube-nocookie.com para reduzir restrições de bloqueio de iframe.
+ * Suporta: vÃ­deos normais, lives, youtu.be, playlists, e shorts.
+ * Usa youtube-nocookie.com para reduzir restriÃ§Ãµes de bloqueio de iframe.
  */
 function getYouTubeEmbedUrl(rawUrl: string): string | null {
   if (!rawUrl) return null;
@@ -76,7 +76,7 @@ function getYouTubeEmbedUrl(rawUrl: string): string | null {
     } else if (hostname === 'youtube.com' || hostname === 'youtube-nocookie.com') {
       const path = url.pathname;
       if (path.startsWith('/embed/')) {
-        // Já é url de embed, retorna ajustada
+        // JÃ¡ Ã© url de embed, retorna ajustada
         const base = `https://www.youtube-nocookie.com${path}`;
         const params = new URLSearchParams(url.search);
         params.set('autoplay', '1');
@@ -107,7 +107,7 @@ function getYouTubeEmbedUrl(rawUrl: string): string | null {
       loop: '1',
     });
     if (videoId) params.set('playlist', videoId); // loop exige playlist=videoId
-    if (playlistId) { params.set('list', playlistId); params.delete('loop'); } // playlists nativas já avançam
+    if (playlistId) { params.set('list', playlistId); params.delete('loop'); } // playlists nativas jÃ¡ avanÃ§am
 
     const embedId = videoId || 'videoseries';
     return `https://www.youtube-nocookie.com/embed/${embedId}?${params.toString()}`;
@@ -116,27 +116,7 @@ function getYouTubeEmbedUrl(rawUrl: string): string | null {
   }
 }
 
-const getExpedientePeriod = () => {
-  const now = new Date();
-  const currentHour = now.getHours();
-  let dataInicio: Date;
-  let dataFim: Date;
 
-  if (currentHour < 3) {
-    dataInicio = new Date(now);
-    dataInicio.setDate(dataInicio.getDate() - 1);
-    dataInicio.setHours(HORARIO_EXPEDIENTE.inicio, 0, 0, 0);
-    dataFim = new Date(now);
-    dataFim.setHours(3, 0, 0, 0);
-  } else {
-    dataInicio = new Date(now);
-    dataInicio.setHours(HORARIO_EXPEDIENTE.inicio, 0, 0, 0);
-    dataFim = new Date(now);
-    dataFim.setDate(dataFim.getDate() + 1);
-    dataFim.setHours(3, 0, 0, 0);
-  }
-  return { dataInicio, dataFim };
-};
 
 export default function TV() {
   const { selectedUnit, setSelectedUnit } = useUnit();
@@ -192,7 +172,6 @@ export default function TV() {
   const { data: franquiaConfig } = useQuery({
     queryKey: ['franquia-config', user?.franquiaId],
     staleTime: 1000 * 60 * 60,
-     staleTime: 1000 * 60 * 60,
     queryFn: async () => {
       if (!user?.franquiaId) return { config_pagamento: null };
       const { data, error } = await supabase.from('franquias').select('config_pagamento').eq('id', user.franquiaId).maybeSingle();
@@ -237,6 +216,7 @@ export default function TV() {
     queryKey: ['historico-rank', selectedUnit, dataInicio.toISOString()],
     queryFn: () => fetchHistoricoEntregas({
       unidade: selectedUnit as any,
+      unidade_id: user?.unidadeId,
       dataInicio: dataInicio.toISOString(),
       dataFim: dataFim.toISOString(),
     }),
@@ -328,7 +308,7 @@ export default function TV() {
       const bucket = path.startsWith('audios_sistema/') ? 'audios_sistema' : 'motoboy_voices';
       const filePath = path.startsWith('audios_sistema/') ? path.replace('audios_sistema/', '') : path;
 
-      // Tentativa 1: Via URL Pública (Mais rápida e evita 400 de download se o bucket for público)
+      // Tentativa 1: Via URL PÃºblica (Mais rÃ¡pida e evita 400 de download se o bucket for pÃºblico)
       const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(filePath);
       
       const playResult = await new Promise<boolean>((resolve) => {
@@ -336,7 +316,7 @@ export default function TV() {
         audio.volume = safeVolume;
         audio.onended = () => resolve(true);
         audio.onerror = () => {
-          console.warn(`[TV] Falha ao tocar via URL Pública: ${publicUrl}. Tentando via Download Blob...`);
+          console.warn(`[TV] Falha ao tocar via URL PÃºblica: ${publicUrl}. Tentando via Download Blob...`);
           resolve(false);
         };
         audio.play().catch(() => resolve(false));
@@ -349,7 +329,7 @@ export default function TV() {
       const { data, error } = await supabase.storage.from(bucket).download(filePath);
       
       if (error) {
-        console.warn(`[TV] Áudio não encontrado ou erro no storage (${bucket}/${filePath}):`, error.message);
+        console.warn(`[TV] Ãudio nÃ£o encontrado ou erro no storage (${bucket}/${filePath}):`, error.message);
         return false;
       }
 
@@ -372,7 +352,7 @@ export default function TV() {
         });
       }
     } catch (err) {
-      console.error('[TV] Erro fatal na execução do áudio:', err);
+      console.error('[TV] Erro fatal na execuÃ§Ã£o do Ã¡udio:', err);
     }
     return false;
   }, []);
@@ -384,25 +364,25 @@ export default function TV() {
     if (entregador.tts_voice_path) playedNome = await playOneAudio(entregador.tts_voice_path, volume);
     
     if (!playedNome) {
-      console.log('[TV] Áudio do nome não encontrado, usando TTS');
-      await speak(`É a vez de ${entregador.nome}`, { enabled: true, volume: Math.min(100, volume * 130), voice_model: 'browser_clara' });
+      console.log('[TV] Ãudio do nome nÃ£o encontrado, usando TTS');
+      await speak(`Ã‰ a vez de ${entregador.nome}`, { enabled: true, volume: Math.min(100, volume * 130), voice_model: 'browser_clara' });
       await pause();
     }
     if (bagId) {
-      console.log('[TV] Processando áudio da bag:', bagId);
+      console.log('[TV] Processando Ã¡udio da bag:', bagId);
       const bagTipo = franquiaBagTipos.find((b) => b.id === bagId || b.nome === bagId);
       
       let playedBag = false;
       if (bagTipo) {
         const bagPath = `${user.franquiaId}/bags/${bagTipo.id}.mp3`;
-        console.log('[TV] Tentando reproduzir áudio da bag:', bagPath);
+        console.log('[TV] Tentando reproduzir Ã¡udio da bag:', bagPath);
         playedBag = await playOneAudio(bagPath, volume);
       } else {
-        console.warn('[TV] Tipo de bag não encontrado na lista da franquia para id:', bagId);
+        console.warn('[TV] Tipo de bag nÃ£o encontrado na lista da franquia para id:', bagId);
       }
 
       if (!playedBag) {
-        console.log('[TV] Áudio da bag falhou ou inexistente, usando TTS para bag');
+        console.log('[TV] Ãudio da bag falhou ou inexistente, usando TTS para bag');
         const bagNomeReal = bagTipo?.nome || bagId;
         await speak(`Pegue a ${bagNomeReal}`, { enabled: true, volume: Math.min(100, volume * 130), voice_model: 'browser_clara' });
         await pause();
@@ -410,7 +390,7 @@ export default function TV() {
     }
     if (hasBebida) {
       const bebidaPath = `${user.franquiaId}/bebida.mp3`;
-      console.log('[TV] Tentando reproduzir áudio de bebida:', bebidaPath);
+      console.log('[TV] Tentando reproduzir Ã¡udio de bebida:', bebidaPath);
       const playedBebida = await playOneAudio(bebidaPath, volume);
       if (!playedBebida) await speak('Tem bebida nas comandas', { enabled: true, volume: volume * 100, voice_model: 'browser_clara' });
     }
@@ -431,14 +411,14 @@ export default function TV() {
         await new Promise<void>((resolve) => {
           const el = audioRef.current!;
           const done = () => {
-            console.log(`[TV] Ringtone finalizado. Duração: ${el.duration}s`);
+            console.log(`[TV] Ringtone finalizado. DuraÃ§Ã£o: ${el.duration}s`);
             el.removeEventListener('ended', done);
             el.removeEventListener('error', done);
             resolve();
           };
           el.addEventListener('ended', done);
           el.addEventListener('error', (e) => {
-            console.error('[TV] Erro no elemento de áudio do ringtone:', e);
+            console.error('[TV] Erro no elemento de Ã¡udio do ringtone:', e);
             done();
           });
           el.play().catch((err) => {
@@ -451,7 +431,7 @@ export default function TV() {
       }
     }
 
-    // 2. Inicia a sequência de áudio (Nome -> Bag -> Bebida)
+    // 2. Inicia a sequÃªncia de Ã¡udio (Nome -> Bag -> Bebida)
     await playAudioSequence(entregador, entregador.tipo_bag, hasBebida);
   }, [isMuted, playAudioSequence, franquiaConfig]);
 
@@ -461,7 +441,7 @@ export default function TV() {
 
   const triggerCall = useCallback((entregador: Entregador, hasBebida: boolean, isForce = false) => {
     if (isDisplayingRef.current && !isForce) {
-      console.log(`[TV] Chamada ignorada para ${entregador.nome} (já existe animação em curso)`);
+      console.log(`[TV] Chamada ignorada para ${entregador.nome} (jÃ¡ existe animaÃ§Ã£o em curso)`);
       return;
     }
     try {
@@ -471,14 +451,14 @@ export default function TV() {
       handleCallAnnouncementRef.current(entregador, hasBebida);
 
       if (broadcastChannelRef.current) {
-        console.log(`[TV] Enviando confirmação tv-call-started para ${entregador.nome}`);
+        console.log(`[TV] Enviando confirmaÃ§Ã£o tv-call-started para ${entregador.nome}`);
         broadcastChannelRef.current.send({
           type: 'broadcast',
           event: 'tv-call-started',
           payload: { entregadorId: entregador.id }
-        }).catch((err: any) => console.error('[TV] Erro ao enviar confirmação:', err));
+        }).catch((err: any) => console.error('[TV] Erro ao enviar confirmaÃ§Ã£o:', err));
       } else {
-        console.error('[TV] Canal de broadcast não inicializado ao tentar enviar confirmação');
+        console.error('[TV] Canal de broadcast nÃ£o inicializado ao tentar enviar confirmaÃ§Ã£o');
       }
 
       setTimeout(() => {
@@ -486,8 +466,8 @@ export default function TV() {
         setDisplayingCalled(null);
         setTimeout(() => {
           isDisplayingRef.current = false;
-          console.log('[TV] Animação finalizada, isDisplayingRef = false');
-          resetIdleTimer(); // Garante o delay do screensaver após a chamada
+          console.log('[TV] AnimaÃ§Ã£o finalizada, isDisplayingRef = false');
+          resetIdleTimer(); // Garante o delay do screensaver apÃ³s a chamada
         }, 3000);
       }, DISPLAY_TIME_MS);
     } catch (err) {
@@ -516,12 +496,12 @@ export default function TV() {
   useEffect(() => {
     if (!selectedUnit) return;
 
-    console.log(`[TV] Inicializando canal de broadcast estável para unidade ${selectedUnit}`);
+    console.log(`[TV] Inicializando canal de broadcast estÃ¡vel para unidade ${selectedUnit}`);
     const channel = supabase.channel(`tv-calls-broadcast-${selectedUnit}`);
 
     channel
       .on('broadcast', { event: 'tv-call-retry' }, (payload: any) => {
-        console.log('[TV] Sinal tv-call-retry recebido via canal estável:', payload);
+        console.log('[TV] Sinal tv-call-retry recebido via canal estÃ¡vel:', payload);
         const { entregadorId } = payload.payload;
         const e = entregadores.find((ent: any) => ent.id === entregadorId);
         if (e) {
@@ -531,27 +511,27 @@ export default function TV() {
         }
       })
       .subscribe((status: any) => {
-        console.log(`[TV] Status da subscrição de broadcast: ${status}`);
+        console.log(`[TV] Status da subscriÃ§Ã£o de broadcast: ${status}`);
         if (status === 'SUBSCRIBED') {
           broadcastChannelRef.current = channel;
         }
       });
 
     return () => {
-      console.log('[TV] Removendo canal de broadcast estável');
+      console.log('[TV] Removendo canal de broadcast estÃ¡vel');
       supabase.removeChannel(channel);
       broadcastChannelRef.current = null;
     };
   }, [selectedUnit, entregadores, triggerCall]);
 
-  // Limpador de Cache (localStorage) Diário
+  // Limpador de Cache (localStorage) DiÃ¡rio
   useEffect(() => {
     const lastCleanup = localStorage.getItem('tv_last_cleanup');
     const today = new Date().toISOString().split('T')[0];
 
     if (lastCleanup !== today) {
-      console.log('[TV] Executando limpeza de cache diária...');
-      // Remove chaves de estado de bebida antigas para não acumular
+      console.log('[TV] Executando limpeza de cache diÃ¡ria...');
+      // Remove chaves de estado de bebida antigas para nÃ£o acumular
       Object.keys(localStorage).forEach((key: any) => {
         if (key.startsWith('bebida_')) {
           localStorage.removeItem(key);
@@ -627,7 +607,7 @@ export default function TV() {
   });
   const recentCall = calledEntregadores[0] || recentlyDelivering[0] || null;
 
-  // Se o usuário não tiver configurado playlist no banco, mostramos fallback: Rank -> Mapa
+  // Se o usuÃ¡rio nÃ£o tiver configurado playlist no banco, mostramos fallback: Rank -> Mapa
   const activePlaylist = tvPlaylist.length > 0 ? tvPlaylist : [
     { tipo: 'top_rank', id: 'default-rank', ordem: 1, volume: 0 },
     ...(modulosTv.includes('screensaver_mapa') ? [{ tipo: 'mapa', id: 'default-map', ordem: 2, volume: 0 }] : [])
@@ -652,14 +632,14 @@ export default function TV() {
     const renderMedia = () => {
       switch (slide.tipo) {
         case 'clima': return <WeatherSlide cidadeInput={unidadeData?.cidade_clima} />;
-        case 'top_rank': return <TopRankWidget unidadeId={selectedUnit as string} availableQueue={availableQueue} deliveringQueue={deliveringQueue} lastCalled={recentCall} />;
+        case 'top_rank': return <TopRankWidget unidadeId={user?.unidadeId || null} unidadeName={selectedUnit as string} availableQueue={availableQueue} deliveringQueue={deliveringQueue} lastCalled={recentCall} />;
         case 'imagem': return <img src={slide.url || ''} className="w-full h-full object-cover" />;
         case 'video': return <video src={slide.url || ''} loop className="w-full h-full object-cover" ref={el => { if (el) { el.volume = (slide.volume || 0) / 100; el.muted = !slide.volume || !isActive; if (isActive) el.play().catch(() => { }); else el.pause(); } }} />;
         case 'youtube': {
           const embedUrl = getYouTubeEmbedUrl(slide.url || '');
           if (!embedUrl) return (
             <div className="w-full h-full flex items-center justify-center bg-black text-white text-xl">
-              URL do YouTube inválida
+              URL do YouTube invÃ¡lida
             </div>
           );
           return (
@@ -698,7 +678,7 @@ export default function TV() {
 
     const media = renderMedia();
 
-    // Se exibir_fila_tv estiver ativo e não for o slide nativo de rank, mescla a fila lateral
+    // Se exibir_fila_tv estiver ativo e nÃ£o for o slide nativo de rank, mescla a fila lateral
     if (unidadeData?.exibir_fila_tv && slide.tipo !== 'top_rank') {
       return (
         <div className="w-full h-full bg-slate-950 flex text-slate-50 relative overflow-hidden">
@@ -723,8 +703,8 @@ export default function TV() {
       await updateMutation.mutateAsync({ id: e.id, data: { status: 'disponivel', fila_posicao: new Date().toISOString(), hora_saida: null } });
       const pos = availableQueue.length + 1;
       const whatsapp = (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes('whatsapp');
-      if (whatsapp && e.whatsapp_ativo !== false) await sendWhatsAppMessage(e.telefone, `Retorno confirmado! Posição ${pos}.`, { franquiaId: user?.franquiaId ?? null, unidadeId: null });
-      refetch(); refetchHistorico(); toast.success(`Retorno confirmado! Posição ${pos}.`);
+      if (whatsapp && e.whatsapp_ativo !== false) await sendWhatsAppMessage(e.telefone, `Retorno confirmado! PosiÃ§Ã£o ${pos}.`, { franquiaId: user?.franquiaId ?? null, unidadeId: null });
+      refetch(); refetchHistorico(); toast.success(`Retorno confirmado! PosiÃ§Ã£o ${pos}.`);
     } catch { toast.error('Erro ao retornar'); }
   };
 
@@ -733,7 +713,7 @@ export default function TV() {
       const now = new Date();
       let primeiroCheckin = e.primeiro_checkin;
 
-      // Se não tiver primeiro check-in, ou se for de um dia anterior, define agora
+      // Se nÃ£o tiver primeiro check-in, ou se for de um dia anterior, define agora
       if (!primeiroCheckin) {
         primeiroCheckin = now.toISOString();
       } else {
@@ -750,7 +730,7 @@ export default function TV() {
 
   const buildTvTexts = (nome: string, bag?: string, senha?: string) => {
     const prompts = (franquiaConfig?.config_pagamento as any)?.tv_prompts || {};
-    const c = (prompts.entrega_chamada || 'É a sua vez {nome}').replace('{nome}', nome);
+    const c = (prompts.entrega_chamada || 'Ã‰ a sua vez {nome}').replace('{nome}', nome);
     const b = (prompts.entrega_bag || 'Pegue a {bag}').replace('{bag}', bag || 'sua bag');
     const p = (prompts.pagamento_chamada || 'Senha {senha}\n{nome}...').replace('{nome}', nome).replace('{senha}', senha || '').replace('{unidade}', storeName);
     return { chamadaText: c, bagText: b, pagamentoText: p };
@@ -764,7 +744,7 @@ export default function TV() {
             <Volume2 className="w-16 h-16 text-white" />
           </div>
           <h1 className="text-4xl font-black mb-4">INICIAR TV</h1>
-          <p className="text-slate-400 text-lg max-w-md">Para permitir notificações de voz e sons, precisamos que você interaja com a página.</p>
+          <p className="text-slate-400 text-lg max-w-md">Para permitir notificaÃ§Ãµes de voz e sons, precisamos que vocÃª interaja com a pÃ¡gina.</p>
           <Button onClick={() => setInteractionNeeded(false)} size="lg" className="mt-8 px-12 h-16 text-xl font-bold bg-emerald-600 hover:bg-emerald-500 rounded-full">ATIVAR SOM E TV</Button>
         </div>
       )}
@@ -781,7 +761,7 @@ export default function TV() {
       />
       {tvPlaylist.length > 0 && <div className={`fixed inset-0 z-40 bg-black transition-opacity duration-1000 ${isIdle && !displayingCalled && !displayingPagamento ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>{renderPlaylistSlide(isIdle && !displayingCalled && !displayingPagamento)}</div>}
       <header className="flex items-center justify-between px-8 py-4 border-b border-border bg-card/50">
-        <div className="flex items-center gap-2 font-mono font-bold text-xl">🍕 {displayName} <span className="mx-2 text-border">|</span> <span className="text-muted-foreground">{storeName}</span></div>
+        <div className="flex items-center gap-2 font-mono font-bold text-xl">ðŸ• {displayName} <span className="mx-2 text-border">|</span> <span className="text-muted-foreground">{storeName}</span></div>
         <div className="flex items-center gap-4">
           <Button onClick={() => setCheckinOpen(true)} variant="outline" className="gap-2"><UserPlus className="w-5 h-5" /> Check-in</Button>
           <button onClick={() => setIsMuted(!isMuted)} className="p-3 rounded-lg bg-secondary">{isMuted ? <VolumeX className="w-6 h-6" /> : <Volume2 className="w-6 h-6" />}</button>
@@ -801,4 +781,5 @@ export default function TV() {
     </div>
   );
 }
+
 

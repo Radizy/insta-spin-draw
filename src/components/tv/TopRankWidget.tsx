@@ -1,55 +1,48 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchEntregadores, Unidade, Entregador } from '@/lib/api';
+import { fetchEntregadores, Unidade, Entregador, getExpedientePeriod } from '@/lib/api';
 import { Trophy, Zap, Star } from 'lucide-react';
 import { QueueSidebarWidget } from './QueueSidebarWidget';
 
 interface TopRankWidgetProps {
-    unidadeId: string;
+    unidadeId: string | null; // UUID
+    unidadeName?: string;    // Legacy Name (ITAQUA, POA, etc)
     availableQueue?: Entregador[];
     deliveringQueue?: Entregador[];
     lastCalled?: Entregador | null;
 }
 
-export function TopRankWidget({ unidadeId, availableQueue = [], deliveringQueue = [], lastCalled }: TopRankWidgetProps) {
-    // 1. Pegar período de expediente (Dia contábil de 12:00 até 11:59 do dia seguinte)
-    const getExpedientePeriod = () => {
-        const now = new Date();
-        const start = new Date(now);
-        const end = new Date(now);
-
-        if (now.getHours() < 12) {
-            start.setDate(start.getDate() - 1);
-            start.setHours(12, 0, 0, 0);
-            end.setHours(11, 59, 59, 999);
-        } else {
-            start.setHours(12, 0, 0, 0);
-            end.setDate(end.getDate() + 1);
-            end.setHours(11, 59, 59, 999);
-        }
-
-        return { dataInicio: start, dataFim: end };
-    };
-
+export function TopRankWidget({ unidadeId, unidadeName, availableQueue = [], deliveringQueue = [], lastCalled }: TopRankWidgetProps) {
+    // 1. Pegar período de expediente (Centralizado em api.ts)
     const { dataInicio, dataFim } = getExpedientePeriod();
 
     // 2. Fetch de Entregadores Válidos
     const { data: entregadores = [] } = useQuery({
-        queryKey: ['entregadores', unidadeId, 'top_rank'],
-        queryFn: () => fetchEntregadores({ unidade: unidadeId as Unidade }),
+        queryKey: ['entregadores', unidadeId || unidadeName, 'top_rank'],
+        queryFn: () => fetchEntregadores({ 
+            unidade_id: unidadeId,
+            unidade: unidadeName as Unidade 
+        }),
         refetchInterval: 300000,
     });
 
     // 3. Obter histórico do expediente
     const { data: historico = [] } = useQuery({
-        queryKey: ['historico-rank-widget', unidadeId, dataInicio.toISOString()],
+        queryKey: ['historico-rank-widget', unidadeId || unidadeName, dataInicio.toISOString()],
         queryFn: async () => {
-            const { data, error } = await supabase
+            let query = supabase
                 .from('historico_entregas')
                 .select('entregador_id, hora_saida, hora_retorno, created_at')
-                .eq('unidade', unidadeId)
                 .gte('hora_saida', dataInicio.toISOString())
                 .lte('hora_saida', dataFim.toISOString());
+
+            if (unidadeId) {
+                query = query.eq('unidade_id', unidadeId);
+            } else if (unidadeName) {
+                query = query.eq('unidade', unidadeName);
+            }
+
+            const { data, error } = await query;
 
             if (error) throw error;
             return data;
