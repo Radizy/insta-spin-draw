@@ -19,6 +19,32 @@ import NotFound from "./pages/NotFound";
 import SuperAdmin from "./pages/SuperAdmin";
 import FilaPagamento from "./pages/FilaPagamento";
 
+import { ScreenShareProvider, useScreenShare } from "./contexts/ScreenShareContext";
+import { MonitorPlay, X } from "lucide-react";
+
+function ActiveShareBanner() {
+  const { isBroadcasting, connectedTVs, stopScreenShare } = useScreenShare();
+  
+  if (!isBroadcasting) return null;
+  
+  return (
+    <div className="fixed bottom-4 right-4 z-50 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-3 rounded-xl shadow-lg border border-emerald-400 flex items-center gap-3 animate-bounce">
+      <MonitorPlay className="w-5 h-5 animate-pulse" />
+      <div className="text-xs font-semibold select-none">
+        <p className="font-bold text-white">Transmitindo Tela</p>
+        <p className="opacity-90">{connectedTVs} TV(s) conectadas</p>
+      </div>
+      <button 
+        onClick={stopScreenShare}
+        className="ml-2 bg-emerald-800 hover:bg-emerald-700 text-white rounded-full p-1 transition-colors"
+        title="Parar Transmissão"
+      >
+        <X className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -33,10 +59,12 @@ const App = () => (
     <AuthProvider>
       <TrainingProvider>
         <UnitProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner position="top-right" theme="dark" />
-            <BrowserRouter>
+          <ScreenShareProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner position="top-right" theme="dark" />
+              <ActiveShareBanner />
+              <BrowserRouter>
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/login" element={<Login />} />
@@ -87,6 +115,7 @@ const App = () => (
               </Routes>
             </BrowserRouter>
           </TooltipProvider>
+          </ScreenShareProvider>
         </UnitProvider>
       </TrainingProvider>
     </AuthProvider>

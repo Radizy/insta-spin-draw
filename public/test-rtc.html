@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>FilaLab - Diagnóstico WebRTC</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0f172a;
+      color: #cbd5e1;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+    h1 { color: #f8fafc; }
+    button {
+      background: #10b981;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-bottom: 20px;
+    }
+    button:hover { background: #059669; }
+    pre {
+      background: #020617;
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid #1e293b;
+      overflow-x: auto;
+      font-family: monospace;
+      white-space: pre-wrap;
+    }
+    .success { color: #34d399; }
+    .error { color: #f87171; }
+    .info { color: #60a5fa; }
+  </style>
+</head>
+<body>
+  <h1>FilaLab - Diagnóstico de Conexão WebRTC (STUN/TURN)</h1>
+  <p>Esta página testa se o seu navegador consegue se conectar aos servidores STUN e TURN configurados e coletar candidatos de rede (ICE Candidates).</p>
+  
+  <button id="btn-test">Iniciar Teste de Rede</button>
+  
+  <div id="status" class="info">Clique no botão para iniciar o teste.</div>
+  
+  <h2>Log de Coleta:</h2>
+  <pre id="output">Aguardando início...</pre>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const customUrl = params.get('url');
+    const customUser = params.get('username');
+    const customCred = params.get('credential');
+
+    const iceServers = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: 'stun:stun4.l.google.com:19302' }
+    ];
+
+    if (customUrl) {
+      const urls = customUrl.split(',');
+      urls.forEach(url => {
+        iceServers.push({
+          urls: url.trim(),
+          username: customUser || '',
+          credential: customCred || ''
+        });
+      });
+    } else {
+      iceServers.push(
+        { urls: 'stun:openrelay.metered.ca:80' },
+        { urls: 'stun:openrelay.metered.ca:443' },
+        {
+          urls: 'turn:openrelay.metered.ca:80',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: 'turn:openrelay.metered.ca:443',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: 'turns:openrelay.metered.ca:443',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: 'turns:openrelay.metered.ca:443?transport=tcp',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        }
+      );
+    }
+
+    const configuration = {
+      iceServers: iceServers,
+      iceCandidatePoolSize: 10
+    };
+
+    const btn = document.getElementById('btn-test');
+    const output = document.getElementById('output');
+    const statusDiv = document.getElementById('status');
+
+    btn.addEventListener('click', async () => {
+      output.textContent = '';
+      statusDiv.textContent = 'Coletando candidatos...';
+      statusDiv.className = 'info';
+      
+      log('Iniciando RTCPeerConnection...');
+      try {
+        const pc = new RTCPeerConnection(configuration);
+        
+        // Cria canal de dados para forçar coleta
+        pc.createDataChannel('test');
+        
+        let hasSTUN = false;
+        let hasTURN = false;
+
+        pc.onicecandidate = (e) => {
+          if (e.candidate) {
+            const parts = e.candidate.candidate.split(' ');
+            const type = parts[7]; // host, srflx, relay
+            const ip = parts[4];
+            const port = parts[5];
+            const proto = parts[2];
+
+            if (type === 'srflx') hasSTUN = true;
+            if (type === 'relay') hasTURN = true;
+
+            log(`Candidato encontrado: tipo=${type.toUpperCase()} | IP=${ip} | Porta=${port} | Protocolo=${proto}`, 'success');
+          } else {
+            log('Fim da coleta de candidatos.');
+            statusDiv.textContent = 'Teste concluído!';
+            if (hasTURN) {
+              statusDiv.textContent += ' (Suporte a TURN [OK] - Conexão entre lojas deve funcionar)';
+              statusDiv.className = 'success';
+            } else {
+              statusDiv.textContent += ' (Falha no TURN - Conexão interlojas será bloqueada!)';
+              statusDiv.className = 'error';
+            }
+          }
+        };
+
+        pc.onicecandidateerror = (e) => {
+          log(`[Erro ICE] Server: ${e.url} | Código: ${e.errorCode} | Erro: ${e.errorText}`, 'error');
+        };
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        log('Offer criado e configurado localmente.');
+      } catch (err) {
+        log(`Erro ao criar peer connection: ${err.message}`, 'error');
+        statusDiv.textContent = 'Erro no teste.';
+        statusDiv.className = 'error';
+      }
+    });
+
+    function log(msg, className = '') {
+      const span = document.createElement('span');
+      span.className = className;
+      span.textContent = msg + '\n';
+      output.appendChild(span);
+    }
+  </script>
+</body>
+</html>

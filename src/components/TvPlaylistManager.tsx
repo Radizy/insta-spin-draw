@@ -8,9 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
-import { Tv, Cloud, Youtube, Image, Video, Plus, Trash2, GripVertical, Trophy, MapPin } from 'lucide-react';
+import { Tv, Cloud, Youtube, Image, Video, Plus, Trash2, GripVertical, Trophy, MapPin, MonitorUp } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { MediaGalleryModal } from './MediaGalleryModal';
+import { ScreenShareTransmitter } from './tv/ScreenShareTransmitter';
 
 interface TvPlaylistManagerProps {
     franquiaId: string;
@@ -19,7 +20,7 @@ interface TvPlaylistManagerProps {
 
 interface PlaylistItem {
     id: string;
-    tipo: 'imagem' | 'video' | 'youtube' | 'clima' | 'top_rank' | 'mapa';
+    tipo: 'imagem' | 'video' | 'youtube' | 'clima' | 'top_rank' | 'mapa' | 'transmissao';
     url: string | null;
     duracao: number;
     volume: number;
@@ -86,7 +87,7 @@ export function TvPlaylistManager({ franquiaId, unidadeId }: TvPlaylistManagerPr
     });
 
     const [novoItem, setNovoItem] = useState<{
-        tipo: 'imagem' | 'video' | 'youtube' | 'clima' | 'top_rank' | 'mapa';
+        tipo: 'imagem' | 'video' | 'youtube' | 'clima' | 'top_rank' | 'mapa' | 'transmissao';
         url: string;
         duracao: number;
         volume: number;
@@ -114,7 +115,7 @@ export function TvPlaylistManager({ franquiaId, unidadeId }: TvPlaylistManagerPr
             const { error } = await supabase.from('tv_playlist').insert({
                 unidade_id: unidadeData.id,
                 tipo: novoItem.tipo,
-                url: (novoItem.tipo === 'clima' || novoItem.tipo === 'top_rank' || novoItem.tipo === 'mapa') ? null : novoItem.url,
+                url: (novoItem.tipo === 'clima' || novoItem.tipo === 'top_rank' || novoItem.tipo === 'mapa' || novoItem.tipo === 'transmissao') ? null : novoItem.url,
                 duracao: novoItem.duracao,
                 volume: novoItem.volume || 0,
                 ordem: playlist.length,
@@ -185,13 +186,14 @@ export function TvPlaylistManager({ franquiaId, unidadeId }: TvPlaylistManagerPr
         reorderMutation.mutate(updatedOrder);
     };
 
-    const IconMap = {
-        imagem: Image,
-        video: Video,
-        youtube: Youtube,
+    const IconMap: Record<string, any> = {
         clima: Cloud,
+        imagem: Image,
+        youtube: Youtube,
+        video: Video,
         top_rank: Trophy,
         mapa: MapPin,
+        transmissao: MonitorUp,
     };
 
     return (
@@ -257,9 +259,10 @@ export function TvPlaylistManager({ franquiaId, unidadeId }: TvPlaylistManagerPr
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="clima">Widget de Clima (Previsão)</SelectItem>
-                            <SelectItem value="top_rank">Ranking Top 5 (Motoboys)</SelectItem>
+                            <SelectItem value="clima">Clima e Previsão Local</SelectItem>
+                            <SelectItem value="top_rank">Ranking de Entregadores do Mês</SelectItem>
                             <SelectItem value="mapa">Mapa Radar de Entregadores</SelectItem>
+                            <SelectItem value="transmissao">Transmissão Ao Vivo (WebRTC)</SelectItem>
                             <SelectItem value="imagem">Imagem (URL)</SelectItem>
                             <SelectItem value="youtube">YouTube (Vídeo ou Playlist)</SelectItem>
                             <SelectItem value="video">Vídeo Direto (.mp4 URL)</SelectItem>
@@ -268,11 +271,11 @@ export function TvPlaylistManager({ franquiaId, unidadeId }: TvPlaylistManagerPr
                 </div>
 
                 <div className="md:col-span-5 space-y-2">
-                    <Label>URL da Mídia {(novoItem.tipo === 'clima' || novoItem.tipo === 'top_rank' || novoItem.tipo === 'mapa') ? '(Não necessário)' : ''}</Label>
+                    <Label>URL da Mídia {(novoItem.tipo === 'clima' || novoItem.tipo === 'top_rank' || novoItem.tipo === 'mapa' || novoItem.tipo === 'transmissao') ? '(Não necessário)' : ''}</Label>
                     <div className="flex gap-2">
                         <Input
-                            placeholder={(novoItem.tipo === 'clima' || novoItem.tipo === 'top_rank' || novoItem.tipo === 'mapa') ? "Puxará automático pelo sistema" : "https://..."}
-                            disabled={novoItem.tipo === 'clima' || novoItem.tipo === 'top_rank' || novoItem.tipo === 'mapa'}
+                            placeholder={(novoItem.tipo === 'clima' || novoItem.tipo === 'top_rank' || novoItem.tipo === 'mapa' || novoItem.tipo === 'transmissao') ? "Puxará automático pelo sistema" : "https://..."}
+                            disabled={novoItem.tipo === 'clima' || novoItem.tipo === 'top_rank' || novoItem.tipo === 'mapa' || novoItem.tipo === 'transmissao'}
                             value={novoItem.url}
                             onChange={(e) => setNovoItem({ ...novoItem, url: e.target.value })}
                         />
@@ -304,7 +307,7 @@ export function TvPlaylistManager({ franquiaId, unidadeId }: TvPlaylistManagerPr
                 <div className="md:col-span-2">
                     <Button
                         className="w-full gap-2"
-                        disabled={addItemMutation.isPending || ((novoItem.tipo !== 'clima' && novoItem.tipo !== 'top_rank' && novoItem.tipo !== 'mapa') && !novoItem.url)}
+                        disabled={addItemMutation.isPending || ((novoItem.tipo !== 'clima' && novoItem.tipo !== 'top_rank' && novoItem.tipo !== 'mapa' && novoItem.tipo !== 'transmissao') && !novoItem.url)}
                         onClick={() => addItemMutation.mutate()}
                     >
                         <Plus className="w-4 h-4" />
@@ -419,6 +422,8 @@ export function TvPlaylistManager({ franquiaId, unidadeId }: TvPlaylistManagerPr
                 )}
             </div>
 
+            {/* Bloco 4: Transmissor */}
+            <ScreenShareTransmitter />
         </div>
     );
 }

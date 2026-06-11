@@ -17,7 +17,7 @@ import {
   SenhaPagamento,
   fetchSenhasPagamento,
 } from '@/lib/api';
-import { User, Volume2, VolumeX, RotateCcw, Package, UserPlus, Trophy } from 'lucide-react';
+import { User, Volume2, VolumeX, RotateCcw, Package, UserPlus, Trophy, MonitorPlay } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -29,6 +29,7 @@ import { TopRankWidget } from '@/components/tv/TopRankWidget';
 import { MapScreensaverWidget } from '@/components/tv/MapScreensaverWidget';
 import { QueueSidebarWidget } from '@/components/tv/QueueSidebarWidget';
 import { YouTubePlayer } from '@/components/tv/YouTubePlayer';
+import { ScreenShareReceiver } from '@/components/tv/ScreenShareReceiver';
 import { supabase } from '@/integrations/supabase/client';
 
 const DEFAULT_CALL_AUDIO_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
@@ -77,6 +78,14 @@ export default function TV() {
   const [isIdle, setIsIdle] = useState(false);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [interactionNeeded, setInteractionNeeded] = useState(true);
+
+  // WebRTC Screen Share State
+  const [shareStream, setShareStream] = useState<MediaStream | null>(null);
+  const [shareCrop, setShareCrop] = useState({ top: 0, bottom: 0, left: 0, right: 0 });
+  const [shareFit, setShareFit] = useState<'contain' | 'cover'>('contain');
+  const [shareVolume, setShareVolume] = useState(50);
+
+
 
   // Ref Hooks
   const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -437,36 +446,47 @@ export default function TV() {
     return () => { supabase.removeChannel(channel); };
   }, [selectedUnit, triggerCall]);
 
+  const entregadoresRef = useRef(entregadores);
+  const triggerCallRef = useRef(triggerCall);
+
+  useEffect(() => {
+    entregadoresRef.current = entregadores;
+  }, [entregadores]);
+
+  useEffect(() => {
+    triggerCallRef.current = triggerCall;
+  }, [triggerCall]);
+
   useEffect(() => {
     if (!selectedUnit) return;
 
-    console.log(`[TV] Inicializando canal de broadcast estÃ¡vel para unidade ${selectedUnit}`);
+    console.log(`[TV] Inicializando canal de broadcast est\u00E1vel para unidade ${selectedUnit}`);
     const channel = supabase.channel(`tv-calls-broadcast-${selectedUnit}`);
 
     channel
       .on('broadcast', { event: 'tv-call-retry' }, (payload: any) => {
-        console.log('[TV] Sinal tv-call-retry recebido via canal estÃ¡vel:', payload);
+        console.log('[TV] Sinal tv-call-retry recebido via canal est\u00E1vel:', payload);
         const { entregadorId } = payload.payload;
-        const e = entregadores.find((ent: any) => ent.id === entregadorId);
+        const e = entregadoresRef.current.find((ent: any) => ent.id === entregadorId);
         if (e) {
           const hasBebida = localStorage.getItem(`bebida_${e.id}`) === 'true';
-          triggerCall(e, hasBebida, true);
+          triggerCallRef.current(e, hasBebida, true);
           toast.info(`Re-tentativa de chamada para ${e.nome}`);
         }
       })
       .subscribe((status: any) => {
-        console.log(`[TV] Status da subscriÃ§Ã£o de broadcast: ${status}`);
+        console.log(`[TV] Status da subscri\u00E7\u00E3o de broadcast: ${status}`);
         if (status === 'SUBSCRIBED') {
           broadcastChannelRef.current = channel;
         }
       });
 
     return () => {
-      console.log('[TV] Removendo canal de broadcast estÃ¡vel');
+      console.log('[TV] Removendo canal de broadcast est\u00E1vel');
       supabase.removeChannel(channel);
       broadcastChannelRef.current = null;
     };
-  }, [selectedUnit, entregadores, triggerCall]);
+  }, [selectedUnit]);
 
   // Limpador de Cache (localStorage) DiÃ¡rio
   useEffect(() => {
@@ -607,14 +627,55 @@ export default function TV() {
             />
           );
         }
+        case 'transmissao': {
+          if (!shareStream) {
+            return (
+              <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950 text-slate-500">
+                <MonitorPlay className="w-24 h-24 mb-4 opacity-30 animate-pulse" />
+                <h3 className="text-2xl font-semibold opacity-50">Conectando Transmissão...</h3>
+              </div>
+            );
+          }
+          return (
+            <div className="absolute inset-0 overflow-hidden bg-black w-full h-full">
+              <video 
+                ref={el => {
+                  if (el) {
+                    if (el.srcObject !== shareStream) {
+                      console.log('[TV] Associando novo stream ao elemento de vídeo');
+                      el.srcObject = shareStream;
+                    }
+                    el.volume = shareVolume / 100;
+                    if (isActive) {
+                      el.play().catch(e => console.error('[TV] Play error', e));
+                    } else {
+                      el.pause();
+                    }
+                  }
+                }}
+                className="absolute"
+                style={{
+                  width: `${100 / (1 - (shareCrop.left + shareCrop.right) / 100)}%`,
+                  height: `${100 / (1 - (shareCrop.top + shareCrop.bottom) / 100)}%`,
+                  left: `${-shareCrop.left * (100 / (100 - shareCrop.left - shareCrop.right))}%`,
+                  top: `${-shareCrop.top * (100 / (100 - shareCrop.top - shareCrop.bottom))}%`,
+                  objectFit: shareFit === 'cover' ? 'cover' : 'fill'
+                }}
+                playsInline
+                muted={false}
+                autoPlay
+              />
+            </div>
+          );
+        }
         default: return null;
       }
     };
 
-    const media = renderMedia();
+    let media = renderMedia();
 
     // Se exibir_fila_tv estiver ativo e nÃ£o for o slide nativo de rank, mescla a fila lateral
-    if (unidadeData?.exibir_fila_tv && slide.tipo !== 'top_rank') {
+    if (unidadeData?.exibir_fila_tv && (slide.tipo === 'transmissao' || slide.tipo !== 'top_rank')) {
       return (
         <div className="w-full h-full bg-slate-950 flex text-slate-50 relative overflow-hidden">
           <div className="flex-1 overflow-hidden relative min-w-0 min-h-0">
@@ -713,6 +774,15 @@ export default function TV() {
         </div>
       </div>
       <CheckinModal open={checkinOpen} onOpenChange={setCheckinOpen} entregadores={entregadores} onCheckin={handleCheckin} isLoading={false} />
+      
+      {/* Headless WebRTC receiver kept permanently mounted in the background */}
+      <ScreenShareReceiver
+        isActive={isIdle && !displayingCalled && !displayingPagamento && activePlaylist[currentSlideIndex]?.tipo === 'transmissao'}
+        onStreamChange={setShareStream}
+        onCropChange={setShareCrop}
+        onFitChange={setShareFit}
+        onVolumeChange={setShareVolume}
+      />
     </div>
   );
 }

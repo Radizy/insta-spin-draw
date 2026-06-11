@@ -19,7 +19,9 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
 // Helper function to inject the JWT to all future supabase requests
 export const setAuthToken = (token: string | null) => {
   if (token) {
-    supabase.realtime.setAuth(token);
+    // Note: Comentado para evitar JwtSignatureError quando o token JWT customizado
+    // não coincide com a assinatura padrão do Supabase Realtime.
+    // supabase.realtime.setAuth(token);
     // Para as requisições normais (REST), definimos o header globalmente
     // @ts-ignore - Supabase JS allows overriding headers on the fly via global config
     supabase.rest.headers['Authorization'] = `Bearer ${token}`;
