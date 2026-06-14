@@ -24,8 +24,11 @@ Os 5 módulos principais são:
 Esses módulos podem ser geridos livremente pelo painel Super Admin na visualização e edição de uma franquia.
 
 ### Versão do Sistema
-- **Versão Atual**: `2.7.1` (Maio 2026)
+- **Versão Atual**: `2.8.0` (Junho 2026)
 - **Últimas Implementações**:
+    - **Screensaver de Transmissão via WebRTC (SaaS Screen Sharing)**: Novo tipo de mídia `transmissao` adicionado ao Screensaver da TV. Criação dos componentes `ScreenShareReceiver.tsx`, `ScreenShareTransmitter.tsx` e do contexto `ScreenShareContext.tsx` utilizando Supabase como canal de Signaling em tempo real para os Peers WebRTC. Acompanha script de instalação do coTURN (`install_coturn.sh`) e página de teste local `/public/test-rtc.html`.
+    - **Refatoração do Modal de Controle de Maquininhas (`MaquininhaControlModal.tsx`)**: Transição para layout flexbox nas colunas de Motoboys e Maquininhas no modal de controle, garantindo o scroll independente de cada lista e a correta centralização dos loaders e estados vazios na aba de devolução.
+    - **Sincronização de Check-in Diário na TV (`TV.tsx`)**: Unificação e reset diário sincronizado dos campos `primeiro_checkin` (screensaver) e `checkin_diario` (auditoria administrativa) na entrada da fila.
     - **Vozes mais realistas com Google TTS**: Agora é possível gerar vozes mais realistas usando o Google TTS (temporariamente gratuito).
     - **Geração de voz do motoboy inteligente**: O botão "Gerar Voz" no cadastro do motoboy agora detecta automaticamente se a franquia usa Google ou ElevenLabs.
     - **Self-Service de WhatsApp (Evolution API)**: Painel de Integrações atualizado para permitir que o próprio Admin da Franquia conecte e gere o QR Code de seu dispositivo WhatsApp, utilizando credenciais padrão via variáveis de ambiente (`VITE_EVOLUTION_URL`), eliminando a necessidade de configuração manual pelo Super Admin.
@@ -606,7 +609,7 @@ Armazena a fila de exibição (Screensaver) do módulo de TV Premium de cada uni
 CREATE TABLE tv_playlist (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   unidade_id UUID NOT NULL REFERENCES unidades(id) ON DELETE CASCADE,
-  tipo TEXT NOT NULL, -- Constraint ATUALIZADA ('imagem', 'video', 'youtube', 'mapa', 'aviso', 'noticia', 'clima', 'top_rank')
+  tipo TEXT NOT NULL, -- Constraint ATUALIZADA ('imagem', 'video', 'youtube', 'mapa', 'aviso', 'noticia', 'clima', 'top_rank', 'transmissao')
   url TEXT,
   duracao INTEGER NOT NULL DEFAULT 15,
   volume INTEGER DEFAULT 0,
@@ -1836,6 +1839,18 @@ ORDER BY valor_final DESC;
 
 ## 📝 CHANGELOG
 
+### v2.8.0 (2026-06-14)
+- ✅ **Screensaver de Transmissão via WebRTC (SaaS Screen Sharing)**:
+    - Novo tipo de mídia `transmissao` adicionado ao Screensaver da TV.
+    - Criação dos componentes `ScreenShareReceiver.tsx`, `ScreenShareTransmitter.tsx` e do contexto `ScreenShareContext.tsx` utilizando Supabase como canal de Signaling em tempo real para os Peers WebRTC.
+    - Integração com servidores STUN/TURN (script de instalação `install_coturn.sh` incluído) para garantir conectividade de rede atrás de NATs simétricos.
+    - Página de diagnóstico local `/public/test-rtc.html` criada para testar conectividade e handshake WebRTC.
+- ✅ **Refatoração Completa do Modal de Controle de Maquininhas (`MaquininhaControlModal.tsx`)**:
+    - Alteração do layout de grid-cols para flexbox nas colunas de Motoboys Elegíveis e Maquininhas Livres, garantindo o scroll independente de cada lista sem quebrar a proporção do modal.
+    - Ajuste do contêiner de scroll da aba "Devolver" para manter os estados de carregamento (Loader) e vazio (CheckCircle) centralizados na tela, em vez de ficarem restritos à área de rolagem.
+- ✅ **Lógica Unificada de Check-in Diário na TV (`TV.tsx`)**:
+    - Sincronização dos campos `primeiro_checkin` (usado para o cálculo do screensaver) e `checkin_diario` (usado para controle administrativo de check-in diário) na função `handleCheckin` da TV, resetando-os automaticamente na primeira entrada do dia.
+
 ### v2.7.0 (2026-05-11)
 - ✅ **Aesthetic Refactor (Glassmorphism):** Refatoração estética profunda em todas as páginas do sistema (`Index`, `Login`, `Register`, `Roteirista`, `Config`, `FilaPagamento`, `MeuLugar`, `Historico`, `SuperAdmin`), adotando a linguagem visual premium *Glassmorphism* com tipografia de alto contraste e animações de estado.
 - ✅ **Plano de Automação Sisfood Backend:** Criação do plano arquitetural (`SISFOOD_AUTOMATION_PLAN.md`) para migração da baixa de pedidos do Tampermonkey (Client-Side) para Supabase Edge Functions (Server-Side).
@@ -1879,5 +1894,5 @@ ORDER BY valor_final DESC;
 
 **FIM DA DOCUMENTAÇÃO**
 
-*Este documento foi atualizado em 2026-05-11.*  
+*Este documento foi atualizado em 2026-06-14.*  
 *Todos os dados cadastrados, estruturas de tabelas, políticas RLS e funcionalidades foram extraídos diretamente do banco de dados e código-fonte.*
