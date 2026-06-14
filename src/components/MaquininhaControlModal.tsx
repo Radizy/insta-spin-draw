@@ -39,6 +39,7 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
     const [activeTab, setActiveTab] = useState('atrelar');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedMotoboyId, setSelectedMotoboyId] = useState<string | null>(null);
+    const [devolvingIds, setDevolvingIds] = useState<string[]>([]);
 
     // Queries
     const { data: entregadores = [], isLoading: isLoadingEntregadores } = useQuery({
@@ -103,9 +104,10 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
     });
 
     const vinculosFiltrados = vinculosAtivos.filter(v => {
+        const isNotDevolving = !devolvingIds.includes(v.id);
         const matchesSearch = v.entregador?.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
             v.maquininha?.nome.toLowerCase().includes(searchTerm.toLowerCase());
-        return matchesSearch;
+        return isNotDevolving && matchesSearch;
     });
 
     const formatUsageTime = (startTime: string) => {
@@ -183,7 +185,7 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                             )}
                         </div>
 
-                        <TabsContent value="atrelar" className="flex-1 w-full h-full m-0 min-h-0 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <TabsContent value="atrelar" className="flex-1 w-full h-full m-0 min-h-0 data-[state=active]:flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
                             <div className="flex flex-col md:flex-row gap-6 flex-1 w-full h-full min-h-0">
                                 {/* Coluna Motoboys */}
                                 <div className="flex-1 w-full h-full flex flex-col min-h-0 bg-card/40 rounded-2xl border border-border/50 overflow-hidden shadow-sm">
@@ -274,7 +276,7 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                                                                 <Button
                                                                     size="sm"
                                                                     variant={selectedMotoboyId ? "default" : "secondary"}
-                                                                    disabled={!selectedMotoboyId}
+                                                                    disabled={!selectedMotoboyId || atrelarMutation.isPending}
                                                                     className={`h-9 px-4 rounded-lg font-medium transition-all ${!selectedMotoboyId ? 'opacity-50' : 'shadow-md shadow-primary/20'}`}
                                                                     onClick={() => {
                                                                         if (!selectedMotoboyId) return;
@@ -293,7 +295,9 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                                                                         setSelectedMotoboyId(null);
                                                                     }}
                                                                 >
-                                                                    {selectedMotoboyId ? 'Atrelar' : 'Selecione um motoboy...'}
+                                                                    {atrelarMutation.isPending && atrelarMutation.variables?.maquininha_id === machine.id ? (
+                                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                                    ) : 'Atrelar'}
                                                                 </Button>
                                                             </div>
                                                         </div>
@@ -306,7 +310,7 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                             </div>
                         </TabsContent>
 
-                        <TabsContent value="devolver" className="flex-1 w-full h-full m-0 min-h-0 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <TabsContent value="devolver" className="flex-1 w-full h-full m-0 min-h-0 data-[state=active]:flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
                             {isLoadingVinculos ? (
                                 <div className="flex items-center justify-center py-20">
                                     <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -359,8 +363,10 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                                                             variant="default"
                                                             size="lg"
                                                             className="h-14 px-8 rounded-xl font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95 gap-3"
-                                                            disabled={devolverMutation.isPending}
+                                                            disabled={devolvingIds.includes(vinculo.id)}
                                                             onClick={() => {
+                                                                const vinculoId = vinculo.id;
+                                                                setDevolvingIds(prev => [...prev, vinculoId]);
                                                                 devolverMutation.mutate({
                                                                     vinculo_id: vinculo.id,
                                                                     maquininha_id: vinculo.maquininha_id,
@@ -368,10 +374,17 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                                                                     unidade_nome: selectedUnit,
                                                                     motoboy_nome: vinculo.entregador?.nome || '',
                                                                     maquininha_nome: vinculo.maquininha?.nome || ''
+                                                                }, {
+                                                                    onSuccess: () => {
+                                                                        setDevolvingIds(prev => prev.filter(id => id !== vinculoId));
+                                                                    },
+                                                                    onError: () => {
+                                                                        setDevolvingIds(prev => prev.filter(id => id !== vinculoId));
+                                                                    }
                                                                 });
                                                             }}
                                                         >
-                                                            {devolverMutation.isPending ? (
+                                                            {devolvingIds.includes(vinculo.id) ? (
                                                                 <Loader2 className="w-5 h-5 animate-spin" />
                                                             ) : (
                                                                 <ArrowRightLeft className="w-5 h-5 rotate-90 sm:rotate-0" />
