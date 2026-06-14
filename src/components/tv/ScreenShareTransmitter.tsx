@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { MonitorUp, MonitorOff, Users, RefreshCw, Volume2 } from 'lucide-react';
 import { useScreenShare } from '@/contexts/ScreenShareContext';
@@ -25,6 +25,86 @@ export function ScreenShareTransmitter() {
     containerRef,
     previewVideoRef
   } = useScreenShare();
+
+  const [measuredFps, setMeasuredFps] = useState<number | null>(null);
+  const [streamSettings, setStreamSettings] = useState<{ width?: number; height?: number; frameRate?: number } | null>(null);
+
+  // Monitora as configurações do track de vídeo (Resolução e FPS nominal)
+  useEffect(() => {
+    if (stream) {
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack) {
+        const updateSettings = () => {
+          const settings = videoTrack.getSettings();
+          setStreamSettings({
+            width: settings.width,
+            height: settings.height,
+            frameRate: settings.frameRate
+          });
+        };
+        
+        updateSettings();
+        
+        // Alguns navegadores atualizam as configurações dinamicamente se o track mudar
+        videoTrack.addEventListener('configurationchange', updateSettings);
+        return () => {
+          videoTrack.removeEventListener('configurationchange', updateSettings);
+        };
+      }
+    } else {
+      setStreamSettings(null);
+    }
+  }, [stream]);
+
+  // Mede o FPS real renderizado no elemento de vídeo de preview
+  useEffect(() => {
+    const videoEl = previewVideoRef.current;
+    if (!videoEl || !showPreview || !stream) {
+      setMeasuredFps(null);
+      return;
+    }
+
+    let frameCount = 0;
+    let lastTime = performance.now();
+    let animationFrameId: number;
+    let callbackId: number;
+
+    const updateFps = () => {
+      const now = performance.now();
+      frameCount++;
+      const elapsed = now - lastTime;
+      
+      if (elapsed >= 1000) {
+        const fps = Math.round((frameCount * 1000) / elapsed);
+        setMeasuredFps(fps);
+        frameCount = 0;
+        lastTime = now;
+      }
+    };
+
+    if ('requestVideoFrameCallback' in videoEl) {
+      const doCallback = () => {
+        updateFps();
+        callbackId = (videoEl as any).requestVideoFrameCallback(doCallback);
+      };
+      callbackId = (videoEl as any).requestVideoFrameCallback(doCallback);
+    } else {
+      const loop = () => {
+        updateFps();
+        animationFrameId = requestAnimationFrame(loop);
+      };
+      animationFrameId = requestAnimationFrame(loop);
+    }
+
+    return () => {
+      if (callbackId && 'cancelVideoFrameCallback' in videoEl) {
+        (videoEl as any).cancelVideoFrameCallback(callbackId);
+      }
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+    };
+  }, [stream, showPreview, previewVideoRef]);
 
   // Re-bind the stream to the preview video element on mount / state change
   useEffect(() => {
@@ -116,6 +196,21 @@ export function ScreenShareTransmitter() {
                   ref={containerRef}
                   className="relative w-full max-w-md aspect-video bg-black rounded-xl overflow-hidden border border-border shadow-md select-none"
                 >
+                  {/* HUD de Estatísticas (FPS & Resolução) */}
+                  <div className="absolute top-3 left-3 bg-black/80 backdrop-blur-md text-white text-[11px] font-mono py-1.5 px-2.5 rounded-lg border border-white/10 flex items-center gap-2 select-none z-50 shadow-lg">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="font-bold">
+                      {streamSettings?.width && streamSettings?.height 
+                        ? `${streamSettings.width}x${streamSettings.height}` 
+                        : 'Resolvendo...'}
+                    </span>
+                    <span className="text-white/20">|</span>
+                    <span>
+                      FPS Preview: <span className="font-bold text-emerald-400">{measuredFps ?? '--'}</span>
+                      {streamSettings?.frameRate && ` (Nominal: ${Math.round(streamSettings.frameRate)})`}
+                    </span>
+                  </div>
+
                   {/* Video rendered standard (un-cropped) */}
                   <video 
                     ref={previewVideoRef} 

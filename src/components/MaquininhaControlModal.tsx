@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Dialog,
@@ -40,6 +40,7 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedMotoboyId, setSelectedMotoboyId] = useState<string | null>(null);
     const [devolvingIds, setDevolvingIds] = useState<string[]>([]);
+    const queueRef = useRef<Promise<any>>(Promise.resolve());
 
     // Queries
     const { data: entregadores = [], isLoading: isLoadingEntregadores } = useQuery({
@@ -86,6 +87,33 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
         }
     });
 
+    const handleDevolverSequencial = (vinculo: any) => {
+        const vinculoId = vinculo.id;
+        
+        // Adiciona ao estado local de devolução em andamento (mostra spinner)
+        setDevolvingIds(prev => [...prev, vinculoId]);
+        
+        // Executa a mutação sequencialmente
+        queueRef.current = queueRef.current
+            .then(async () => {
+                await devolverMutation.mutateAsync({
+                    vinculo_id: vinculo.id,
+                    maquininha_id: vinculo.maquininha_id,
+                    unidade_id: user!.unidadeId!,
+                    unidade_nome: selectedUnit,
+                    motoboy_nome: vinculo.entregador?.nome || '',
+                    maquininha_nome: vinculo.maquininha?.nome || ''
+                });
+            })
+            .catch((err) => {
+                console.error('Erro ao processar devolução na fila:', err);
+            })
+            .finally(() => {
+                // Remove do estado local após concluir
+                setDevolvingIds(prev => prev.filter(id => id !== vinculoId));
+            });
+    };
+
     // Filtros
     const hoje = new Date().toISOString().split('T')[0];
 
@@ -104,10 +132,9 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
     });
 
     const vinculosFiltrados = vinculosAtivos.filter(v => {
-        const isNotDevolving = !devolvingIds.includes(v.id);
         const matchesSearch = v.entregador?.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
             v.maquininha?.nome.toLowerCase().includes(searchTerm.toLowerCase());
-        return isNotDevolving && matchesSearch;
+        return matchesSearch;
     });
 
     const formatUsageTime = (startTime: string) => {
@@ -364,25 +391,7 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                                                             size="lg"
                                                             className="h-14 px-8 rounded-xl font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95 gap-3"
                                                             disabled={devolvingIds.includes(vinculo.id)}
-                                                            onClick={() => {
-                                                                const vinculoId = vinculo.id;
-                                                                setDevolvingIds(prev => [...prev, vinculoId]);
-                                                                devolverMutation.mutate({
-                                                                    vinculo_id: vinculo.id,
-                                                                    maquininha_id: vinculo.maquininha_id,
-                                                                    unidade_id: user!.unidadeId!,
-                                                                    unidade_nome: selectedUnit,
-                                                                    motoboy_nome: vinculo.entregador?.nome || '',
-                                                                    maquininha_nome: vinculo.maquininha?.nome || ''
-                                                                }, {
-                                                                    onSuccess: () => {
-                                                                        setDevolvingIds(prev => prev.filter(id => id !== vinculoId));
-                                                                    },
-                                                                    onError: () => {
-                                                                        setDevolvingIds(prev => prev.filter(id => id !== vinculoId));
-                                                                    }
-                                                                });
-                                                            }}
+                                                            onClick={() => handleDevolverSequencial(vinculo)}
                                                         >
                                                             {devolvingIds.includes(vinculo.id) ? (
                                                                 <Loader2 className="w-5 h-5 animate-spin" />
