@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useUnit } from '@/contexts/UnitContext';
@@ -58,12 +58,35 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
         .maybeSingle();
 
       if (error) throw error;
-      return (data?.config_pagamento as any) || {};
+      const config = (data?.config_pagamento as any) || {};
+      
+      // Salva no localStorage para persistência e evitar sumiço temporário
+      if (config.modulos_ativos && Array.isArray(config.modulos_ativos)) {
+        localStorage.setItem(`modulos_ativos_${user.franquiaId}`, JSON.stringify(config.modulos_ativos));
+      }
+      
+      return config;
     },
     enabled: !!user?.franquiaId,
   });
 
-  const isMachineModuleActive = franquiaConfig?.modulos_ativos?.includes('controle_maquininhas');
+  const isMachineModuleActive = useMemo(() => {
+    if (franquiaConfig?.modulos_ativos) {
+      return franquiaConfig.modulos_ativos.includes('controle_maquininhas');
+    }
+    if (user?.franquiaId) {
+      try {
+        const cached = localStorage.getItem(`modulos_ativos_${user.franquiaId}`);
+        if (cached) {
+          const modulos = JSON.parse(cached);
+          return Array.isArray(modulos) && modulos.includes('controle_maquininhas');
+        }
+      } catch (e) {
+        console.error('Erro ao ler módulos ativos do cache:', e);
+      }
+    }
+    return false;
+  }, [franquiaConfig, user?.franquiaId]);
 
   const canChangeUnit = user?.role === 'super_admin' || user?.role === 'admin_franquia';
 

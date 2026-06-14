@@ -55,12 +55,34 @@ export function AnalyticsDashboard({ dataInicio, dataFim, unidadeId, unidadeNome
                 .maybeSingle();
 
             if (error) throw error;
-            return (data?.config_pagamento as any) || {};
+            const config = (data?.config_pagamento as any) || {};
+            
+            if (config.modulos_ativos && Array.isArray(config.modulos_ativos)) {
+                localStorage.setItem(`modulos_ativos_${user.franquiaId}`, JSON.stringify(config.modulos_ativos));
+            }
+            
+            return config;
         },
         enabled: !!user?.franquiaId,
     });
 
-    const isMachineModuleActive = franquiaConfig?.modulos_ativos?.includes('controle_maquininhas');
+    const isMachineModuleActive = useMemo(() => {
+        if (franquiaConfig?.modulos_ativos) {
+            return franquiaConfig.modulos_ativos.includes('controle_maquininhas');
+        }
+        if (user?.franquiaId) {
+            try {
+                const cached = localStorage.getItem(`modulos_ativos_${user.franquiaId}`);
+                if (cached) {
+                    const modulos = JSON.parse(cached);
+                    return Array.isArray(modulos) && modulos.includes('controle_maquininhas');
+                }
+            } catch (e) {
+                console.error('Erro ao ler módulos do cache:', e);
+            }
+        }
+        return false;
+    }, [franquiaConfig, user?.franquiaId]);
 
     const { data: metrics, isLoading, isError } = useQuery({
         queryKey: ['analytics_pro_metrics', unidadeId, dataInicio.toISOString(), dataFim.toISOString()],
