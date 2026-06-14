@@ -275,6 +275,25 @@ export function ScreenShareProvider({ children }: { children: React.ReactNode })
       supabase.removeChannel(channel);
       Object.values(pcsRef.current).forEach(pc => pc.close());
       pcsRef.current = {};
+      
+      // Cleanup de segurança no banco de dados se o provider for desmontado
+      if (user?.franquiaId) {
+        supabase
+          .from('unidades')
+          .select('id')
+          .eq('franquia_id', user.franquiaId)
+          .then(async ({ data: lojas }) => {
+            if (lojas && lojas.length > 0) {
+              const lojaIds = lojas.map(l => l.id);
+              await supabase
+                .from('tv_playlist')
+                .delete()
+                .eq('tipo', 'transmissao')
+                .in('unidade_id', lojaIds);
+            }
+          })
+          .catch(e => console.error('[WebRTC] Erro no cleanup de desmontagem da playlist:', e));
+      }
     };
   }, [user?.franquiaId]);
 
@@ -310,6 +329,38 @@ export function ScreenShareProvider({ children }: { children: React.ReactNode })
         channelRef.current.send({ type: 'broadcast', event: 'broadcast-started', payload: {} });
       }
       
+      // Adiciona o tipo de mídia 'transmissao' automaticamente nas playlists das lojas da franquia
+      if (user?.franquiaId) {
+        supabase
+          .from('unidades')
+          .select('id')
+          .eq('franquia_id', user.franquiaId)
+          .then(async ({ data: lojas }) => {
+            if (lojas && lojas.length > 0) {
+              const lojaIds = lojas.map(l => l.id);
+              // Limpa qualquer resquício anterior
+              await supabase
+                .from('tv_playlist')
+                .delete()
+                .eq('tipo', 'transmissao')
+                .in('unidade_id', lojaIds);
+              // Insere novos registros de transmissão
+              const entries = lojaIds.map(id => ({
+                unidade_id: id,
+                tipo: 'transmissao',
+                url: '',
+                duracao: 15,
+                volume: 0,
+                ordem: 0,
+                ativo: true
+              }));
+              await supabase.from('tv_playlist').insert(entries);
+              console.log('[WebRTC] Transmissão adicionada a todas as playlists da franquia');
+            }
+          })
+          .catch(e => console.error('[WebRTC] Erro ao sincronizar playlist no início:', e));
+      }
+      
       toast.success('Transmissão iniciada! As TVs da franquia agora podem conectar.');
     } catch (err) {
       console.error('Error starting screen share:', err);
@@ -331,6 +382,27 @@ export function ScreenShareProvider({ children }: { children: React.ReactNode })
       channelRef.current.track({ isBroadcasting: false });
       channelRef.current.send({ type: 'broadcast', event: 'broadcast-stopped', payload: {} });
     }
+
+    // Remove o tipo de mídia 'transmissao' automaticamente das playlists das lojas da franquia
+    if (user?.franquiaId) {
+      supabase
+        .from('unidades')
+        .select('id')
+        .eq('franquia_id', user.franquiaId)
+        .then(async ({ data: lojas }) => {
+          if (lojas && lojas.length > 0) {
+            const lojaIds = lojas.map(l => l.id);
+            await supabase
+              .from('tv_playlist')
+              .delete()
+              .eq('tipo', 'transmissao')
+              .in('unidade_id', lojaIds);
+            console.log('[WebRTC] Transmissão removida de todas as playlists da franquia');
+          }
+        })
+        .catch(e => console.error('[WebRTC] Erro ao sincronizar playlist no término:', e));
+    }
+
     toast.info('Transmissão encerrada.');
   };
 
