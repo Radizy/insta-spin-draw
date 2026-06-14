@@ -167,6 +167,16 @@ export function ScreenShareProvider({ children }: { children: React.ReactNode })
           return;
         }
 
+        // Close any pre-existing connection for this TV before starting a new negotiation
+        if (pcsRef.current[tvId]) {
+          console.log(`[Transmitter] Fechando RTCPeerConnection antiga de TV ${tvId} antes de renegociar`);
+          try {
+            pcsRef.current[tvId].close();
+          } catch (e) {
+            console.error('[Transmitter] Erro ao fechar conexão antiga:', e);
+          }
+        }
+
         iceCandidatesQueuesRef.current[tvId] = [];
         const pc = new RTCPeerConnection(getConfiguration());
         pcsRef.current[tvId] = pc;

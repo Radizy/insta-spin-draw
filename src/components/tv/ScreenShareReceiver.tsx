@@ -97,8 +97,8 @@ export function ScreenShareReceiver({
   
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const channelRef = useRef<any>(null);
-  const tvIdRef = useRef(`tv-${Math.random().toString(36).substring(7)}`);
   const iceCandidateQueue = useRef<RTCIceCandidateInit[]>([]);
+  const negotiationStartRef = useRef<number | null>(null);
   
   const [debugMsg, setDebugMsg] = useState<string>('Aguardando...');
   const [pcState, setPcState] = useState<string>('nenhuma');
@@ -166,6 +166,7 @@ export function ScreenShareReceiver({
         
         console.log('[Receiver] OFFER recebido do transmissor para esta TV');
         setDebugMsg('Recebeu offer, criando PC');
+        negotiationStartRef.current = Date.now();
         if (pcRef.current) {
           pcRef.current.close();
         }
@@ -177,6 +178,7 @@ export function ScreenShareReceiver({
         pc.ontrack = (e) => {
           console.log('[Receiver] Track recebida com sucesso de vídeo/áudio!');
           setDebugMsg('Track recebida!');
+          negotiationStartRef.current = null;
           setStream(e.streams[0]);
         };
         
@@ -263,6 +265,22 @@ export function ScreenShareReceiver({
         pc.connectionState === 'connecting' || 
         pc.iceConnectionState === 'checking'
       );
+
+      // Reset connection if negotiation gets stuck for more than 15 seconds
+      if (isNegotiating && negotiationStartRef.current && (Date.now() - negotiationStartRef.current > 15000)) {
+        console.warn('[Receiver] Negociação WebRTC travada há mais de 15 segundos. Reiniciando handshake...');
+        negotiationStartRef.current = null;
+        setStream(null);
+        if (pcRef.current) {
+          pcRef.current.close();
+          pcRef.current = null;
+        }
+        setDebugMsg('Tempo limite excedido. Reconectando...');
+        if (channelRef.current) {
+          channelRef.current.send({ type: 'broadcast', event: 'tv-ready', payload: { tvId: tvIdRef.current, lojaNome: storeNameRef.current || selectedUnit || user?.unidade || 'TV' } });
+        }
+        return;
+      }
 
       if (!streamRef.current && channelRef.current && !isNegotiating) {
         setDebugMsg(prev => prev.endsWith('.') ? 'Ping de reconexão' : 'Ping de reconexão.');
