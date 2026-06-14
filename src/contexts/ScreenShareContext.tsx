@@ -292,6 +292,7 @@ export function ScreenShareProvider({ children }: { children: React.ReactNode })
       const displayStream = await navigator.mediaDevices.getDisplayMedia({
         video: {
           displaySurface: 'browser',
+          frameRate: { ideal: 60, max: 60 }
         },
         audio: true
       });
