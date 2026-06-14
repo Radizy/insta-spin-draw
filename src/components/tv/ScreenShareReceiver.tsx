@@ -266,9 +266,9 @@ export function ScreenShareReceiver({
         pc.iceConnectionState === 'checking'
       );
 
-      // Reset connection if negotiation gets stuck for more than 15 seconds
-      if (isNegotiating && negotiationStartRef.current && (Date.now() - negotiationStartRef.current > 15000)) {
-        console.warn('[Receiver] Negociação WebRTC travada há mais de 15 segundos. Reiniciando handshake...');
+      // Reset connection if negotiation gets stuck for more than 45 seconds (to allow TURN relay on slower external networks)
+      if (isNegotiating && negotiationStartRef.current && (Date.now() - negotiationStartRef.current > 45000)) {
+        console.warn('[Receiver] Negociação WebRTC travada há mais de 45 segundos. Reiniciando handshake...');
         negotiationStartRef.current = null;
         setStream(null);
         if (pcRef.current) {
