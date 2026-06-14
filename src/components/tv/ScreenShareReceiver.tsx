@@ -189,6 +189,15 @@ export function ScreenShareReceiver({
           setPcState(pc.connectionState);
           if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
             setStream(null);
+            if (pcRef.current === pc) {
+              pc.close();
+              pcRef.current = null;
+            }
+            if (channelRef.current && pc.connectionState !== 'closed') {
+              console.log('[Receiver] Conexão falhou ou desconectou. Solicitando renegociação imediata...');
+              setDebugMsg('Conexão falhou. Tentando reconectar...');
+              channelRef.current.send({ type: 'broadcast', event: 'tv-ready', payload: { tvId: tvIdRef.current } });
+            }
           }
         };
 
@@ -240,10 +249,17 @@ export function ScreenShareReceiver({
         }
       });
       
-    // Robust connection: Ping Transmitter every 4 seconds if not connected
+    // Robust connection: Ping Transmitter every 4 seconds if not connected and not actively negotiating
     const pingInterval = setInterval(() => {
-      if (!streamRef.current && channelRef.current) {
+      const pc = pcRef.current;
+      const isNegotiating = pc && (
+        pc.connectionState === 'connecting' || 
+        pc.iceConnectionState === 'checking'
+      );
+
+      if (!streamRef.current && channelRef.current && !isNegotiating) {
         setDebugMsg(prev => prev.endsWith('.') ? 'Ping de reconexão' : 'Ping de reconexão.');
+        console.log('[Receiver] Enviando ping tv-ready para restabelecer stream...');
         channelRef.current.send({ type: 'broadcast', event: 'tv-ready', payload: { tvId: tvIdRef.current } });
       }
     }, 4000);
