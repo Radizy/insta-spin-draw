@@ -92,7 +92,6 @@ export default function Roteirista() {
   const currentFranquiaId = activeFranquiaId || user?.franquiaId;
   const { data: franquiaBagTipos = [], isLoading: isLoadingBags } = useQuery<{ id: string; nome: string; descricao: string | null; ativo: boolean; franquia_id: string; icone_url: string | null; }[]>({
     queryKey: ['franquia-bag-tipos', currentFranquiaId],
-    staleTime: 1000 * 60 * 60,
     queryFn: async () => {
       if (!currentFranquiaId) {
         return [];

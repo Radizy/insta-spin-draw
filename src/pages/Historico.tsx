@@ -202,7 +202,6 @@ export default function Historico() {
   const { data: franquiaConfig } = useQuery<{ config_pagamento: any | null }>({
     queryKey: ['franquia-config', user?.franquiaId],
     staleTime: 1000 * 60 * 60,
-     staleTime: 1000 * 60 * 60,
     queryFn: async () => {
       if (!user?.franquiaId) return { config_pagamento: null };
       const { data, error } = await supabase

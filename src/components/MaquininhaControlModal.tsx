@@ -230,8 +230,8 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                                                     </button>
                                                 ))}
                                             </div>
-                                        )}
-                                    </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Coluna Maquininhas */}
@@ -300,8 +300,8 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                                                     </div>
                                                 ))}
                                             </div>
-                                        )}
-                                    </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </TabsContent>
