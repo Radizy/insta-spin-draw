@@ -99,7 +99,6 @@ export function ScreenShareReceiver({
   const channelRef = useRef<any>(null);
   const tvIdRef = useRef(`tv-${Math.random().toString(36).substring(7)}`);
   const iceCandidateQueue = useRef<RTCIceCandidateInit[]>([]);
-  const inactiveTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   const [debugMsg, setDebugMsg] = useState<string>('Aguardando...');
   const [pcState, setPcState] = useState<string>('nenhuma');
@@ -139,69 +138,6 @@ export function ScreenShareReceiver({
     const channel = supabase.channel(channelName);
     
     channel
-      .on('presence', { event: 'sync' }, async () => {
-        const state = channel.presenceState();
-        const presences = Object.values(state).flat() as any[];
-        const anyoneBroadcasting = presences.some((p: any) => p.isBroadcasting);
-        
-        console.log('[Receiver] Presence sync. Transmissor ativo:', anyoneBroadcasting);
-        
-        if (anyoneBroadcasting) {
-          if (inactiveTimerRef.current) {
-            console.log('[Receiver] Transmissor ativo detectado, cancelando timer de inatividade');
-            clearTimeout(inactiveTimerRef.current);
-            inactiveTimerRef.current = null;
-          }
-        } else {
-          if (!inactiveTimerRef.current) {
-            console.log('[Receiver] Nenhum transmissor ativo. Iniciando timer de 1 minuto para remover item da playlist...');
-            inactiveTimerRef.current = setTimeout(async () => {
-              try {
-                if (user?.franquiaId) {
-                  // 1. Verifica se existe o item 'transmissao' na playlist da unidade local para evitar queries inúteis
-                  const { data: exists } = await supabase
-                    .from('tv_playlist')
-                    .select('id')
-                    .eq('tipo', 'transmissao')
-                    .eq('unidade_id', user.unidadeId || '')
-                    .limit(1);
-
-                  if (exists && exists.length > 0) {
-                    console.log('[Receiver] 1 minuto sem transmissão. Removendo item de transmissão de todas as lojas da franquia...');
-                    // 2. Busca unidades da franquia
-                    const { data: lojas } = await supabase
-                      .from('unidades')
-                      .select('id')
-                      .eq('franquia_id', user.franquiaId);
-                      
-                    if (lojas && lojas.length > 0) {
-                      const lojaIds = lojas.map(l => l.id);
-                      // 3. Deleta o item de transmissão de todas as unidades da franquia
-                      const { error } = await supabase
-                        .from('tv_playlist')
-                        .delete()
-                        .eq('tipo', 'transmissao')
-                        .in('unidade_id', lojaIds);
-                        
-                      if (error) {
-                        console.error('[Receiver] Erro ao deletar transmissão órfã da playlist:', error);
-                      } else {
-                        console.log('[Receiver] Transmissão órfã removida com sucesso das playlists da franquia');
-                      }
-                    }
-                  } else {
-                    console.log('[Receiver] Timer de inatividade disparou, mas nenhum slide de transmissão foi encontrado na playlist local. Ignorando.');
-                  }
-                }
-              } catch (e) {
-                console.error('[Receiver] Erro no timer de inatividade da transmissão:', e);
-              } finally {
-                inactiveTimerRef.current = null;
-              }
-            }, 60000); // 1 minuto
-          }
-        }
-      })
       .on('broadcast', { event: 'broadcast-started' }, () => {
         console.log('[Receiver] Sinal broadcast-started recebido do transmissor');
         setDebugMsg('Sinal de início recebido, enviando tv-ready');
@@ -337,10 +273,6 @@ export function ScreenShareReceiver({
 
     return () => {
       clearInterval(pingInterval);
-      if (inactiveTimerRef.current) {
-        clearTimeout(inactiveTimerRef.current);
-        inactiveTimerRef.current = null;
-      }
       supabase.removeChannel(channel);
       if (pcRef.current) {
         pcRef.current.close();
