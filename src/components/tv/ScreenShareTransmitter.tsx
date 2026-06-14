@@ -29,6 +29,7 @@ export function ScreenShareTransmitter() {
 
   const [measuredFps, setMeasuredFps] = useState<number | null>(null);
   const [streamSettings, setStreamSettings] = useState<{ width?: number; height?: number; frameRate?: number } | null>(null);
+  const [videoAspectRatio, setVideoAspectRatio] = useState<number>(16 / 9);
 
   // Monitora as configurações do track de vídeo (Resolução e FPS nominal)
   useEffect(() => {
@@ -109,9 +110,25 @@ export function ScreenShareTransmitter() {
 
   // Re-bind the stream to the preview video element on mount / state change
   useEffect(() => {
-    if (previewVideoRef.current && stream && showPreview) {
-      previewVideoRef.current.srcObject = stream;
-      previewVideoRef.current.play().catch(e => console.error('Preview play error:', e));
+    const video = previewVideoRef.current;
+    if (video && stream && showPreview) {
+      video.srcObject = stream;
+      video.play().catch(e => console.error('Preview play error:', e));
+      
+      const updateAspect = () => {
+        if (video.videoWidth && video.videoHeight) {
+          setVideoAspectRatio(video.videoWidth / video.videoHeight);
+        }
+      };
+      
+      video.addEventListener('loadedmetadata', updateAspect);
+      if (video.readyState >= 1) {
+        updateAspect();
+      }
+      
+      return () => {
+        video.removeEventListener('loadedmetadata', updateAspect);
+      };
     }
   }, [stream, showPreview, previewVideoRef]);
 
@@ -214,7 +231,8 @@ export function ScreenShareTransmitter() {
                 {/* Visual crop selection container */}
                 <div 
                   ref={containerRef}
-                  className="relative w-full max-w-md aspect-video bg-black rounded-xl overflow-hidden border border-border shadow-md select-none"
+                  className="relative w-full max-w-md bg-black rounded-xl overflow-hidden border border-border shadow-md select-none"
+                  style={{ aspectRatio: videoAspectRatio }}
                 >
                   {/* HUD de Estatísticas (FPS & Resolução) */}
                   <div className="absolute top-3 left-3 bg-black/80 backdrop-blur-md text-white text-[11px] font-mono py-1.5 px-2.5 rounded-lg border border-white/10 flex items-center gap-2 select-none z-50 shadow-lg">
