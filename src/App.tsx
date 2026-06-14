@@ -28,7 +28,7 @@ function ActiveShareBanner() {
   if (!isBroadcasting) return null;
   
   return (
-    <div className="fixed bottom-4 right-4 z-50 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-3 rounded-xl shadow-lg border border-emerald-400 flex items-center gap-3 animate-bounce">
+    <div className="fixed bottom-4 right-24 z-50 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-3 rounded-xl shadow-lg border border-emerald-400 flex items-center gap-3 animate-bounce">
       <MonitorPlay className="w-5 h-5 animate-pulse" />
       <div className="text-xs font-semibold select-none">
         <p className="font-bold text-white">Transmitindo Tela</p>
