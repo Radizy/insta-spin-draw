@@ -75,6 +75,7 @@ interface ScreenShareReceiverProps {
   onCropChange: (crop: { top: number; bottom: number; left: number; right: number }) => void;
   onFitChange: (fit: 'contain' | 'cover') => void;
   onVolumeChange: (volume: number) => void;
+  storeName?: string;
 }
 
 export function ScreenShareReceiver({ 
@@ -82,10 +83,16 @@ export function ScreenShareReceiver({
   onStreamChange, 
   onCropChange, 
   onFitChange, 
-  onVolumeChange 
+  onVolumeChange,
+  storeName
 }: ScreenShareReceiverProps) {
   const { user } = useAuth();
   const { selectedUnit } = useUnit();
+  
+  const storeNameRef = useRef(storeName);
+  useEffect(() => {
+    storeNameRef.current = storeName;
+  }, [storeName]);
   const [stream, setStream] = useState<MediaStream | null>(null);
   
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -134,7 +141,7 @@ export function ScreenShareReceiver({
       .on('broadcast', { event: 'broadcast-started' }, () => {
         console.log('[Receiver] Sinal broadcast-started recebido do transmissor');
         setDebugMsg('Sinal de início recebido, enviando tv-ready');
-        channel.send({ type: 'broadcast', event: 'tv-ready', payload: { tvId: tvIdRef.current, lojaNome: selectedUnit || user?.unidade || 'TV' } });
+        channel.send({ type: 'broadcast', event: 'tv-ready', payload: { tvId: tvIdRef.current, lojaNome: storeNameRef.current || selectedUnit || user?.unidade || 'TV' } });
       })
       .on('broadcast', { event: 'broadcast-stopped' }, () => {
         console.log('[Receiver] Sinal broadcast-stopped recebido');
@@ -196,7 +203,7 @@ export function ScreenShareReceiver({
             if (channelRef.current && pc.connectionState !== 'closed') {
               console.log('[Receiver] Conexão falhou ou desconectou. Solicitando renegociação imediata...');
               setDebugMsg('Conexão falhou. Tentando reconectar...');
-              channelRef.current.send({ type: 'broadcast', event: 'tv-ready', payload: { tvId: tvIdRef.current, lojaNome: selectedUnit || user?.unidade || 'TV' } });
+              channelRef.current.send({ type: 'broadcast', event: 'tv-ready', payload: { tvId: tvIdRef.current, lojaNome: storeNameRef.current || selectedUnit || user?.unidade || 'TV' } });
             }
           }
         };
@@ -245,7 +252,7 @@ export function ScreenShareReceiver({
         if (status === 'SUBSCRIBED') {
           channelRef.current = channel;
           console.log('[Receiver] Canal SUBSCRIBED, enviando tv-ready inicial');
-          channel.send({ type: 'broadcast', event: 'tv-ready', payload: { tvId: tvIdRef.current, lojaNome: selectedUnit || user?.unidade || 'TV' } });
+          channel.send({ type: 'broadcast', event: 'tv-ready', payload: { tvId: tvIdRef.current, lojaNome: storeNameRef.current || selectedUnit || user?.unidade || 'TV' } });
         }
       });
       
@@ -260,7 +267,7 @@ export function ScreenShareReceiver({
       if (!streamRef.current && channelRef.current && !isNegotiating) {
         setDebugMsg(prev => prev.endsWith('.') ? 'Ping de reconexão' : 'Ping de reconexão.');
         console.log('[Receiver] Enviando ping tv-ready para restabelecer stream...');
-        channelRef.current.send({ type: 'broadcast', event: 'tv-ready', payload: { tvId: tvIdRef.current, lojaNome: selectedUnit || user?.unidade || 'TV' } });
+        channelRef.current.send({ type: 'broadcast', event: 'tv-ready', payload: { tvId: tvIdRef.current, lojaNome: storeNameRef.current || selectedUnit || user?.unidade || 'TV' } });
       }
     }, 4000);
 

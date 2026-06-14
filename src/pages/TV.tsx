@@ -801,6 +801,7 @@ export default function TV() {
         onCropChange={setShareCrop}
         onFitChange={setShareFit}
         onVolumeChange={setShareVolume}
+        storeName={storeName}
       />
     </div>
   );
