@@ -73,6 +73,7 @@ interface ScreenShareContextType {
   isBroadcasting: boolean;
   stream: MediaStream | null;
   connectedTVs: number;
+  connectedTVsNames: string[];
   videoFit: 'contain' | 'cover';
   showPreview: boolean;
   setShowPreview: (show: boolean) => void;
@@ -99,6 +100,7 @@ export function ScreenShareProvider({ children }: { children: React.ReactNode })
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [connectedTVs, setConnectedTVs] = useState<number>(0);
+  const [connectedTVsNames, setConnectedTVsNames] = useState<string[]>([]);
   const [videoFit, setVideoFit] = useState<'contain' | 'cover'>('contain');
   const [showPreview, setShowPreview] = useState(false);
   const [crop, setCrop] = useState({ top: 0, bottom: 0, left: 0, right: 0 });
@@ -114,6 +116,7 @@ export function ScreenShareProvider({ children }: { children: React.ReactNode })
   const containerRef = useRef<HTMLDivElement>(null);
   const cropRef = useRef(crop);
   const volumeRef = useRef(volume);
+  const tvsNamesRef = useRef<{ [tvId: string]: string }>({});
   
   const isBroadcastingRef = useRef(isBroadcasting);
   useEffect(() => {
@@ -153,8 +156,10 @@ export function ScreenShareProvider({ children }: { children: React.ReactNode })
         setIsAnotherBroadcasterActive(!isBroadcastingRef.current && anyoneBroadcasting);
       })
       .on('broadcast', { event: 'tv-ready' }, async ({ payload }) => {
-        const { tvId } = payload;
-        console.log('[Transmitter] tv-ready recebido do receptor:', tvId);
+        const { tvId, lojaNome } = payload;
+        console.log('[Transmitter] tv-ready recebido do receptor:', tvId, 'Loja:', lojaNome);
+        
+        tvsNamesRef.current[tvId] = lojaNome || 'TV';
         
         const currentStream = streamRef.current;
         if (!currentStream) {
@@ -170,10 +175,29 @@ export function ScreenShareProvider({ children }: { children: React.ReactNode })
           console.log(`[Transmitter] Connection state changed for TV ${tvId}:`, pc.connectionState);
           if (pc.connectionState === 'connected') {
             setConnectedTVs(prev => prev + 1);
+            setConnectedTVsNames(prev => {
+              const name = tvsNamesRef.current[tvId] || 'TV';
+              if (!prev.includes(name)) {
+                return [...prev, name];
+              }
+              return prev;
+            });
           } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
             setConnectedTVs(prev => Math.max(0, prev - 1));
+            const removedName = tvsNamesRef.current[tvId];
             delete pcsRef.current[tvId];
             delete iceCandidatesQueuesRef.current[tvId];
+            delete tvsNamesRef.current[tvId];
+            
+            if (removedName) {
+              setConnectedTVsNames(prev => {
+                const hasAnotherOfSameLoja = Object.values(tvsNamesRef.current).includes(removedName);
+                if (!hasAnotherOfSameLoja) {
+                  return prev.filter(name => name !== removedName);
+                }
+                return prev;
+              });
+            }
           }
         };
 
@@ -376,7 +400,9 @@ export function ScreenShareProvider({ children }: { children: React.ReactNode })
     setIsBroadcasting(false);
     Object.values(pcsRef.current).forEach(pc => pc.close());
     pcsRef.current = {};
+    tvsNamesRef.current = {};
     setConnectedTVs(0);
+    setConnectedTVsNames([]);
     
     if (channelRef.current) {
       channelRef.current.track({ isBroadcasting: false });
@@ -583,6 +609,7 @@ export function ScreenShareProvider({ children }: { children: React.ReactNode })
       isBroadcasting,
       stream,
       connectedTVs,
+      connectedTVsNames,
       videoFit,
       showPreview,
       setShowPreview,
