@@ -592,7 +592,7 @@ export default function Roteirista() {
 
       // Cria a Saída no ato da chamada para aparecer na TV imediatamente
       if (!isTrainingMode) {
-        await createHistoricoEntrega({
+        const historico = await createHistoricoEntrega({
           entregador_id: selectedEntregador.id,
           unidade: selectedUnit,
           unidade_id: user?.unidadeId,
@@ -608,6 +608,7 @@ export default function Roteirista() {
           quantidadeEntregas: deliveryCount,
           bag: bagName,
           hasBebida: hasBebida,
+          idSaida: historico?.id || null,
         });
 
         // Send WhatsApp message with delivery count and bag type

@@ -54,8 +54,8 @@ function doPost(e) {
     const now = new Date();
     const dateStr = now.toLocaleDateString("pt-BR");
     
-    // 1. Lógica para Controle de Maquininhas
-    if (data.tipo === "retirada_maquininha" || data.tipo === "devolucao_maquininha") {
+    // 1. Lógica para Controle de Maquininhas e Check-in
+    if (data.tipo === "checkin_motoboy" || data.tipo === "retirada_maquininha" || data.tipo === "devolucao_maquininha") {
       const sheetName = "(" + unidade + ") HORARIO MOTOBOY";
       let sheet = ss.getSheetByName(sheetName);
       if (!sheet) {
@@ -65,30 +65,61 @@ function doPost(e) {
         sheet.setFrozenRows(1);
       }
 
-      if (data.tipo === "retirada_maquininha") {
-        const checkinTime = data.checkin ? new Date(data.checkin) : null;
-        const retiradaTime = new Date(data.retirada);
+      if (data.tipo === "checkin_motoboy") {
+        const checkinTime = new Date(data.checkin);
         
-        sheet.appendRow([
-          dateStr, 
-          data.motoboy, 
-          data.maquininha, 
-          checkinTime ? checkinTime : "--:--", 
-          retiradaTime, 
-          "", 
-          "", 
-          data.id_vinculo
-        ]);
+        // Verifica se já existe um check-in hoje para este motoboy
+        const values = sheet.getDataRange().getValues();
+        let alreadyCheckedIn = false;
+        for (let i = 1; i < values.length; i++) {
+          if (values[i][0] == dateStr && values[i][1] == data.motoboy && values[i][3] != "") {
+            alreadyCheckedIn = true;
+            break;
+          }
+        }
         
-        const lastRow = sheet.getLastRow();
-        if (checkinTime) sheet.getRange(lastRow, 4).setNumberFormat("HH:mm");
-        sheet.getRange(lastRow, 5).setNumberFormat("HH:mm");
-        sheet.hideColumns(8); // Oculta ID_VINCULO
+        if (!alreadyCheckedIn) {
+          sheet.appendRow([dateStr, data.motoboy, "", checkinTime, "", "", "", ""]);
+          const lastRow = sheet.getLastRow();
+          sheet.getRange(lastRow, 4).setNumberFormat("HH:mm");
+          sheet.hideColumns(8);
+        }
       } 
+      else if (data.tipo === "retirada_maquininha") {
+        const values = sheet.getDataRange().getValues();
+        let found = false;
+        
+        // Procura uma linha de check-in sem maquininha para hoje
+        for (let i = values.length - 1; i >= 1; i--) {
+          if (values[i][0] == dateStr && values[i][1] == data.motoboy && values[i][2] == "") {
+            const rowIdx = i + 1;
+            sheet.getRange(rowIdx, 3).setValue(data.maquininha); // Maquininha
+            
+            const retiradaTime = new Date(data.retirada);
+            const cellRetirada = sheet.getRange(rowIdx, 5);
+            cellRetirada.setValue(retiradaTime);
+            cellRetirada.setNumberFormat("HH:mm");
+            
+            sheet.getRange(rowIdx, 8).setValue(data.id_vinculo); // ID_VINCULO
+            found = true;
+            break;
+          }
+        }
+        
+        // Se não achar linha de check-in, cria uma nova
+        if (!found) {
+          const checkinTime = data.checkin ? new Date(data.checkin) : new Date(data.retirada);
+          const retiradaTime = new Date(data.retirada);
+          sheet.appendRow([dateStr, data.motoboy, data.maquininha, checkinTime, retiradaTime, "", "", data.id_vinculo]);
+          const lastRow = sheet.getLastRow();
+          sheet.getRange(lastRow, 4).setNumberFormat("HH:mm");
+          sheet.getRange(lastRow, 5).setNumberFormat("HH:mm");
+          sheet.hideColumns(8);
+        }
+      }
       else if (data.tipo === "devolucao_maquininha") {
         const values = sheet.getDataRange().getValues();
         const idProcurado = data.id_vinculo;
-        let found = false;
         
         for (let i = values.length - 1; i >= 1; i--) {
           if (values[i][7] == idProcurado) {
@@ -102,36 +133,61 @@ function doPost(e) {
             const cellTempo = sheet.getRange(rowIdx, 7);
             cellTempo.setFormulaR1C1("=RC[-1]-RC[-2]");
             cellTempo.setNumberFormat("[h]:mm:ss");
-            
-            found = true;
             break;
           }
         }
       }
     } 
     // 2. Lógica para Saídas e Entregas (Tempo Real)
-    else if (data.tipo === "saida_entrega") {
+    else if (data.tipo === "saida_entrega" || data.tipo === "retorno_entrega") {
       const sheetName = "(" + unidade + ") Saidas e entregas";
       let sheet = ss.getSheetByName(sheetName);
       if (!sheet) {
         sheet = ss.insertSheet(sheetName);
-        sheet.appendRow(["Data", "Horário", "Motoboy", "Entregas", "Bag", "Bebida"]);
-        sheet.getRange(1, 1, 1, 6).setFontWeight("bold").setBackground("#f3f3f3");
+        sheet.appendRow(["Data", "Horário Saída", "Motoboy", "Entregas", "Bag", "Bebida", "Horário Retorno", "Tempo na Rua", "ID_SAIDA"]);
+        sheet.getRange(1, 1, 1, 9).setFontWeight("bold").setBackground("#f3f3f3");
         sheet.setFrozenRows(1);
       }
       
-      const horario = new Date(data.horario_saida || now);
-      sheet.appendRow([
-        dateStr,
-        horario,
-        data.motoboy,
-        data.quantidade_entregas,
-        data.bag,
-        data.possui_bebida
-      ]);
-      sheet.getRange(sheet.getLastRow(), 2).setNumberFormat("HH:mm");
+      if (data.tipo === "saida_entrega") {
+        const horario = new Date(data.horario_saida || now);
+        sheet.appendRow([
+          dateStr,
+          horario,
+          data.motoboy,
+          data.quantidade_entregas,
+          data.bag,
+          data.possui_bebida,
+          "",
+          "",
+          data.id_saida
+        ]);
+        const lastRow = sheet.getLastRow();
+        sheet.getRange(lastRow, 2).setNumberFormat("HH:mm");
+        sheet.hideColumns(9); // Oculta ID_SAIDA
+      }
+      else if (data.tipo === "retorno_entrega") {
+        const values = sheet.getDataRange().getValues();
+        const idProcurado = data.id_saida;
+        
+        for (let i = values.length - 1; i >= 1; i--) {
+          if (values[i][8] == idProcurado) {
+            const rowIdx = i + 1;
+            const retornoTime = new Date(data.horario_retorno);
+            
+            const cellRetorno = sheet.getRange(rowIdx, 7);
+            cellRetorno.setValue(retornoTime);
+            cellRetorno.setNumberFormat("HH:mm");
+            
+            const cellTempo = sheet.getRange(rowIdx, 8);
+            cellTempo.setFormulaR1C1("=RC[-1]-RC[-6]"); // Retorno - Saída
+            cellTempo.setNumberFormat("[h]:mm:ss");
+            break;
+          }
+        }
+      }
     }
-    // 3. Lógica para Resumo Manual (Botão Sincronizar)
+    // 3. Lógica para Resumo Manual (Sincronização manual)
     else {
       const sheetName = unidade + '-' + data.data;
       let sheet = ss.getSheetByName(sheetName);

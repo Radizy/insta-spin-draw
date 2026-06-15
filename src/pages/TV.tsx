@@ -16,6 +16,7 @@ import {
   sendWhatsAppMessage,
   SenhaPagamento,
   fetchSenhasPagamento,
+  sendCheckinWebhook,
 } from '@/lib/api';
 import { User, Volume2, VolumeX, RotateCcw, Package, UserPlus, Trophy, MonitorPlay } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
@@ -739,6 +740,14 @@ export default function TV() {
           checkin_diario: checkinDiario
         } as any
       });
+      if (user?.unidadeId) {
+        sendCheckinWebhook({
+          unidade: storeName,
+          unidadeId: user.unidadeId,
+          motoboyNome: e.nome,
+          checkinTime: primeiroCheckin || now.toISOString(),
+        });
+      }
       toast.success(`${e.nome} entrou na fila!`); setCheckinOpen(false); refetch();
     } catch { toast.error('Erro ao fazer check-in'); }
   };

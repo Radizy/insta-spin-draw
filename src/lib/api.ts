@@ -457,6 +457,43 @@ export async function sendWhatsAppMessage(
   }
 }
 
+// Disparar webhook de check-in automático (server-side)
+export async function sendCheckinWebhook(params: {
+  unidade: string;
+  unidadeId: string;
+  motoboyNome: string;
+  checkinTime: string;
+}): Promise<void> {
+  const runWebhook = async () => {
+    try {
+      const { data: config } = await supabase
+        .from('unidades')
+        .select('config_sheets_url')
+        .eq('id', params.unidadeId)
+        .maybeSingle();
+
+      const webhookUrl = config?.config_sheets_url;
+      if (!webhookUrl) return;
+
+      const payload = {
+        tipo: "checkin_motoboy",
+        unidade: params.unidade,
+        motoboy: params.motoboyNome,
+        checkin: params.checkinTime,
+      };
+
+      await supabase.functions.invoke('send-webhook', {
+        body: { webhookUrl, payload },
+      });
+    } catch (err) {
+      console.error('[API] Erro silenciado ao enviar webhook de check-in:', err);
+    }
+  };
+
+  runWebhook(); // Não aguardamos o retorno desta função para liberar a UI
+  return Promise.resolve();
+}
+
 // Disparar webhook de despacho (server-side)
 export async function sendDispatchWebhook(params: {
   unidade: Unidade;
@@ -465,6 +502,7 @@ export async function sendDispatchWebhook(params: {
   quantidadeEntregas: number;
   bag: TipoBag;
   hasBebida?: boolean;
+  idSaida?: string | null;
 }): Promise<void> {
     // Execução assíncrona para não travar a UI
     const runWebhook = async () => {
@@ -490,6 +528,7 @@ export async function sendDispatchWebhook(params: {
           motoboy: params.entregador.nome,
           bag: params.bag,
           possui_bebida: params.hasBebida ? 'SIM' : 'NAO',
+          id_saida: params.idSaida || null,
         };
 
         await supabase.functions.invoke('send-webhook', {
@@ -584,9 +623,11 @@ export async function registrarRetornoEntrega(
   const limitDate = new Date();
   limitDate.setHours(limitDate.getHours() - 24);
 
+  const now = new Date().toISOString();
+
   const query = supabase
     .from('historico_entregas')
-    .update({ hora_retorno: new Date().toISOString() })
+    .update({ hora_retorno: now })
     .eq('entregador_id', entregador_id)
     .is('hora_retorno', null)
     .gte('created_at', limitDate.toISOString());
@@ -598,10 +639,48 @@ export async function registrarRetornoEntrega(
     query.eq('unidade', unidade);
   }
 
-  const { error } = await query;
+  const { data, error } = await query
+    .select('id, hora_saida, unidade_id, entregador:entregadores(nome)')
+    .maybeSingle();
 
   if (error) {
     console.error('[API] Erro ao registrar retorno:', error.message);
+    return;
+  }
+
+  if (data) {
+    // Disparar o webhook de retorno de forma assíncrona para não bloquear a UI
+    const runWebhook = async () => {
+      try {
+        const uId = data.unidade_id || unidade_id;
+        if (!uId) return;
+
+        const { data: config } = await supabase
+          .from('unidades')
+          .select('config_sheets_url')
+          .eq('id', uId)
+          .maybeSingle();
+
+        const webhookUrl = config?.config_sheets_url;
+        if (!webhookUrl) return;
+
+        const motoboyNome = (data.entregador as any)?.nome || '';
+        const payload = {
+          tipo: "retorno_entrega",
+          unidade: unidade,
+          motoboy: motoboyNome,
+          horario_retorno: now,
+          id_saida: data.id
+        };
+
+        await supabase.functions.invoke('send-webhook', {
+          body: { webhookUrl, payload }
+        });
+      } catch (err) {
+        console.error('[API] Erro silenciado ao enviar webhook de retorno:', err);
+      }
+    };
+    runWebhook();
   }
 }
 
@@ -1426,7 +1505,7 @@ export async function atrelarMaquininha(params: {
           id_vinculo: vinculo_id,
           motoboy: params.motoboy_nome,
           maquininha: params.maquininha_nome,
-          checkin: now,
+          checkin: params.horario_checkin || now,
           retirada: now,
           unidade: params.unidade_nome
         })
