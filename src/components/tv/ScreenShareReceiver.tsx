@@ -97,6 +97,7 @@ export function ScreenShareReceiver({
   
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const channelRef = useRef<any>(null);
+  const tvIdRef = useRef(`tv-${Math.random().toString(36).substring(7)}`);
   const iceCandidateQueue = useRef<RTCIceCandidateInit[]>([]);
   const negotiationStartRef = useRef<number | null>(null);
   
