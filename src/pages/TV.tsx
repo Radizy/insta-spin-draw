@@ -70,7 +70,7 @@ export default function TV() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // State Hooks
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [checkinOpen, setCheckinOpen] = useState(false);
   const [displayingCalled, setDisplayingCalled] = useState<CalledEntregadorInfo | null>(null);
