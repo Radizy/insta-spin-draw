@@ -104,7 +104,7 @@ export function ScreenShareReceiver({
   const [pcState, setPcState] = useState<string>('nenhuma');
   const [videoFit, setVideoFit] = useState<'contain' | 'cover'>('contain');
   const [crop, setCrop] = useState({ top: 0, bottom: 0, left: 0, right: 0 });
-  const [volume, setVolume] = useState<number>(50); // Default to 50%
+  const [volume, setVolume] = useState<number>(100); // Default to 100%
   
   // Keep stream state synced in a ref for the interval
   const streamRef = useRef<MediaStream | null>(null);

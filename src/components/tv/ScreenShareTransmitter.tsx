@@ -8,7 +8,6 @@ export function ScreenShareTransmitter() {
     isBroadcasting,
     stream,
     connectedTVs,
-    connectedTVsNames,
     videoFit,
     showPreview,
     setShowPreview,
@@ -153,24 +152,7 @@ export function ScreenShareTransmitter() {
               </div>
             </div>
 
-            {connectedTVsNames.length > 0 && (
-              <div className="text-xs text-muted-foreground select-none flex flex-col items-center gap-2 bg-slate-50 dark:bg-slate-900/50 py-2.5 px-4 rounded-xl border border-border/40 w-full max-w-md animate-fade-in">
-                <span className="font-bold text-xs text-foreground/80 flex items-center gap-1.5 self-start">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Lojas assistindo agora:
-                </span>
-                <div className="flex flex-wrap gap-1.5 w-full">
-                  {connectedTVsNames.map((loja) => (
-                    <span 
-                      key={loja} 
-                      className="bg-primary/15 text-primary px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border border-primary/20"
-                    >
-                      {loja.toLowerCase() === 'itaqua' ? 'Itaquá' : loja.toLowerCase() === 'poa' ? 'Poá' : loja}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
+
 
             {/* Img Fit Control */}
             <div className="flex flex-col items-center space-y-2 bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-border/50 w-full max-w-md">

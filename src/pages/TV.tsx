@@ -70,7 +70,7 @@ export default function TV() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // State Hooks
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [checkinOpen, setCheckinOpen] = useState(false);
   const [displayingCalled, setDisplayingCalled] = useState<CalledEntregadorInfo | null>(null);
@@ -83,7 +83,7 @@ export default function TV() {
   const [shareStream, setShareStream] = useState<MediaStream | null>(null);
   const [shareCrop, setShareCrop] = useState({ top: 0, bottom: 0, left: 0, right: 0 });
   const [shareFit, setShareFit] = useState<'contain' | 'cover'>('contain');
-  const [shareVolume, setShareVolume] = useState(50);
+  const [shareVolume, setShareVolume] = useState(100);
 
 
 
