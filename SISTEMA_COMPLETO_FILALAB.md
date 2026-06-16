@@ -26,15 +26,9 @@ Esses módulos podem ser geridos livremente pelo painel Super Admin na visualiza
 ### Versão do Sistema
 - **Versão Atual**: `2.9.1` (Junho 2026)
 - **Últimas Implementações**:
-    - **Estabilização do Analytics Pro e Persistência de Sessão no F5 (Reload)**:
-        - Resolvido bug crítico em que a recarga da página deslogava o usuário ou renderizava uma tela preta no Histórico, decorrente de uma colisão de cache no React Query pela chave `['franquia-config']` e por um `ReferenceError: useMemo is not defined` no componente `AnalyticsDashboard.tsx`.
-        - Padronizado o retorno da configuração da franquia em todo o ecossistema do frontend para `{ config_pagamento, ...config }`, eliminando inconsistências e quebras de estado.
-        - Corrigido o mapeamento de busca de unidades que usava `nome_loja` (ex: "ITAQUA") em vez de `slug` (ex: "itaquaquecetuba"), prevenindo retornos vazios em consultas de dados históricos de unidades específicas.
-    - **Correção da Telemetria de Retorno e Integração Planilhas (Apps Script)**:
-        - Ajustado o script do Google Apps Script e o disparo em `Historico.tsx` para usar o fallback correto de datas (`data.data_dia || data.data || dateStr`) evitando a criação de abas `-undefined` ou abas duplicadas indesejadas.
-        - Implementada a gravação inteligente da hora de retorno e duração da entrega na mesma linha da respectiva saída na planilha de controle, permitindo acompanhamento unificado em tempo real.
-    - **Remoção de Service Worker Obsoleto**:
-        - Retirada a chamada de registro de `sw.js` em `index.html` que causava erros de MIME type incompatível ("text/html") no console.
+    - **Erros corrigidos**: Correção de erros no Analytics Pro e na recarga (F5) de páginas.
+    - **Registro de horário de retorno na planilha**: O sistema agora registra o horário de retorno na planilha de controle.
+    - **Melhoria no histórico**: Aprimoramentos no painel e nos relatórios de Histórico.
     - **Transmissão Automatizada e Telemetria de Desempenho (FPS Real & Resolução) com Trava de 60 FPS**: 
         - **Sincronização Automática & Identificação de Lojas**: Agora, ao iniciar uma transmissão de tela de qualquer unidade (ex: Itaquá), a plataforma busca todas as unidades da mesma franquia no Supabase e insere automaticamente a mídia de `tipo: 'transmissao'` na playlist de screensaver (`tv_playlist`) de cada uma delas (Itaquá, Poá, Suzano, etc.). O sinalizador WebRTC trafega nominalmente o nome da respectiva unidade (`lojaNome`), permitindo que o painel do transmissor exiba em tempo real uma lista dinâmica das lojas que estão assistindo à transmissão (ex: "Lojas assistindo agora: Itaquá, Poá, Suzano"). Ao finalizar a transmissão (ou se a aba do transmissor for recarregada/fechada abruptamente), a mídia é removida de todas as playlists, fazendo com que as TVs retornem à rotatividade normal sem necessidade de intervenção manual.
         - **Isolamento Estrito por Franquia**: A comunicação de sinalização WebRTC ocorre estritamente dentro de canais de broadcast isolados por franquia (`webrtc-${user.franquiaId}`). Isso impede totalmente qualquer conflito, vazamento ou queda de conexões se lojas de franquias diferentes iniciarem transmissões simultâneas, mantendo a integridade de cada cliente de forma isolada.
@@ -1857,14 +1851,12 @@ ORDER BY valor_final DESC;
 ## 📝 CHANGELOG
 
 ### v2.9.1 (2026-06-16)
-- ✅ **Estabilização do Analytics Pro & Sessão F5 (Reload)**:
-    - Correção do `ReferenceError: useMemo` no `AnalyticsDashboard.tsx`.
-    - Resolução da falha de recarregamento e logout forçado através da padronização e unificação do retorno do cache do React Query para a configuração da franquia (`['franquia-config']`).
-    - Ajuste no mapeamento de unidade nas páginas `Historico.tsx` e `Config.tsx` para consultar via `slug` em vez de `nome_loja`.
-- ✅ **Conserto na Telemetria de Retorno da Planilha (Google Sheets)**:
-    - Atualização do Apps Script para unificar dados de saída e retorno de motoboys na mesma linha e evitar geração de abas duplicadas ou com nome `-undefined`.
-- ✅ **Correção MIME Type no Index**:
-    - Limpeza do registro de service worker inexistente em `index.html` que gerava erro no console.
+- ✅ **Erros corrigidos**:
+    - Correção de erros no Analytics Pro e na recarga (F5) de páginas.
+- ✅ **Registro de horário de retorno na planilha**:
+    - O sistema agora registra o horário de retorno na planilha de controle.
+- ✅ **Melhoria no histórico**:
+    - Aprimoramentos no painel e nos relatórios de Histórico.
 
 ### v2.8.0 (2026-06-14)
 - ✅ **Screensaver de Transmissão via WebRTC (SaaS Screen Sharing)**:
