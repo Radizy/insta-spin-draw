@@ -65,6 +65,7 @@ export interface HistoricoEntrega {
   hora_saida: string;
   hora_retorno?: string;
   tipo_bag?: TipoBag;
+  quantidade_entregas?: number;
   created_at: string;
 }
 
@@ -576,6 +577,7 @@ export async function createHistoricoEntrega(data: {
   unidade: string;
   unidade_id?: string | null;
   tipo_bag?: TipoBag;
+  quantidade_entregas?: number;
 }): Promise<HistoricoEntrega> {
   const { data: result, error } = await supabase
     .from('historico_entregas')
@@ -585,6 +587,7 @@ export async function createHistoricoEntrega(data: {
       unidade_id: data.unidade_id,
       hora_saida: new Date().toISOString(),
       tipo_bag: data.tipo_bag || 'normal',
+      quantidade_entregas: data.quantidade_entregas || 1,
     })
     .select()
     .single();

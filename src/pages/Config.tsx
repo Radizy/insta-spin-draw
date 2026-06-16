@@ -116,18 +116,16 @@ export default function Config() {
     turno_fim: TURNO_PADRAO.fim.slice(0, 5),
   });
 
-  // Query para resolver o ID da unidade a partir do nome selecionado (essencial para admin_franquia)
+  // Query para resolver o ID da unidade a partir do slug selecionado (essencial para admin_franquia)
   const { data: currentUnitData, isLoading: isLoadingUnitId } = useQuery({
     queryKey: ['unidade-detalhes', selectedUnit],
     queryFn: async () => {
       if (!selectedUnit) return null;
 
-      const searchName = selectedUnit === 'POA' ? 'Poá' : (selectedUnit === 'ITAQUA' ? 'Itaquaquecetuba' : selectedUnit);
-
       const { data, error } = await supabase
         .from('unidades')
         .select('id, nome_loja')
-        .ilike('nome_loja', `%${searchName}%`)
+        .eq('slug', selectedUnit)
         .maybeSingle();
 
       if (error) throw error;
@@ -155,7 +153,7 @@ export default function Config() {
   });
 
   // Configuração da franquia (para reaproveitar tv_tts / ElevenLabs)
-  const { data: franquiaConfig } = useQuery<{ config_pagamento: any | null }>({
+  const { data: franquiaConfig } = useQuery<any>({
     queryKey: ['franquia-config', user?.franquiaId],
     queryFn: async () => {
       if (!user?.franquiaId) return { config_pagamento: null };
@@ -165,7 +163,11 @@ export default function Config() {
         .eq('id', user.franquiaId)
         .maybeSingle();
       if (error) throw error;
-      return (data as any) || { config_pagamento: null };
+      const config = data?.config_pagamento || {};
+      return {
+        config_pagamento: config,
+        ...config
+      };
     },
     enabled: !!user?.franquiaId,
   });

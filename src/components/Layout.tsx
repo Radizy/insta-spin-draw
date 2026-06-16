@@ -45,8 +45,7 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [maquinhaOpen, setMaquinhaOpen] = useState(false);
 
-  // Módulo de maquininhas: verificar se está ativo para a franquia
-  const { data: franquiaConfig } = useQuery({
+  const { data: franquiaConfig } = useQuery<any>({
     queryKey: ['franquia-config', user?.franquiaId],
     staleTime: 1000 * 60 * 60,
     queryFn: async () => {
@@ -65,7 +64,10 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
         localStorage.setItem(`modulos_ativos_${user.franquiaId}`, JSON.stringify(config.modulos_ativos));
       }
       
-      return config;
+      return {
+        config_pagamento: config,
+        ...config
+      };
     },
     enabled: !!user?.franquiaId,
   });

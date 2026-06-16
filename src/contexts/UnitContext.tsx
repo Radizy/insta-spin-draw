@@ -12,12 +12,14 @@ const UnitContext = createContext<UnitContextType | undefined>(undefined);
 const UNIT_STORAGE_KEY = 'fila_selected_unit';
 
 export function UnitProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const [selectedUnit, setSelectedUnit] = useState<Unidade | null>(() => {
     return (localStorage.getItem(UNIT_STORAGE_KEY) as Unidade) || null;
   });
 
   useEffect(() => {
+    if (isLoading) return; // Aguarda a restauração da sessão do Supabase
+
     if (user) {
       const storedUserId = localStorage.getItem(`${UNIT_STORAGE_KEY}_uid`);
       const storedUnit = localStorage.getItem(UNIT_STORAGE_KEY);
@@ -43,7 +45,7 @@ export function UnitProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem(UNIT_STORAGE_KEY);
       localStorage.removeItem(`${UNIT_STORAGE_KEY}_uid`);
     }
-  }, [user]);
+  }, [user, isLoading]);
 
   const handleSetSelectedUnit = (unit: Unidade | null) => {
     setSelectedUnit(unit);

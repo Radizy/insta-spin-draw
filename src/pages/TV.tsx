@@ -123,14 +123,18 @@ export default function TV() {
     refetchInterval: 15000,
   });
 
-  const { data: franquiaConfig } = useQuery({
+  const { data: franquiaConfig } = useQuery<any>({
     queryKey: ['franquia-config', user?.franquiaId],
     staleTime: 1000 * 60 * 60,
     queryFn: async () => {
       if (!user?.franquiaId) return { config_pagamento: null };
       const { data, error } = await supabase.from('franquias').select('config_pagamento').eq('id', user.franquiaId).maybeSingle();
       if (error) throw error;
-      return (data as any) || { config_pagamento: null };
+      const config = data?.config_pagamento || {};
+      return {
+        config_pagamento: config,
+        ...config
+      };
     },
     enabled: !!user?.franquiaId,
   });
@@ -697,11 +701,14 @@ export default function TV() {
 
   const handleReturn = async (e: Entregador) => {
     try {
+      // Registrar no histórico de saídas e disparar webhook para planilha
+      await registrarRetornoEntrega(e.id, selectedUnit, user?.unidadeId);
+
       await updateMutation.mutateAsync({ id: e.id, data: { status: 'disponivel', fila_posicao: new Date().toISOString(), hora_saida: null } });
       const pos = availableQueue.length + 1;
       const whatsapp = (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes('whatsapp');
-      if (whatsapp && e.whatsapp_ativo !== false) await sendWhatsAppMessage(e.telefone, `Retorno confirmado! PosiÃ§Ã£o ${pos}.`, { franquiaId: user?.franquiaId ?? null, unidadeId: null });
-      refetch(); refetchHistorico(); toast.success(`Retorno confirmado! PosiÃ§Ã£o ${pos}.`);
+      if (whatsapp && e.whatsapp_ativo !== false) await sendWhatsAppMessage(e.telefone, `Retorno confirmado! Posição ${pos}.`, { franquiaId: user?.franquiaId ?? null, unidadeId: null });
+      refetch(); refetchHistorico(); toast.success(`Retorno confirmado! Posição ${pos}.`);
     } catch { toast.error('Erro ao retornar'); }
   };
 
@@ -754,7 +761,7 @@ export default function TV() {
 
   const buildTvTexts = (nome: string, bag?: string, senha?: string) => {
     const prompts = (franquiaConfig?.config_pagamento as any)?.tv_prompts || {};
-    const c = (prompts.entrega_chamada || 'Ã‰ a sua vez {nome}').replace('{nome}', nome);
+    const c = (prompts.entrega_chamada || 'É a sua vez {nome}').replace('{nome}', nome);
     const b = (prompts.entrega_bag || 'Pegue a {bag}').replace('{bag}', bag || 'sua bag');
     const p = (prompts.pagamento_chamada || 'Senha {senha}\n{nome}...').replace('{nome}', nome).replace('{senha}', senha || '').replace('{unidade}', storeName);
     return { chamadaText: c, bagText: b, pagamentoText: p };
@@ -768,7 +775,7 @@ export default function TV() {
             <Volume2 className="w-16 h-16 text-white" />
           </div>
           <h1 className="text-4xl font-black mb-4">INICIAR TV</h1>
-          <p className="text-slate-400 text-lg max-w-md">Para permitir notificaÃ§Ãµes de voz e sons, precisamos que vocÃª interaja com a pÃ¡gina.</p>
+          <p className="text-slate-400 text-lg max-w-md">Para permitir notificações de voz e sons, precisamos que você interaja com a página.</p>
           <Button onClick={() => setInteractionNeeded(false)} size="lg" className="mt-8 px-12 h-16 text-xl font-bold bg-emerald-600 hover:bg-emerald-500 rounded-full">ATIVAR SOM E TV</Button>
         </div>
       )}
@@ -785,7 +792,7 @@ export default function TV() {
       />
       {tvPlaylist.length > 0 && <div className={`fixed inset-0 z-40 bg-black transition-opacity duration-1000 ${isIdle && !displayingCalled && !displayingPagamento ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>{renderPlaylistSlide(isIdle && !displayingCalled && !displayingPagamento)}</div>}
       <header className="flex items-center justify-between px-8 py-4 border-b border-border bg-card/50">
-        <div className="flex items-center gap-2 font-mono font-bold text-xl">ðŸ• {displayName} <span className="mx-2 text-border">|</span> <span className="text-muted-foreground">{storeName}</span></div>
+        <div className="flex items-center gap-2 font-mono font-bold text-xl">🍕 {displayName} <span className="mx-2 text-border">|</span> <span className="text-muted-foreground">{storeName}</span></div>
         <div className="flex items-center gap-4">
           <Button onClick={() => setCheckinOpen(true)} variant="outline" className="gap-2"><UserPlus className="w-5 h-5" /> Check-in</Button>
           <button onClick={() => setIsMuted(!isMuted)} className="p-3 rounded-lg bg-secondary">{isMuted ? <VolumeX className="w-6 h-6" /> : <Volume2 className="w-6 h-6" />}</button>

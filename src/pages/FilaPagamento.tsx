@@ -37,7 +37,7 @@ export default function FilaPagamento() {
   const queryClient = useQueryClient();
 
   // Configurações da franquia para checar módulos ativos
-  const { data: franquiaConfig } = useQuery<{ config_pagamento: any | null }>({
+  const { data: franquiaConfig } = useQuery<any>({
     queryKey: ['franquia-config', user?.franquiaId],
     staleTime: 1000 * 60 * 60,
     queryFn: async () => {
@@ -48,7 +48,11 @@ export default function FilaPagamento() {
         .eq('id', user.franquiaId)
         .maybeSingle();
       if (error) throw error;
-      return (data as any) || { config_pagamento: null };
+      const config = data?.config_pagamento || {};
+      return {
+        config_pagamento: config,
+        ...config
+      };
     },
     enabled: !!user?.franquiaId,
   });

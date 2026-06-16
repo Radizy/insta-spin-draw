@@ -420,7 +420,7 @@ export default function Roteirista() {
 
 
   // Configurações da franquia para checar módulos ativos
-  const { data: franquiaConfig } = useQuery<{ config_pagamento: any | null }>({
+  const { data: franquiaConfig } = useQuery<any>({
     queryKey: ['franquia-config', currentFranquiaId],
     queryFn: async () => {
       if (!currentFranquiaId) return { config_pagamento: null };
@@ -430,7 +430,11 @@ export default function Roteirista() {
         .eq('id', currentFranquiaId)
         .maybeSingle();
       if (error) throw error;
-      return (data as any) || { config_pagamento: null };
+      const config = data?.config_pagamento || {};
+      return {
+        config_pagamento: config,
+        ...config
+      };
     },
     enabled: !!currentFranquiaId,
   });
@@ -597,6 +601,7 @@ export default function Roteirista() {
           unidade: selectedUnit,
           unidade_id: user?.unidadeId,
           tipo_bag: bagName,
+          quantidade_entregas: deliveryCount,
         });
         queryClient.invalidateQueries({ queryKey: ['saidas-dia', selectedUnit] });
 
@@ -745,7 +750,7 @@ export default function Roteirista() {
     }
   };
 
-  // 3.1 Remover da fila de Em Entrega (cancelar sem registrar historico)
+  // 3.1 Remover da fila de Em Entrega (cancelar sem registrar historico e desativar)
   const handleCancelDelivery = async (entregadorId: string, nome: string) => {
     try {
       await updateMutation.mutateAsync({
@@ -753,10 +758,10 @@ export default function Roteirista() {
         data: {
           status: 'disponivel',
           hora_saida: null,
-          fila_posicao: new Date().toISOString(),
+          ativo: false,
         },
       });
-      toast.success(`${nome} foi removido da entrega e voltou para a fila.`);
+      toast.success(`${nome} foi removido da entrega e desativado da fila.`);
     } catch (error) {
       toast.error('Erro ao remover da fila de entrega');
     }

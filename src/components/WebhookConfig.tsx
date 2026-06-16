@@ -28,7 +28,7 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
 
   const unidadeId = overrideUnidadeId || user?.unidadeId;
 
-  const { data: franquiaConfig } = useQuery({
+  const { data: franquiaConfig } = useQuery<any>({
     queryKey: ['franquia-config', user?.franquiaId],
     queryFn: async () => {
       if (!user?.franquiaId) return null;
@@ -38,7 +38,11 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
         .eq('id', user.franquiaId)
         .maybeSingle();
       if (error) throw error;
-      return (data?.config_pagamento as any) || {};
+      const config = (data?.config_pagamento as any) || {};
+      return {
+        config_pagamento: config,
+        ...config
+      };
     },
     enabled: !!user?.franquiaId,
     staleTime: 10 * 60 * 1000,

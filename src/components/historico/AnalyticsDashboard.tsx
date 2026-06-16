@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -43,7 +44,7 @@ interface MetricResult {
 export function AnalyticsDashboard({ dataInicio, dataFim, unidadeId, unidadeNome }: AnalyticsDashboardProps) {
     const { user } = useAuth();
 
-    const { data: franquiaConfig } = useQuery({
+    const { data: franquiaConfig } = useQuery<any>({
         queryKey: ['franquia-config', user?.franquiaId],
     staleTime: 1000 * 60 * 60,
     queryFn: async () => {
@@ -61,7 +62,10 @@ export function AnalyticsDashboard({ dataInicio, dataFim, unidadeId, unidadeNome
                 localStorage.setItem(`modulos_ativos_${user.franquiaId}`, JSON.stringify(config.modulos_ativos));
             }
             
-            return config;
+            return {
+                config_pagamento: config,
+                ...config
+            };
         },
         enabled: !!user?.franquiaId,
     });

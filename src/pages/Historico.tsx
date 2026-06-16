@@ -11,7 +11,7 @@ import {
   HORARIO_EXPEDIENTE,
 } from '@/lib/api';
 import { toast } from 'sonner';
-import { History, Download, Loader2, Users, Trash2, Clock, FileSpreadsheet, Copy, ArrowLeft } from 'lucide-react';
+import { History, Download, Loader2, Users, Trash2, Clock, FileSpreadsheet, Copy, ArrowLeft, Package } from 'lucide-react';
 import { Navigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,6 +40,7 @@ interface EntregadorContagem {
   id: string;
   nome: string;
   telefone: string;
+  saidas: number;
   entregas: number;
 }
 
@@ -189,7 +190,8 @@ function doPost(e) {
     }
     // 3. Lógica para Resumo Manual (Sincronização manual)
     else {
-      const sheetName = unidade + '-' + data.data;
+      const dataDia = data.data_dia || data.data || dateStr;
+      const sheetName = unidade + '-' + dataDia;
       let sheet = ss.getSheetByName(sheetName);
       if (!sheet) {
         sheet = ss.insertSheet(sheetName);
@@ -254,21 +256,42 @@ export default function Historico() {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
 
+  // Buscar configuração da unidade para o webhook e franquia_id
+  const { data: unitData } = useQuery({
+    queryKey: ['unidade-config-sheets', selectedUnit],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('unidades')
+        .select('id, config_sheets_url, franquia_id')
+        .eq('slug', selectedUnit)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedUnit,
+  });
+
+  const currentFranquiaId = unitData?.franquia_id || user?.franquiaId;
+
   // Configurações da franquia para checar módulos ativos
-  const { data: franquiaConfig } = useQuery<{ config_pagamento: any | null }>({
-    queryKey: ['franquia-config', user?.franquiaId],
+  const { data: franquiaConfig } = useQuery<any>({
+    queryKey: ['franquia-config', currentFranquiaId],
     staleTime: 1000 * 60 * 60,
     queryFn: async () => {
-      if (!user?.franquiaId) return { config_pagamento: null };
+      if (!currentFranquiaId) return { config_pagamento: null };
       const { data, error } = await supabase
         .from('franquias')
         .select('config_pagamento')
-        .eq('id', user.franquiaId)
+        .eq('id', currentFranquiaId)
         .maybeSingle();
       if (error) throw error;
-      return (data as any) || { config_pagamento: null };
+      const config = data?.config_pagamento || {};
+      return {
+        config_pagamento: config,
+        ...config
+      };
     },
-    enabled: !!user?.franquiaId,
+    enabled: !!currentFranquiaId,
   });
 
   const isPlanilhaAtivo = (franquiaConfig?.config_pagamento?.modulos_ativos || []).includes('planilha');
@@ -278,21 +301,6 @@ export default function Historico() {
   const { data: entregadores = [] } = useQuery({
     queryKey: ['entregadores', selectedUnit],
     queryFn: () => fetchEntregadores({ unidade: selectedUnit, unidade_id: user?.unidadeId }),
-  });
-
-  // Buscar configuração da unidade para o webhook
-  const { data: unitData } = useQuery({
-    queryKey: ['unidade-config-sheets', selectedUnit],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('unidades')
-        .select('id, config_sheets_url')
-        .eq('nome_loja', selectedUnit)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!selectedUnit,
   });
 
   useEffect(() => {
@@ -315,10 +323,12 @@ export default function Historico() {
 
   // Calcular contagem por entregador
   const contagemPorEntregador = useMemo((): EntregadorContagem[] => {
-    const contagem: Record<string, number> = {};
+    const contagemSaidas: Record<string, number> = {};
+    const contagemEntregas: Record<string, number> = {};
 
     historico.forEach((h) => {
-      contagem[h.entregador_id] = (contagem[h.entregador_id] || 0) + 1;
+      contagemSaidas[h.entregador_id] = (contagemSaidas[h.entregador_id] || 0) + 1;
+      contagemEntregas[h.entregador_id] = (contagemEntregas[h.entregador_id] || 0) + (h.quantidade_entregas || 1);
     });
 
     return entregadores
@@ -326,12 +336,16 @@ export default function Historico() {
         id: e.id,
         nome: e.nome,
         telefone: e.telefone,
-        entregas: contagem[e.id] || 0,
+        saidas: contagemSaidas[e.id] || 0,
+        entregas: contagemEntregas[e.id] || 0,
       }))
       .sort((a, b) => b.entregas - a.entregas);
   }, [historico, entregadores]);
 
-  const totalEntregas = historico.length;
+  const totalSaidas = historico.length;
+  const totalEntregas = useMemo(() => {
+    return historico.reduce((acc, curr) => acc + (curr.quantidade_entregas || 1), 0);
+  }, [historico]);
 
   // Verificar se pode limpar (após 12:00)
   const canClean = () => {
@@ -360,8 +374,13 @@ export default function Historico() {
 
   const handleExportExcel = () => {
     // Criar CSV para download
-    const headers = ['Nome', 'Telefone', 'Entregas'];
-    const rows = contagemPorEntregador.map((e) => [e.nome, e.telefone, e.entregas.toString()]);
+    const headers = ['Nome', 'Telefone', 'Saídas', 'Entregas'];
+    const rows = contagemPorEntregador.map((e) => [
+      e.nome,
+      e.telefone,
+      e.saidas.toString(),
+      e.entregas.toString(),
+    ]);
 
     const csvContent = [
       headers.join(','),
@@ -390,7 +409,7 @@ export default function Historico() {
       const { error } = await supabase
         .from('unidades')
         .update({ config_sheets_url: webhookUrl })
-        .eq('nome_loja', selectedUnit);
+        .eq('slug', selectedUnit);
 
       if (error) throw error;
 
@@ -419,7 +438,7 @@ export default function Historico() {
       const payload = {
         tipo: 'resumo_entregas',
         unidade: selectedUnit,
-        data: dataFormatted,
+        data_dia: dataFormatted,
         entregas: contagemPorEntregador.filter(e => e.entregas > 0),
       };
 
@@ -560,7 +579,7 @@ export default function Historico() {
         <TabsContent value="historico" className="m-0 space-y-6">
 
           {/* Stats */}
-          <div className="grid sm:grid-cols-2 gap-6 mb-10">
+          <div className="grid sm:grid-cols-3 gap-6 mb-10">
             <div className="bg-card/80 backdrop-blur-md border border-border/50 shadow-sm hover:shadow-md transition-shadow rounded-[1.5rem] p-6 relative overflow-hidden">
               <div className="absolute -right-6 -top-6 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
               <div className="flex items-center gap-4 relative z-10">
@@ -569,6 +588,18 @@ export default function Historico() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">Total de saídas</p>
+                  <p className="text-4xl font-extrabold font-mono mt-1 text-foreground/90">{totalSaidas}</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-card/80 backdrop-blur-md border border-border/50 shadow-sm hover:shadow-md transition-shadow rounded-[1.5rem] p-6 relative overflow-hidden">
+              <div className="absolute -right-6 -top-6 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+              <div className="flex items-center gap-4 relative z-10">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center shadow-inner">
+                  <Package className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">Total de entregas</p>
                   <p className="text-4xl font-extrabold font-mono mt-1 text-foreground/90">{totalEntregas}</p>
                 </div>
               </div>
@@ -617,14 +648,22 @@ export default function Historico() {
                         <p className="text-sm text-muted-foreground">{entregador.telefone}</p>
                       </div>
                     </div>
-                    <div>
+                    <div className="flex flex-col items-end gap-1.5">
                       <span
-                        className={`inline-flex items-center justify-center min-w-[2.5rem] px-3 h-9 rounded-full font-bold font-mono text-sm ${entregador.entregas > 0
-                          ? 'bg-primary text-primary-foreground'
+                        className={`inline-flex items-center justify-center min-w-[5.5rem] px-2 h-7 rounded-md font-semibold font-mono text-[11px] ${entregador.saidas > 0
+                          ? 'bg-primary/10 text-primary border border-primary/20'
                           : 'bg-secondary text-muted-foreground'
                           }`}
                       >
-                        {entregador.entregas} entr
+                        {entregador.saidas} saídas
+                      </span>
+                      <span
+                        className={`inline-flex items-center justify-center min-w-[5.5rem] px-2 h-7 rounded-md font-bold font-mono text-[11px] ${entregador.entregas > 0
+                          ? 'bg-status-available/10 text-status-available border border-status-available/20'
+                          : 'bg-secondary text-muted-foreground'
+                          }`}
+                      >
+                        {entregador.entregas} entregas
                       </span>
                     </div>
                   </div>
@@ -639,7 +678,8 @@ export default function Historico() {
                       <TableHead className="w-12">#</TableHead>
                       <TableHead>Nome</TableHead>
                       <TableHead>Telefone</TableHead>
-                      <TableHead className="text-right">Entregas</TableHead>
+                      <TableHead className="text-right w-28">Saídas</TableHead>
+                      <TableHead className="text-right w-28">Entregas</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -654,8 +694,18 @@ export default function Historico() {
                         </TableCell>
                         <TableCell className="text-right">
                           <span
-                            className={`inline-flex items-center justify-center w-10 h-10 rounded-full font-bold font-mono ${entregador.entregas > 0
-                              ? 'bg-primary text-primary-foreground'
+                            className={`inline-flex items-center justify-center min-w-[2.5rem] px-2.5 h-8 rounded-full font-semibold font-mono text-sm ${entregador.saidas > 0
+                              ? 'bg-primary/10 text-primary border border-primary/20'
+                              : 'bg-secondary text-muted-foreground'
+                              }`}
+                          >
+                            {entregador.saidas}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span
+                            className={`inline-flex items-center justify-center min-w-[2.5rem] px-2.5 h-8 rounded-full font-bold font-mono text-sm ${entregador.entregas > 0
+                              ? 'bg-status-available/10 text-status-available border border-status-available/20'
                               : 'bg-secondary text-muted-foreground'
                               }`}
                           >
