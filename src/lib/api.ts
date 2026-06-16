@@ -1289,6 +1289,33 @@ export async function fetchSystemUpdates(): Promise<SystemUpdate[]> {
 
   const manualUpdates: SystemUpdate[] = [
     {
+      id: 'v2.9.1-err',
+      titulo: 'Erros corrigidos',
+      tipo: 'MELHORIAS',
+      status: 'lancado',
+      data_publicacao: '2026-06-16',
+      ordem: -13,
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 'v2.9.1-ret',
+      titulo: 'Registro de horário de retorno na planilha',
+      tipo: 'MELHORIAS',
+      status: 'lancado',
+      data_publicacao: '2026-06-16',
+      ordem: -12,
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 'v2.9.1-hist',
+      titulo: 'Melhoria no histórico',
+      tipo: 'MELHORIAS',
+      status: 'lancado',
+      data_publicacao: '2026-06-16',
+      ordem: -11,
+      created_at: new Date().toISOString()
+    },
+    {
       id: 'm1',
       titulo: 'Módulo Controle de Maquininhas',
       tipo: 'NOVO RECURSO',

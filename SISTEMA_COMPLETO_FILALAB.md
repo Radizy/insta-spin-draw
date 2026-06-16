@@ -1,149 +1,155 @@
-# SISTEMA FILALAB - DOCUMENTAÃ‡ÃƒO COMPLETA
+# SISTEMA FILALAB - DOCUMENTAÇÃO COMPLETA
 
-## ðŸ“‹ VISÃƒO GERAL DO SISTEMA
+## 📋 VISÃO GERAL DO SISTEMA
 
-**FilaLab** Ã© uma plataforma completa de gestÃ£o de filas e entregas (roteirizaÃ§Ã£o) para franquias, focada em otimizar operaÃ§Ãµes logÃ­sticas com motoboys. O sistema oferece controle centralizado para super administradores, gestÃ£o autÃ´noma para franquias e interface dedicada para entregadores.
+**FilaLab** é uma plataforma completa de gestão de filas e entregas (roteirização) para franquias, focada em otimizar operações logísticas com motoboys. O sistema oferece controle centralizado para super administradores, gestão autônoma para franquias e interface dedicada para entregadores.
 
-### NÃ­veis de Acesso
-- **Super Administrador**: Controle total do sistema, gestÃ£o de franquias, planos e mÃ³dulos
-- **Admin Franquia**: GestÃ£o de suas unidades, usuÃ¡rios e configuraÃ§Ãµes
-- **Operador**: Acesso Ã s telas operacionais (Roteirista, TV, Fila de Pagamento)
-- **Motoboy**: Portal dedicado para check-in e visualizaÃ§Ã£o de status
+### Níveis de Acesso
+- **Super Administrador**: Controle total do sistema, gestão de franquias, planos e módulos
+- **Admin Franquia**: Gestão de suas unidades, usuários e configurações
+- **Operador**: Acesso às telas operacionais (Roteirista, TV, Fila de Pagamento)
+- **Motoboy**: Portal dedicado para check-in e visualização de status
 
-### GestÃ£o de MÃ³dulos (Toggles)
-O sistema conta com restriÃ§Ã£o de funcionalidades por pacote comercial baseada em mÃ³dulos.
-Os 5 mÃ³dulos principais sÃ£o:
-1. **WhatsApp AvanÃ§ado (`whatsapp`)**: Controla abas de configuraÃ§Ã£o da Evolution API e envio de disparo de mensagens diretas do sistema para o entregador.
-2. **TV Premium (`tv_avancada`)**: Destrava customizaÃ§Ãµes exclusivas como upload de fundo e customizaÃ§Ã£o de toques e vozes de AI da tela de TV de espera. Inclui sistema de rediscagem automÃ¡tica de 10s e caminhos de Ã¡udio otimizados por franquia.
-3. **IntegraÃ§Ã£o Planilha (`planilha`)**: Habilita o webhook do Google Sheets no painel de HistÃ³rico permitindo exportaÃ§Ã£o autÃ´noma de dados.
+### Gestão de Módulos (Toggles)
+O sistema conta com restrição de funcionalidades por pacote comercial baseada em módulos.
+Os 5 módulos principais são:
+1. **WhatsApp Avançado (`whatsapp`)**: Controla abas de configuração da Evolution API e envio de disparo de mensagens diretas do sistema para o entregador.
+2. **TV Premium (`tv_avancada`)**: Destrava customizações exclusivas como upload de fundo e customização de toques e vozes de AI da tela de TV de espera. Inclui sistema de rediscagem automática de 10s e caminhos de áudio otimizados por franquia.
+3. **Integração Planilha (`planilha`)**: Habilita o webhook do Google Sheets no painel de Histórico permitindo exportação autônoma de dados.
 4. **Fila de Pagamento (`fila_pagamento`)**: Libera o uso da tela `/fila-pagamento` para o gerenciamento de senhas (cash-out financeiro dos motoqueiros).
-5. **Controle de Maquininhas (`controle_maquininhas`)**: MÃ³dulo definitivo para gestÃ£o de estoque e atribuiÃ§Ã£o de mÃ¡quinas de cartÃ£o para motoboys.
-6. **IntegraÃ§Ã£o SISFOOD (`sisfood_integration`)**: Habita o painel de tutorial na aba IntegraÃ§Ãµes, disparando webhooks do caixa para alimentar a Fila do Roteirista sem falhas. 
-7. **Modo Treinamento (FilaLab Academy)**: Treinamento simulado em memÃ³ria local, guiado passo a passo para novos operadores (`isTrainingMode`).
+5. **Controle de Maquininhas (`controle_maquininhas`)**: Módulo definitivo para gestão de estoque e atribuição de máquinas de cartão para motoboys.
+6. **Integração SISFOOD (`sisfood_integration`)**: Habita o painel de tutorial na aba Integrações, disparando webhooks do caixa para alimentar a Fila do Roteirista sem falhas. 
+7. **Modo Treinamento (FilaLab Academy)**: Treinamento simulado em memória local, guiado passo a passo para novos operadores (`isTrainingMode`).
 
-Esses mÃ³dulos podem ser geridos livremente pelo painel Super Admin na visualizaÃ§Ã£o e ediÃ§Ã£o de uma franquia.
+Esses módulos podem ser geridos livremente pelo painel Super Admin na visualização e edição de uma franquia.
 
-### VersÃ£o do Sistema
-- **VersÃ£o Atual**: `2.9.1` (Junho 2026)
-- **Ãšltimas ImplementaÃ§Ãµes**:
-    - **CorreÃ§Ãµes de erros no Analytics Pro e no recarregamento (F5) de pÃ¡ginas**.
-    - **Registro do horÃ¡rio de retorno e do tempo de rua do motoboy na planilha de controle**.
-    - **Melhorias na visualizaÃ§Ã£o e relatÃ³rios no painel de HistÃ³rico**.
-    - **TransmissÃ£o Automatizada e Telemetria de Desempenho (FPS Real & ResoluÃ§Ã£o) com Trava de 60 FPS**:
-        - **SincronizaÃ§Ã£o AutomÃ¡tica & IdentificaÃ§Ã£o de Lojas**: Agora, ao iniciar uma transmissÃ£o de tela de qualquer unidade (ex: ItaquÃ¡), a plataforma busca todas as unidades da mesma franquia no Supabase e insere automaticamente a mÃ­dia de `tipo: 'transmissao'` na playlist de screensaver (`tv_playlist`) de cada uma delas (ItaquÃ¡, PoÃ¡, Suzano, etc.). O sinalizador WebRTC trafega nominalmente o nome da respectiva unidade (`lojaNome`), permitindo que o painel do transmissor exiba em tempo real uma lista dinÃ¢mica das lojas que estÃ£o assistindo Ã  transmissÃ£o (ex: "Lojas assistindo agora: ItaquÃ¡, PoÃ¡, Suzano"). Ao finalizar a transmissÃ£o (ou se a aba do transmissor for recarregada/fechada abruptamente), a mÃ­dia Ã© removida de todas as playlists, fazendo com que as TVs retornem Ã  rotatividade normal sem necessidade de intervenÃ§Ã£o manual.
-        - **Isolamento Estrito por Franquia**: A comunicaÃ§Ã£o de sinalizaÃ§Ã£o WebRTC ocorre estritamente dentro de canais de broadcast isolados por franquia (`webrtc-${user.franquiaId}`). Isso impede totalmente qualquer conflito, vazamento ou queda de conexÃµes se lojas de franquias diferentes iniciarem transmissÃµes simultÃ¢neas, mantendo a integridade de cada cliente de forma isolada.
-        - **Telemetria e Aspect Ratio Fiel no Preview**: Adicionado um HUD informativo e flutuante de diagnÃ³stico no Preview de transmissÃ£o local (`ScreenShareTransmitter.tsx`) que calcula e exibe em tempo real o **FPS Real** renderizado (via `requestVideoFrameCallback` com fallback para `requestAnimationFrame`) e a resoluÃ§Ã£o/FPS nominal. Para eliminar qualquer desalinhamento ou distorÃ§Ã£o na hora de selecionar a Ã¡rea de recorte, o container de preview agora ajusta dinamicamente a sua proporÃ§Ã£o de tela (`aspectRatio`) com base nos metadados da imagem do stream de vÃ­deo capturado (`loadedmetadata`), em vez de fixar em 16:9, alinhando perfeitamente a Ã¡rea visual de recorte com o que a TV vai exibir. A taxa mÃ¡xima estÃ¡ configurada em **60 FPS** (`frameRate: { ideal: 60, max: 60 }`), permitindo oscilaÃ§Ã£o automÃ¡tica conforme o desempenho.
-        - **ResiliÃªncia Anti-Travamento (Handshake Seguro & Auto-Restart)**: Corrigido o bug onde a transmissÃ£o ficava presa em "Conectando..." (decorrente de loops de sinalizaÃ§Ã£o que atropelavam a negociaÃ§Ã£o ativa do WebRTC). O receptor da TV (`ScreenShareReceiver.tsx`) agora silencia pings de sinalizaÃ§Ã£o de forma inteligente durante a fase de negociaÃ§Ã£o de IPs (`connecting` ou `checking`). AlÃ©m disso, foi implementado um mecanismo de **Auto-Restart** que identifica quedas ou falhas na rota de mÃ­dia (`failed`/`disconnected`), fecha a conexÃ£o anterior de forma limpa e inicia automaticamente uma nova tentativa de handshake do zero.
-        - **Melhoria de Usabilidade no Banner Flutuante**: O banner flutuante persistente de transmissÃ£o ativa (`ActiveShareBanner` no `App.tsx`) foi deslocado mais para a esquerda (`right-24`), desimpedindo totalmente o canto inferior direito e evitando que o banner sobreponha botÃµes operacionais cruciais como o "Controle de Maquininhas", chat do WhatsApp e o widget de changelog.
-    - **Fila Sequencial AssÃ­ncrona para DevoculaÃ§Ã£o de Maquininhas (Segundo Plano)**: O processo de dar baixa de maquininhas no modal (`MaquininhaControlModal.tsx`) agora roda 100% em segundo plano em uma fila assÃ­ncrona sequencial (`queueRef`). O operador pode clicar para devolver as maquininhas de mÃºltiplos motoboys consecutivamente sem precisar aguardar a conclusÃ£o do processo no banco de dados e planilhas Google Sheets. Cada botÃ£o de "Dar Baixa" entra em estado de carregamento e o card correspondente permanece visÃ­vel atÃ© que a mutaÃ§Ã£o seja confirmada com sucesso pela API. A fila sequencial previne erros de concorrÃªncia e bloqueios simultÃ¢neos de gravaÃ§Ã£o na Evolution API / Google Apps Script.
-    - **CorreÃ§Ã£o de Layout no Modal de Maquininhas**: Ajustada a especificaÃ§Ã£o de classes do componente `TabsContent` do Radix UI para usar `data-[state=active]:flex flex-col` em vez do comportamento padrÃ£o `display: block`. Isso permite que o modal expanda corretamente as listas internas de motoboys e maquininhas ocupando toda a altura do modal de forma flexÃ­vel e com scroll independente, sem quebras no rodapÃ©.
-    - **CorreÃ§Ã£o dos Ã�cones Sumindo no Menu Lateral (PersistÃªncia)**: Implementado fallback automÃ¡tico com salvamento e recuperaÃ§Ã£o dos mÃ³dulos ativos da franquia no `localStorage` do navegador. Isso impede que itens de menu condicionados aos mÃ³dulos ativos (como o Ã­cone de "Controle de Maquininhas") desapareÃ§am temporariamente durante o carregamento de pÃ¡ginas pesadas de Analytics ou recarregamento manual do aplicativo.
-    - **Screensaver de TransmissÃ£o via WebRTC (SaaS Screen Sharing)**: Novo tipo de mÃ­dia `transmissao` adicionado ao Screensaver da TV. CriaÃ§Ã£o dos componentes `ScreenShareReceiver.tsx`, `ScreenShareTransmitter.tsx` e do contexto `ScreenShareContext.tsx` utilizando Supabase como canal de Signaling em tempo real para os Peers WebRTC. Acompanha script de instalaÃ§Ã£o do coTURN (`install_coturn.sh`) e pÃ¡gina de teste local `/public/test-rtc.html`.
-    - **SincronizaÃ§Ã£o de Check-in DiÃ¡rio na TV (`TV.tsx`)**: UnificaÃ§Ã£o e reset diÃ¡rio sincronizado dos campos `primeiro_checkin` (screensaver) e `checkin_diario` (auditoria administrativa) na entrada da fila.
-    - **Vozes mais realistas com Google TTS**: Agora Ã© possÃ­vel gerar vozes mais realistas usando o Google TTS (temporariamente gratuito).
-    - **GeraÃ§Ã£o de voz do motoboy inteligente**: O botÃ£o "Gerar Voz" no cadastro do motoboy agora detecta automaticamente se a franquia usa Google ou ElevenLabs.
-    - **Self-Service de WhatsApp (Evolution API)**: Painel de IntegraÃ§Ãµes atualizado para permitir que o prÃ³prio Admin da Franquia conecte e gere o QR Code de seu dispositivo WhatsApp, utilizando credenciais padrÃ£o via variÃ¡veis de ambiente (`VITE_EVOLUTION_URL`), eliminando a necessidade de configuraÃ§Ã£o manual pelo Super Admin.
-    - **Super Admin - CriaÃ§Ã£o Nativa de UsuÃ¡rios**: Modal "Nova Franquia" aprimorado para permitir a criaÃ§Ã£o automÃ¡tica de usuÃ¡rios administradores (`system_users`) vinculados Ã  nova loja no momento do registro.
-    - **Dashboard Super Admin**: Interface "Geral" modernizada com atalhos de aÃ§Ãµes rÃ¡pidas e exibiÃ§Ã£o de dados reais das "Ãšltimas 5 Lojas Registradas".
-    - **MigraÃ§Ã£o SaaS Multi-Tenant (UUID Strict)**: O sistema foi migrado de uma dependÃªncia baseada em nomes de lojas (strings) para o uso de **UUIDs (`unidade_id`)** como chave primÃ¡ria em todas as operaÃ§Ãµes. Isso garante que lojas com nomes iguais (ex: "ITAQUA") em franquias diferentes nunca misturem seus dados.
-    - **Edge Function `auth-login` DinÃ¢mico**: Refatorada para permitir que `super_admin` carregue todas as unidades do sistema via `availableUnits`. Implementado um mapeador robuso que utiliza o UUID da unidade como fallback.
-    - **PersistÃªncia Agnostica (`DadosDaLoja.tsx`)**: SubstituÃ­do o padrÃ£o `insert/update` por `upsert` com `onConflict: 'unidade_id'`, eliminando registros duplicados na tabela `system_config`.
-    - **Webhook Saipos SaaS-Ready**: Refatorado para utilizar a funÃ§Ã£o `resolveStoreId`, que identifica a loja corretamente (via UUID ou nome normalizado) antes de processar pedidos ou GPS.
-    - **VisualizaÃ§Ã£o de GeocodificaÃ§Ã£o no Roteirista**: A query de localizaÃ§Ã£o da loja no mapa agora utiliza `unidade_id`, garantindo que a "casinha" (marker da loja) apareÃ§a corretamente para todas as unidades.
-    - **Strict Multi-Franquias (Vazamento de Lojas)**: O backend da API (`fetchEntregadores`) blindado contra string solta de `unidade`. A filtragem e inserÃ§Ã£o passa a ser obrigatoriamente exigida pelo `unidade_id` (UUID), isolando perfeitamente lojas 100% homÃ´nimas de franquias parceiras distintas.
-    - **MÃ³dulo TV Screensaver - Radar**: TV Premium agora suporta mÃ­dia dinÃ¢mica `mapa` e `top_rank` em sua constraint de verificaÃ§Ã£o para exibir um radar de entregas ao vivo na tela de repouso dos roteiristas.
-    - **IntegraÃ§Ã£o Push-Config Independente**: Tela Mestra "IntegraÃ§Ãµes" desbloqueada mesmo se o WhatsApp estiver desligado, impedindo a inabilitaÃ§Ã£o em cascata acidental do Sisfood e Saipos.
-    - **IntegraÃ§Ã£o Expo Push (Motoboy App)**: Disparo de notificaÃ§Ãµes push nativas via backend.
-    - **Fila de DisponÃ­veis e Entregando Refinadas**: BotÃ£o de retorno renomeado de `Finalizar` para `Deixar DisponÃ­vel`. Adicionado botÃ£o de atalho `Em Entrega` na Fila de DisponÃ­veis.
-    - **OtimizaÃ§Ã£o de Network Polling**: ReduÃ§Ã£o do intervalo de busca para `saidas-hoje` (Roteirista) e `historico-rank` (TV) para cada 5 minutos, diminuindo a carga no banco de dados e melhorando a performance geral.
-    - **OrganizaÃ§Ã£o de Scripts**: Todos os scripts SQL e scripts auxiliares (.js, .ps1) foram centralizados na pasta `/scripts` para um ambiente de desenvolvimento mais limpo.
-    - **Kanban Board para AtualizaÃ§Ãµes**: O painel Super Admin agora conta com um layout Kanban (Drag & Drop) para gerir atualizaÃ§Ãµes do sistema.
-    - **Termos de Uso e PolÃ­tica de Privacidade**: ImplementaÃ§Ã£o de modais dedicados no rodapÃ© da Landing Page.
-    - **IntegraÃ§Ã£o SISFOOD v11.1 (Universal Anti-Zumbi)**: Script Tampermonkey unificado com disparo duplo e proteÃ§Ã£o contra comandos obsoletos.
-    - **OtimizaÃ§Ã£o de Bateria (App Motoboy)**: Heartbeat de localizaÃ§Ã£o alterado para 5 minutos para preservaÃ§Ã£o de bateria e CPU.
-    - **RefatoraÃ§Ã£o da Fila do Motoboy**: LÃ³gica de entrada na fila (check-in manual vs expediente) centralizada no backend via API, unificando a visÃ£o do Painel Roteirista e do Web App Meu Lugar.
+### Versão do Sistema
+- **Versão Atual**: `2.9.1` (Junho 2026)
+- **Últimas Implementações**:
+    - **Estabilização do Analytics Pro e Persistência de Sessão no F5 (Reload)**:
+        - Resolvido bug crítico em que a recarga da página deslogava o usuário ou renderizava uma tela preta no Histórico, decorrente de uma colisão de cache no React Query pela chave `['franquia-config']` e por um `ReferenceError: useMemo is not defined` no componente `AnalyticsDashboard.tsx`.
+        - Padronizado o retorno da configuração da franquia em todo o ecossistema do frontend para `{ config_pagamento, ...config }`, eliminando inconsistências e quebras de estado.
+        - Corrigido o mapeamento de busca de unidades que usava `nome_loja` (ex: "ITAQUA") em vez de `slug` (ex: "itaquaquecetuba"), prevenindo retornos vazios em consultas de dados históricos de unidades específicas.
+    - **Correção da Telemetria de Retorno e Integração Planilhas (Apps Script)**:
+        - Ajustado o script do Google Apps Script e o disparo em `Historico.tsx` para usar o fallback correto de datas (`data.data_dia || data.data || dateStr`) evitando a criação de abas `-undefined` ou abas duplicadas indesejadas.
+        - Implementada a gravação inteligente da hora de retorno e duração da entrega na mesma linha da respectiva saída na planilha de controle, permitindo acompanhamento unificado em tempo real.
+    - **Remoção de Service Worker Obsoleto**:
+        - Retirada a chamada de registro de `sw.js` em `index.html` que causava erros de MIME type incompatível ("text/html") no console.
+    - **Transmissão Automatizada e Telemetria de Desempenho (FPS Real & Resolução) com Trava de 60 FPS**: 
+        - **Sincronização Automática & Identificação de Lojas**: Agora, ao iniciar uma transmissão de tela de qualquer unidade (ex: Itaquá), a plataforma busca todas as unidades da mesma franquia no Supabase e insere automaticamente a mídia de `tipo: 'transmissao'` na playlist de screensaver (`tv_playlist`) de cada uma delas (Itaquá, Poá, Suzano, etc.). O sinalizador WebRTC trafega nominalmente o nome da respectiva unidade (`lojaNome`), permitindo que o painel do transmissor exiba em tempo real uma lista dinâmica das lojas que estão assistindo à transmissão (ex: "Lojas assistindo agora: Itaquá, Poá, Suzano"). Ao finalizar a transmissão (ou se a aba do transmissor for recarregada/fechada abruptamente), a mídia é removida de todas as playlists, fazendo com que as TVs retornem à rotatividade normal sem necessidade de intervenção manual.
+        - **Isolamento Estrito por Franquia**: A comunicação de sinalização WebRTC ocorre estritamente dentro de canais de broadcast isolados por franquia (`webrtc-${user.franquiaId}`). Isso impede totalmente qualquer conflito, vazamento ou queda de conexões se lojas de franquias diferentes iniciarem transmissões simultâneas, mantendo a integridade de cada cliente de forma isolada.
+        - **Telemetria e Aspect Ratio Fiel no Preview**: Adicionado um HUD informativo e flutuante de diagnóstico no Preview de transmissão local (`ScreenShareTransmitter.tsx`) que calcula e exibe em tempo real o **FPS Real** renderizado (via `requestVideoFrameCallback` com fallback para `requestAnimationFrame`) e a resolução/FPS nominal. Para eliminar qualquer desalinhamento ou distorção na hora de selecionar a área de recorte, o container de preview agora ajusta dinamicamente a sua proporção de tela (`aspectRatio`) com base nos metadados da imagem do stream de vídeo capturado (`loadedmetadata`), em vez de fixar em 16:9, alinhando perfeitamente a área visual de recorte com o que a TV vai exibir. A taxa máxima está configurada em **60 FPS** (`frameRate: { ideal: 60, max: 60 }`), permitindo oscilação automática conforme o desempenho.
+        - **Resiliência Anti-Travamento (Handshake Seguro & Auto-Restart)**: Corrigido o bug onde a transmissão ficava presa em "Conectando..." (decorrente de loops de sinalização que atropelavam a negociação ativa do WebRTC). O receptor da TV (`ScreenShareReceiver.tsx`) agora silencia pings de sinalização de forma inteligente durante a fase de negociação de IPs (`connecting` ou `checking`). Além disso, foi implementado um mecanismo de **Auto-Restart** que identifica quedas ou falhas na rota de mídia (`failed`/`disconnected`), fecha a conexão anterior de forma limpa e inicia automaticamente uma nova tentativa de handshake do zero.
+        - **Melhoria de Usabilidade no Banner Flutuante**: O banner flutuante persistente de transmissão ativa (`ActiveShareBanner` no `App.tsx`) foi deslocado mais para a esquerda (`right-24`), desimpedindo totalmente o canto inferior direito e evitando que o banner sobreponha botões operacionais cruciais como o "Controle de Maquininhas", chat do WhatsApp e o widget de changelog.
+    - **Fila Sequencial Assíncrona para Devoculação de Maquininhas (Segundo Plano)**: O processo de dar baixa de maquininhas no modal (`MaquininhaControlModal.tsx`) agora roda 100% em segundo plano em uma fila assíncrona sequencial (`queueRef`). O operador pode clicar para devolver as maquininhas de múltiplos motoboys consecutivamente sem precisar aguardar a conclusão do processo no banco de dados e planilhas Google Sheets. Cada botão de "Dar Baixa" entra em estado de carregamento e o card correspondente permanece visível até que a mutação seja confirmada com sucesso pela API. A fila sequencial previne erros de concorrência e bloqueios simultâneos de gravação na Evolution API / Google Apps Script.
+    - **Correção de Layout no Modal de Maquininhas**: Ajustada a especificação de classes do componente `TabsContent` do Radix UI para usar `data-[state=active]:flex flex-col` em vez do comportamento padrão `display: block`. Isso permite que o modal expanda corretamente as listas internas de motoboys e maquininhas ocupando toda a altura do modal de forma flexível e com scroll independente, sem quebras no rodapé.
+    - **Correção dos Ícones Sumindo no Menu Lateral (Persistência)**: Implementado fallback automático com salvamento e recuperação dos módulos ativos da franquia no `localStorage` do navegador. Isso impede que itens de menu condicionados aos módulos ativos (como o ícone de "Controle de Maquininhas") desapareçam temporariamente durante o carregamento de páginas pesadas de Analytics ou recarregamento manual do aplicativo.
+    - **Screensaver de Transmissão via WebRTC (SaaS Screen Sharing)**: Novo tipo de mídia `transmissao` adicionado ao Screensaver da TV. Criação dos componentes `ScreenShareReceiver.tsx`, `ScreenShareTransmitter.tsx` e do contexto `ScreenShareContext.tsx` utilizando Supabase como canal de Signaling em tempo real para os Peers WebRTC. Acompanha script de instalação do coTURN (`install_coturn.sh`) e página de teste local `/public/test-rtc.html`.
+    - **Sincronização de Check-in Diário na TV (`TV.tsx`)**: Unificação e reset diário sincronizado dos campos `primeiro_checkin` (screensaver) e `checkin_diario` (auditoria administrativa) na entrada da fila.
+    - **Vozes mais realistas com Google TTS**: Agora é possível gerar vozes mais realistas usando o Google TTS (temporariamente gratuito).
+    - **Geração de voz do motoboy inteligente**: O botão "Gerar Voz" no cadastro do motoboy agora detecta automaticamente se a franquia usa Google ou ElevenLabs.
+    - **Self-Service de WhatsApp (Evolution API)**: Painel de Integrações atualizado para permitir que o próprio Admin da Franquia conecte e gere o QR Code de seu dispositivo WhatsApp, utilizando credenciais padrão via variáveis de ambiente (`VITE_EVOLUTION_URL`), eliminando a necessidade de configuração manual pelo Super Admin.
+    - **Super Admin - Criação Nativa de Usuários**: Modal "Nova Franquia" aprimorado para permitir a criação automática de usuários administradores (`system_users`) vinculados à nova loja no momento do registro.
+    - **Dashboard Super Admin**: Interface "Geral" modernizada com atalhos de ações rápidas e exibição de dados reais das "Últimas 5 Lojas Registradas".
+    - **Migração SaaS Multi-Tenant (UUID Strict)**: O sistema foi migrado de uma dependência baseada em nomes de lojas (strings) para o uso de **UUIDs (`unidade_id`)** como chave primária em todas as operações. Isso garante que lojas com nomes iguais (ex: "ITAQUA") em franquias diferentes nunca misturem seus dados.
+    - **Edge Function `auth-login` Dinâmico**: Refatorada para permitir que `super_admin` carregue todas as unidades do sistema via `availableUnits`. Implementado um mapeador robuso que utiliza o UUID da unidade como fallback.
+    - **Persistência Agnostica (`DadosDaLoja.tsx`)**: Substituído o padrão `insert/update` por `upsert` com `onConflict: 'unidade_id'`, eliminando registros duplicados na tabela `system_config`.
+    - **Webhook Saipos SaaS-Ready**: Refatorado para utilizar a função `resolveStoreId`, que identifica a loja corretamente (via UUID ou nome normalizado) antes de processar pedidos ou GPS.
+    - **Visualização de Geocodificação no Roteirista**: A query de localização da loja no mapa agora utiliza `unidade_id`, garantindo que a "casinha" (marker da loja) apareça corretamente para todas as unidades.
+    - **Strict Multi-Franquias (Vazamento de Lojas)**: O backend da API (`fetchEntregadores`) blindado contra string solta de `unidade`. A filtragem e inserção passa a ser obrigatoriamente exigida pelo `unidade_id` (UUID), isolando perfeitamente lojas 100% homônimas de franquias parceiras distintas.
+    - **Módulo TV Screensaver - Radar**: TV Premium agora suporta mídia dinâmica `mapa` e `top_rank` em sua constraint de verificação para exibir um radar de entregas ao vivo na tela de repouso dos roteiristas.
+    - **Integração Push-Config Independente**: Tela Mestra "Integrações" desbloqueada mesmo se o WhatsApp estiver desligado, impedindo a inabilitação em cascata acidental do Sisfood e Saipos.
+    - **Integração Expo Push (Motoboy App)**: Disparo de notificações push nativas via backend.
+    - **Fila de Disponíveis e Entregando Refinadas**: Botão de retorno renomeado de `Finalizar` para `Deixar Disponível`. Adicionado botão de atalho `Em Entrega` na Fila de Disponíveis.
+    - **Otimização de Network Polling**: Redução do intervalo de busca para `saidas-hoje` (Roteirista) e `historico-rank` (TV) para cada 5 minutos, diminuindo a carga no banco de dados e melhorando a performance geral.
+    - **Organização de Scripts**: Todos os scripts SQL e scripts auxiliares (.js, .ps1) foram centralizados na pasta `/scripts` para um ambiente de desenvolvimento mais limpo.
+    - **Kanban Board para Atualizações**: O painel Super Admin agora conta com um layout Kanban (Drag & Drop) para gerir atualizações do sistema.
+    - **Termos de Uso e Política de Privacidade**: Implementação de modais dedicados no rodapé da Landing Page.
+    - **Integração SISFOOD v11.1 (Universal Anti-Zumbi)**: Script Tampermonkey unificado com disparo duplo e proteção contra comandos obsoletos.
+    - **Otimização de Bateria (App Motoboy)**: Heartbeat de localização alterado para 5 minutos para preservação de bateria e CPU.
+    - **Refatoração da Fila do Motoboy**: Lógica de entrada na fila (check-in manual vs expediente) centralizada no backend via API, unificando a visão do Painel Roteirista e do Web App Meu Lugar.
     - **App Mobile Otimizado**: Identidade visual do aplicativo Expo atualizada para "Filalab - Motoboy" com nova logo.
-    - **AtualizaÃ§Ã£o de SeguranÃ§a (Zero-Quebra)**: 
-        - Hashing transparente via Trigger SQL (`pgcrypto`) na inserÃ§Ã£o de senhas em `system_users`.
-        - ImplementaÃ§Ã£o RLS Estrita e progressiva (`franquias`, `system_users`, `unidades`) baseada no JWT e claims passados via Front-End `AuthContext.tsx`.
-        - ValidaÃ§Ã£o forte (HMAC/Token) adicionada Ã s Edge Functions do Asaas (`webhook-asaas`) e Sisfood (`sisfood-webhook`). Tampermonkeys (v11.5+) agora trafegam token `x-api-key`.
-    - **CorreÃ§Ã£o de AcÃºmulo de Dados no Ranking da TV**: Resolvida falha que causava a inflaÃ§Ã£o dos nÃºmeros no widget "Top Rank" (ex: motoboys com 296 saÃ­das). O problema foi identificado como uma atualizaÃ§Ã£o em massa acidental de registros histÃ³ricos "abertos" (zumbis).
-    - **ProteÃ§Ã£o Anti-CorrupÃ§Ã£o de HistÃ³rico (`api.ts`)**: Implementado um filtro de seguranÃ§a de 24 horas nas funÃ§Ãµes `registrarRetornoEntrega` e `atualizarSaidaEntrega`. Agora, o sistema apenas permite atualizar registros criados no turno atual, impedindo que aÃ§Ãµes presentes modifiquem dados de dias passados.
-    - **Limpeza de Dados Zumbis em Larga Escala**: Executada faxina no banco de dados para fechar registros sem hora de retorno e restaurar timestamps de saÃ­da corrompidos, normalizando os indicadores de performance em Suzano e outras unidades afetadas.
-    - **CorreÃ§Ã£o de ExibiÃ§Ã£o para Lojas Novas**: O `auth-login` usava o UUID da unidade como `unidade_nome` para lojas nÃ£o mapeadas explicitamente (fallback). Corrigido para usar `nome_loja` diretamente, eliminando a exibiÃ§Ã£o do UUID no tÃ­tulo "Controle da fila de entregas" do Roteirista para franquias novas.
+    - **Atualização de Segurança (Zero-Quebra)**: 
+        - Hashing transparente via Trigger SQL (`pgcrypto`) na inserção de senhas em `system_users`.
+        - Implementação RLS Estrita e progressiva (`franquias`, `system_users`, `unidades`) baseada no JWT e claims passados via Front-End `AuthContext.tsx`.
+        - Validação forte (HMAC/Token) adicionada às Edge Functions do Asaas (`webhook-asaas`) e Sisfood (`sisfood-webhook`). Tampermonkeys (v11.5+) agora trafegam token `x-api-key`.
+    - **Correção de Acúmulo de Dados no Ranking da TV**: Resolvida falha que causava a inflação dos números no widget "Top Rank" (ex: motoboys com 296 saídas). O problema foi identificado como uma atualização em massa acidental de registros históricos "abertos" (zumbis).
+    - **Proteção Anti-Corrupção de Histórico (`api.ts`)**: Implementado um filtro de segurança de 24 horas nas funções `registrarRetornoEntrega` e `atualizarSaidaEntrega`. Agora, o sistema apenas permite atualizar registros criados no turno atual, impedindo que ações presentes modifiquem dados de dias passados.
+    - **Limpeza de Dados Zumbis em Larga Escala**: Executada faxina no banco de dados para fechar registros sem hora de retorno e restaurar timestamps de saída corrompidos, normalizando os indicadores de performance em Suzano e outras unidades afetadas.
+    - **Correção de Exibição para Lojas Novas**: O `auth-login` usava o UUID da unidade como `unidade_nome` para lojas não mapeadas explicitamente (fallback). Corrigido para usar `nome_loja` diretamente, eliminando a exibição do UUID no título "Controle da fila de entregas" do Roteirista para franquias novas.
 
 ---
 
-## ðŸ›¡ï¸� ANÃ�LISE DE SEGURANÃ‡A E TESTES PENDENTES (ROADMAP)
+## 🛡️ ANÁLISE DE SEGURANÇA E TESTES PENDENTES (ROADMAP)
 
-A configuraÃ§Ã£o atual mitigou as vulnerabilidades mais graves (acesso indevido a dados de pagamentos, vazamento de senhas, e falsificaÃ§Ã£o de webhooks de caixas), porÃ©m **hÃ¡ pontos essenciais a serem priorizados** na prÃ³xima fase arquitetural do sistema (preservamos por enquanto para evitar quebra no *App do Motoboy*).
+A configuração atual mitigou as vulnerabilidades mais graves (acesso indevido a dados de pagamentos, vazamento de senhas, e falsificação de webhooks de caixas), porém **há pontos essenciais a serem priorizados** na próxima fase arquitetural do sistema (preservamos por enquanto para evitar quebra no *App do Motoboy*).
 
-### O que ainda falta ou estÃ¡ incorreto (Pontos CrÃ­ticos):
-1. **Tabelas Operacionais (Motoboys e HistÃ³rico) estÃ£o ABERTAS no Banco**:
-   - O RLS (`Row Level Security`) para tabelas como `entregadores`, `historico_entregas` e `senhas_pagamento` ainda segue a polÃ­tica `USING (true) WITH CHECK (true)`.
-   - **Risco**: Qualquer um com o link/chave anÃ´nima do painel pode interagir com a fila de motoboys.
-   - **SoluÃ§Ã£o Futura**: Trancar essas tabelas exigindo que o motoboy/tv tambÃ©m envie um Token JWT (ou uma validaÃ§Ã£o customizada baseada em Pin de unidade).
-2. **"App do Motoboy" Autenticado na Base da ConfianÃ§a**:
-   - Atualmente, o app Web/WebView do Motoboy se baseia muito no ID/Pin digitado no prÃ³prio celular e na ausÃªncia de validaÃ§Ã£o rÃ­gida de SessÃ£o via Supabase Auth.
-   - **Risco**: Risco de spoofing (um ex-funcionÃ¡rio sabendo a rota ou PIN pode manipular dados fingindo estar logado).
+### O que ainda falta ou está incorreto (Pontos Críticos):
+1. **Tabelas Operacionais (Motoboys e Histórico) estão ABERTAS no Banco**:
+   - O RLS (`Row Level Security`) para tabelas como `entregadores`, `historico_entregas` e `senhas_pagamento` ainda segue a política `USING (true) WITH CHECK (true)`.
+   - **Risco**: Qualquer um com o link/chave anônima do painel pode interagir com a fila de motoboys.
+   - **Solução Futura**: Trancar essas tabelas exigindo que o motoboy/tv também envie um Token JWT (ou uma validação customizada baseada em Pin de unidade).
+2. **"App do Motoboy" Autenticado na Base da Confiança**:
+   - Atualmente, o app Web/WebView do Motoboy se baseia muito no ID/Pin digitado no próprio celular e na ausência de validação rígida de Sessão via Supabase Auth.
+   - **Risco**: Risco de spoofing (um ex-funcionário sabendo a rota ou PIN pode manipular dados fingindo estar logado).
 3. **Canais de Realtime Expostos (Supabase Presence e Broadcast)**:
    - Se o Realtime estiver ouvindo tabelas operacionais abertas, agentes mal intencionados podem assinar o socket `/realtime` filtrando a fila de motoboys de qualquer franquia.
-   - **SoluÃ§Ã£o Futura**: Vincular Policies RLS ao Realtime para que canais socket sÃ³ despachem eventos se o Token bater.
-4. **Senhas Antigas ainda estÃ£o em Texto Plano**:
-   - O novo Trigger faz o hash perfeito nas senhas que sÃ£o cadastradas ou atualizadas *a partir de agora*. Mas o banco antigo ainda contÃ©m as senhas de franqueados antigos salvas em texto limpo.
-   - **SoluÃ§Ã£o Futura**: Rodar um script de MigraÃ§Ã£o Ãºnica no Banco `UPDATE system_users SET password_hash = crypt(password_hash, gen_salt('bf')) WHERE password_hash NOT LIKE '$2%'`. Note que isso desconectarÃ¡ imediatamente todos que estiverem usando sessÃµes antigas desatualizadas se houver concorrÃªncia de lÃ³gica e exigirÃ¡ que a Edge Function `auth-login` pareÃ§a tratar o legado x novo.
+   - **Solução Futura**: Vincular Policies RLS ao Realtime para que canais socket só despachem eventos se o Token bater.
+4. **Senhas Antigas ainda estão em Texto Plano**:
+   - O novo Trigger faz o hash perfeito nas senhas que são cadastradas ou atualizadas *a partir de agora*. Mas o banco antigo ainda contém as senhas de franqueados antigos salvas em texto limpo.
+   - **Solução Futura**: Rodar um script de Migração única no Banco `UPDATE system_users SET password_hash = crypt(password_hash, gen_salt('bf')) WHERE password_hash NOT LIKE '$2%'`. Note que isso desconectará imediatamente todos que estiverem usando sessões antigas desatualizadas se houver concorrência de lógica e exigirá que a Edge Function `auth-login` pareça tratar o legado x novo.
 
-### SugestÃ£o de Testes a Serem Feitos por VocÃª Agora na OperaÃ§Ã£o:
+### Sugestão de Testes a Serem Feitos por Você Agora na Operação:
 1. **Teste o Login Normal:** Certifique-se de que os logins de Super Admin e Franquia continuam abrindo.
-2. **Crie um UsuÃ¡rio Teste:** VÃ¡ no painel super admin > UsuÃ¡rios do Sistema, e crie um "Operador". Tente entrar com a conta criada e em seguida logue no seu banco de dados Supabase e verifique se o campo "password_hash" nÃ£o Ã© "123", mas sim um hash `$2a$...`.
-3. **Pague uma Assinatura via Asaas Falso (Teste de Fraude):** Envie um POST via Postman para o `/webhook-asaas` com o corpo da loja, omitindo o `asaas-signature`. A funÃ§Ã£o deve rejeitar a requisiÃ§Ã£o na hora com `Status 403`.
-4. **Acione o Tampermonkey V12.0 (Gerado Automaticamente):** Acesse ConfiguraÃ§Ãµes â†’ IntegraÃ§Ãµes com a conta da loja, ative o Sisfood, copie o script gerado e cole no Tampermonkey. Verifique no Network se o webhook retornou `{success: true}`. Comandas PENDENTE que ficarem sem motoboy correspondente devem ser marcadas como IGNORADO automaticamente.
+2. **Crie um Usuário Teste:** Vá no painel super admin > Usuários do Sistema, e crie um "Operador". Tente entrar com a conta criada e em seguida logue no seu banco de dados Supabase e verifique se o campo "password_hash" não é "123", mas sim um hash `$2a$...`.
+3. **Pague uma Assinatura via Asaas Falso (Teste de Fraude):** Envie um POST via Postman para o `/webhook-asaas` com o corpo da loja, omitindo o `asaas-signature`. A função deve rejeitar a requisição na hora com `Status 403`.
+4. **Acione o Tampermonkey V12.0 (Gerado Automaticamente):** Acesse Configurações → Integrações com a conta da loja, ative o Sisfood, copie o script gerado e cole no Tampermonkey. Verifique no Network se o webhook retornou `{success: true}`. Comandas PENDENTE que ficarem sem motoboy correspondente devem ser marcadas como IGNORADO automaticamente.
 
-## ðŸ“‚ ESTRUTURA DE PASTAS (Root Cleanup)
+## 📂 ESTRUTURA DE PASTAS (Root Cleanup)
 
-Para manter a manutenabilidade, o diretÃ³rio raiz foi limpo, restando apenas arquivos essenciais de configuraÃ§Ã£o e os cÃ³digos principais:
+Para manter a manutenabilidade, o diretório raiz foi limpo, restando apenas arquivos essenciais de configuração e os códigos principais:
 
-- **`/src`**: CÃ³digo fonte da aplicaÃ§Ã£o React (PÃ¡ginas, Componentes, Hooks).
-- **`/scripts`**: Central de scripts SQL de migraÃ§Ã£o, scripts de banco de dados e utilitÃ¡rios.
-- **`/supabase`**: ConfiguraÃ§Ãµes de Edge Functions e MigraÃ§Ãµes de banco.
-- **`/public`**: Assets estÃ¡ticos e imagens.
-- **`SISTEMA_COMPLETO_FILALAB.md`**: Esta documentaÃ§Ã£o mestra.
-- **`tampermonkey_*.js`**: Scripts de integraÃ§Ã£o Sisfood por unidade.
+- **`/src`**: Código fonte da aplicação React (Páginas, Componentes, Hooks).
+- **`/scripts`**: Central de scripts SQL de migração, scripts de banco de dados e utilitários.
+- **`/supabase`**: Configurações de Edge Functions e Migrações de banco.
+- **`/public`**: Assets estáticos e imagens.
+- **`SISTEMA_COMPLETO_FILALAB.md`**: Esta documentação mestra.
+- **`tampermonkey_*.js`**: Scripts de integração Sisfood por unidade.
 
 ---
 
-## ðŸ�—ï¸� ARQUITETURA E TECNOLOGIAS
+## 🏗️ ARQUITETURA E TECNOLOGIAS
 
 ### Frontend
 - **Framework**: React 18.3.1 com TypeScript
 - **Roteamento**: React Router DOM v6.30.1
-- **PÃ¡ginas Principais**: 
-  - `Landing Page / (Index)`: ApresentaÃ§Ã£o comercial do sistema (Home, MÃ³dulos, Contato).
-  - `/login`: Ã�rea restrita do sistema para franqueados e operadores.
+- **Páginas Principais**: 
+  - `Landing Page / (Index)`: Apresentação comercial do sistema (Home, Módulos, Contato).
+  - `/login`: Área restrita do sistema para franqueados e operadores.
 - **Gerenciamento de Estado**: React Context API + TanStack Query v5.83.0
 - **UI Components**: Shadcn/ui com Radix UI primitives
-- **EstilizaÃ§Ã£o**: Tailwind CSS com design system customizado
+- **Estilização**: Tailwind CSS com design system customizado
 - **Drag & Drop**: @hello-pangea/dnd v18.0.1
 
 ### Backend (Lovable Cloud/Supabase)
 - **Banco de Dados**: PostgreSQL com Row Level Security (RLS)
-- **AutenticaÃ§Ã£o**: Sistema customizado baseado em `system_users`
-- **Storage**: Supabase Storage (`motoboy_voices` para voz TTS offline e `franquia_media` para Galeria isolada por Franquia contendo Imagens, VÃ­deos e Ã�udios em geral)
-- **Edge Functions**: Deno runtime para lÃ³gica serverless
-- **Tempo Real**: Supabase Realtime para atualizaÃ§Ãµes instantÃ¢neas
+- **Autenticação**: Sistema customizado baseado em `system_users`
+- **Storage**: Supabase Storage (`motoboy_voices` para voz TTS offline e `franquia_media` para Galeria isolada por Franquia contendo Imagens, Vídeos e Áudios em geral)
+- **Edge Functions**: Deno runtime para lógica serverless
+- **Tempo Real**: Supabase Realtime para atualizações instantâneas
 
-### IntegraÃ§Ãµes Externas
+### Integrações Externas
 - **ElevenLabs / Google TTS**: Text-to-Speech para chamadas de motoboys na TV
-- **WhatsApp (Evolution API)**: Envio de mensagens automÃ¡ticas
-- **Google Sheets**: Webhook para exportaÃ§Ã£o de dados
-- **Asaas**: Gateway de pagamento para cobranÃ§as recorrentes
+- **WhatsApp (Evolution API)**: Envio de mensagens automáticas
+- **Google Sheets**: Webhook para exportação de dados
+- **Asaas**: Gateway de pagamento para cobranças recorrentes
 
 ---
 
-## ðŸ“Š ESTRUTURA DO BANCO DE DADOS
+## 📊 ESTRUTURA DO BANCO DE DADOS
 
 ### TABELA: franquias
-Armazena informaÃ§Ãµes principais das franquias cadastradas no sistema.
+Armazena informações principais das franquias cadastradas no sistema.
 
 **Estrutura:**
 ```sql
@@ -180,7 +186,7 @@ CREATE TABLE franquias (
    - Limite Lojas: `3`
    - Desconto: 100% recorrente (percentual)
    - Plano: Pacote Completo (ID: `404b30bf-f308-42e4-a263-60acec5cba29`)
-   - MÃ³dulos Ativos: WhatsApp, Planilha, Fila Pagamento, TV AvanÃ§ada
+   - Módulos Ativos: WhatsApp, Planilha, Fila Pagamento, TV Avançada
    - Config Pagamento:
      ```json
      {
@@ -222,7 +228,7 @@ CREATE POLICY "franquias_permissive_all" ON franquias FOR ALL USING (true) WITH 
 ---
 
 ### TABELA: unidades
-Representa as lojas/unidades fÃ­sicas de cada franquia.
+Representa as lojas/unidades físicas de cada franquia.
 
 **Estrutura:**
 ```sql
@@ -250,9 +256,9 @@ CREATE TABLE unidades (
    - ID: `14bb566c-c8d0-4b96-8da7-8eecea2d6738`
    - Nome Loja: `Itaquaquecetuba`
    
-2. **PoÃ¡**
+2. **Poá**
    - ID: `82a71bed-9c87-48a4-8eaa-cb13ed2f3514`
-   - Nome Loja: `PoÃ¡`
+   - Nome Loja: `Poá`
    
 3. **Suzano**
    - ID: `f84d6f35-cf8f-48fd-965d-1d6d2fe0a204`
@@ -271,7 +277,7 @@ CREATE POLICY "unidades_permissive_all" ON unidades FOR ALL USING (true) WITH CH
 ---
 
 ### TABELA: system_users
-UsuÃ¡rios do sistema com controle de acesso e vinculaÃ§Ã£o Ã s unidades.
+Usuários do sistema com controle de acesso e vinculação às unidades.
 
 **Estrutura:**
 ```sql
@@ -288,10 +294,10 @@ CREATE TABLE system_users (
 );
 ```
 
-**LÃ³gica de PapÃ©is:**
-- `role = 'admin'` + `franquia_id IS NULL` â†’ **Super Admin** (acesso total)
-- `role = 'admin'` + `franquia_id NOT NULL` â†’ **Admin Franquia** (acesso Ã s suas unidades)
-- `role = 'user'` â†’ **Operador** (vinculado a uma unidade especÃ­fica)
+**Lógica de Papéis:**
+- `role = 'admin'` + `franquia_id IS NULL` → **Super Admin** (acesso total)
+- `role = 'admin'` + `franquia_id NOT NULL` → **Admin Franquia** (acesso às suas unidades)
+- `role = 'user'` → **Operador** (vinculado a uma unidade específica)
 
 **Dados Cadastrados:**
 
@@ -301,7 +307,7 @@ CREATE TABLE system_users (
    - Password: `1324`
    - Role: `admin`
    - Unidade: `ITAQUA`
-   - Franquia: `NULL` (sem vinculaÃ§Ã£o = super admin)
+   - Franquia: `NULL` (sem vinculação = super admin)
 
 2. **fiscalisaque** (Admin Franquia - Dom Fiorentino)
    - ID: `1f7c46a5-cb5a-44b0-a557-f3b9be52ca6f`
@@ -309,7 +315,7 @@ CREATE TABLE system_users (
    - Password: `1324`
    - Role: `admin`
    - Franquia: `6d1fd941-2756-4b04-8ac3-8dfd22ee83fe` (Dom Fiorentino)
-   - Acesso Ã s 3 unidades (Itaqua, PoÃ¡, Suzano)
+   - Acesso às 3 unidades (Itaqua, Poá, Suzano)
 
 3. **expitaqua** (Operador - Itaquaquecetuba)
    - ID: `3f10c5f3-0b8c-4068-a284-a1323e328984`
@@ -327,7 +333,7 @@ CREATE TABLE system_users (
    - Unidade: `SUZANO`
    - Unidade ID: `f84d6f35-cf8f-48fd-965d-1d6d2fe0a204`
 
-5. **exppoa** (Operador - PoÃ¡)
+5. **exppoa** (Operador - Poá)
    - ID: `19c77d8c-a5f0-46ba-948c-046922fd6acb`
    - Username: `exppoa`
    - Password: `1324`
@@ -351,7 +357,7 @@ CREATE POLICY "system_users_select_for_login" ON system_users FOR SELECT USING (
 ---
 
 ### TABELA: user_unidades
-Relacionamento muitos-para-muitos entre usuÃ¡rios e unidades (permite admin de franquia acessar mÃºltiplas lojas).
+Relacionamento muitos-para-muitos entre usuários e unidades (permite admin de franquia acessar múltiplas lojas).
 
 **Estrutura:**
 ```sql
@@ -371,7 +377,7 @@ CREATE TABLE user_unidades (
 | expitaqua | Itaquaquecetuba | 2025-12-29 10:02:44 |
 | expsuzano | Suzano | 2025-12-29 10:03:03 |
 | fiscalisaque | Itaquaquecetuba | 2025-12-31 21:18:52 |
-| fiscalisaque | PoÃ¡ | 2025-12-31 21:18:52 |
+| fiscalisaque | Poá | 2025-12-31 21:18:52 |
 | fiscalisaque | Suzano | 2025-12-31 21:18:52 |
 | teste | testeloja | 2026-01-01 21:38:12 |
 
@@ -383,7 +389,7 @@ CREATE POLICY "Anyone can manage user_unidades" ON user_unidades FOR ALL USING (
 ---
 
 ### TABELA: entregadores
-Cadastro de motoboys com informaÃ§Ãµes de turnos, disponibilidade e tipo de bag.
+Cadastro de motoboys com informações de turnos, disponibilidade e tipo de bag.
 
 **Estrutura:**
 ```sql
@@ -403,7 +409,7 @@ CREATE TABLE entregadores (
   dias_trabalho JSONB DEFAULT '{"seg":true,"ter":true,"qua":true,"qui":true,"sex":true,"sab":true,"dom":true}',
   fila_posicao TIMESTAMP WITH TIME ZONE DEFAULT now(),
   hora_saida TIMESTAMP WITH TIME ZONE,
-  primeiro_checkin TEXT, -- Armazena o timestamp do primeiro checkin diÃ¡rio
+  primeiro_checkin TEXT, -- Armazena o timestamp do primeiro checkin diário
   checkin_diario TIMESTAMP WITH TIME ZONE, -- Registra apenas uma vez no dia via trigger
   tts_voice_path TEXT,
   whatsapp_ativo BOOLEAN DEFAULT true,
@@ -415,12 +421,12 @@ CREATE TABLE entregadores (
 );
 ```
 
-**Trigger: Checkin DiÃ¡rio Inteligente**
+**Trigger: Checkin Diário Inteligente**
 Tabela associada possui uma Trigger `func_log_checkin_diario()` para fixar apenas o *primeiro* registro. Limpeza de campo ocorre via Cloud Function Noturna (`/functions/reset-daily`).
 
 **Exemplos de Motoboys Cadastrados (Unidade ITAQUA):**
 
-| Nome | Telefone | Status | Tipo Bag | Ativo | Turno PadrÃ£o |
+| Nome | Telefone | Status | Tipo Bag | Ativo | Turno Padrão |
 |------|----------|--------|----------|-------|--------------|
 | Quilili | 11958397908 | disponivel | normal | false | 16h-02h |
 | Isaque teste | 11992450059 | disponivel | normal | false | 16h-02h |
@@ -433,7 +439,7 @@ Tabela associada possui uma Trigger `func_log_checkin_diario()` para fixar apena
 | Ciro | 11977468757 | disponivel | normal | false | 16h-02h |
 | Renan | 11948592393 | disponivel | normal | false | 16h-02h |
 
-**Nota:** Total de 50+ motoboys cadastrados. Campos `franquia_id` e `unidade_id` sÃ£o `NULL` nos dados antigos (sistema legado), mas novas inserÃ§Ãµes devem preenchÃª-los.
+**Nota:** Total de 50+ motoboys cadastrados. Campos `franquia_id` e `unidade_id` são `NULL` nos dados antigos (sistema legado), mas novas inserções devem preenchê-los.
 
 **RLS Policies:**
 ```sql
@@ -446,7 +452,7 @@ CREATE POLICY "Anyone can delete entregadores" ON entregadores FOR DELETE USING 
 ---
 
 ### TABELA: historico_entregas
-Registro de todas as entregas realizadas (saÃ­da e retorno).
+Registro de todas as entregas realizadas (saída e retorno).
 
 **Estrutura:**
 ```sql
@@ -465,9 +471,9 @@ CREATE TABLE historico_entregas (
 
 **Funcionalidades:**
 - Registra check-in (hora_saida) e check-out (hora_retorno) dos motoboys
-- Permite cÃ¡lculo de tempo mÃ©dio de entrega
-- HistÃ³rico exportÃ¡vel para anÃ¡lises
-- **PreservaÃ§Ã£o ContÃ­nua:** Este histÃ³rico nÃ£o Ã© mais excluÃ­do atravÃ©s do botÃ£o da pÃ¡gina ConfiguraÃ§Ã£o de fechamento de expediente, permanecendo preservado para o Analytics.
+- Permite cálculo de tempo médio de entrega
+- Histórico exportável para análises
+- **Preservação Contínua:** Este histórico não é mais excluído através do botão da página Configuração de fechamento de expediente, permanecendo preservado para o Analytics.
 
 **RLS Policies:**
 ```sql
@@ -480,7 +486,7 @@ CREATE POLICY "Anyone can delete historico_entregas" ON historico_entregas FOR D
 ---
 
 ### TABELA: planos
-DefiniÃ§Ã£o dos planos de assinatura disponÃ­veis.
+Definição dos planos de assinatura disponíveis.
 
 **Estrutura:**
 ```sql
@@ -501,11 +507,11 @@ CREATE TABLE planos (
 
 **Dados Cadastrados:**
 
-| Nome | Tipo | Valor Base | DuraÃ§Ã£o | Trial | DescriÃ§Ã£o |
+| Nome | Tipo | Valor Base | Duração | Trial | Descrição |
 |------|------|------------|---------|-------|-----------|
-| Pacote BÃ¡sico | mensal | R$ 199,90 | 1 mÃªs | 7 dias | Pacote bÃ¡sico mensal |
-| Pacote Planilha + WhatsApp | mensal | R$ 249,90 | 1 mÃªs | 7 dias | Pacote com integraÃ§Ã£o de planilha e WhatsApp |
-| Pacote Completo | mensal | R$ 299,90 | 1 mÃªs | 7 dias | Pacote com todos os mÃ³dulos ativos |
+| Pacote Básico | mensal | R$ 199,90 | 1 mês | 7 dias | Pacote básico mensal |
+| Pacote Planilha + WhatsApp | mensal | R$ 249,90 | 1 mês | 7 dias | Pacote com integração de planilha e WhatsApp |
+| Pacote Completo | mensal | R$ 299,90 | 1 mês | 7 dias | Pacote com todos os módulos ativos |
 
 **RLS Policies:**
 ```sql
@@ -515,7 +521,7 @@ CREATE POLICY "Anyone can manage planos" ON planos FOR ALL USING (true) WITH CHE
 ---
 
 ### TABELA: modulos
-MÃ³dulos opcionais que podem ser ativados nas unidades.
+Módulos opcionais que podem ser ativados nas unidades.
 
 **Estrutura:**
 ```sql
@@ -532,15 +538,15 @@ CREATE TABLE modulos (
 
 **Dados Cadastrados:**
 
-| CÃ³digo | Nome | DescriÃ§Ã£o | PreÃ§o Mensal | Ativo |
+| Código | Nome | Descrição | Preço Mensal | Ativo |
 |--------|------|-----------|--------------|-------|
-| whatsapp | WhatsApp AvanÃ§ado | Templates personalizados e mensagens automÃ¡ticas | R$ 0,00 | true |
-| planilha | IntegraÃ§Ã£o Planilha | Webhook Google Sheets automÃ¡tico | R$ 0,00 | true |
+| whatsapp | WhatsApp Avançado | Templates personalizados e mensagens automáticas | R$ 0,00 | true |
+| planilha | Integração Planilha | Webhook Google Sheets automático | R$ 0,00 | true |
 | fila_pagamento | Fila de Pagamento | Sistema de senhas para pagamento | R$ 0,00 | true |
-| tv_avancada | TV Premium | AnimaÃ§Ãµes exclusivas na tela da TV | R$ 0,00 | true |
-| controle_maquininhas | Controle de Maquininhas | GestÃ£o de mÃ¡quinas de cartÃ£o e vÃ­nculos | R$ 0,00 | true |
+| tv_avancada | TV Premium | Animações exclusivas na tela da TV | R$ 0,00 | true |
+| controle_maquininhas | Controle de Maquininhas | Gestão de máquinas de cartão e vínculos | R$ 0,00 | true |
 
-**Nota:** PreÃ§o R$ 0,00 indica que os mÃ³dulos estÃ£o inclusos nos pacotes comerciais.
+**Nota:** Preço R$ 0,00 indica que os módulos estão inclusos nos pacotes comerciais.
 
 **RLS Policies:**
 ```sql
@@ -551,7 +557,7 @@ CREATE POLICY "Anyone can read modulos" ON modulos FOR SELECT USING (true);
 ---
 
 ### TABELA: pacotes_comerciais
-Pacotes comerciais prÃ©-configurados com mÃ³dulos inclusos.
+Pacotes comerciais pré-configurados com módulos inclusos.
 
 **Estrutura:**
 ```sql
@@ -572,9 +578,9 @@ CREATE TABLE pacotes_comerciais (
 
 **Dados Cadastrados:**
 
-| CÃ³digo | Nome | PreÃ§o | MÃ³dulos Inclusos | Plano Base |
+| Código | Nome | Preço | Módulos Inclusos | Plano Base |
 |--------|------|-------|------------------|------------|
-| basico | Pacote BÃ¡sico | R$ 149,90 | [] | Pacote BÃ¡sico |
+| basico | Pacote Básico | R$ 149,90 | [] | Pacote Básico |
 | planilha_whatsapp | Pacote Planilha + WhatsApp | R$ 199,90 | [planilha, whatsapp] | Pacote Planilha + WhatsApp |
 | completo | Pacote Completo | R$ 249,90 | [planilha, whatsapp, fila_pagamento, tv_avancada] | Pacote Completo |
 
@@ -587,7 +593,7 @@ CREATE POLICY "Anyone can read pacotes_comerciais" ON pacotes_comerciais FOR SEL
 ---
 
 ### TABELA: unidade_modulos
-Relacionamento entre unidades e mÃ³dulos ativos.
+Relacionamento entre unidades e módulos ativos.
 
 **Estrutura:**
 ```sql
@@ -602,7 +608,7 @@ CREATE TABLE unidade_modulos (
 );
 ```
 
-**Nota:** Atualmente sem dados (mÃ³dulos gerenciados via `franquias.config_pagamento.modulos_ativos`).
+**Nota:** Atualmente sem dados (módulos gerenciados via `franquias.config_pagamento.modulos_ativos`).
 
 **RLS Policies:**
 ```sql
@@ -613,7 +619,7 @@ CREATE POLICY "Anyone can read unidade_modulos" ON unidade_modulos FOR SELECT US
 ---
 
 ### TABELA: tv_playlist
-Armazena a fila de exibiÃ§Ã£o (Screensaver) do mÃ³dulo de TV Premium de cada unidade ociosa.
+Armazena a fila de exibição (Screensaver) do módulo de TV Premium de cada unidade ociosa.
 
 **Estrutura:**
 ```sql
@@ -632,11 +638,11 @@ CREATE TABLE tv_playlist (
 ```
 
 **Funcionalidades:**
-- Suporta playlists e vÃ­deos independentes de YouTube.
-- RenderizaÃ§Ã£o paralela da Fila (`QueueSidebarWidget`) habilitÃ¡vel em todas as mÃ­dias da playlist via DB (`unidades.exibir_fila_tv`).
-- CÃ¡lculo preciso do "Ãšltimo Chamado" analisando a propriedade `hora_saida` (recente).
+- Suporta playlists e vídeos independentes de YouTube.
+- Renderização paralela da Fila (`QueueSidebarWidget`) habilitável em todas as mídias da playlist via DB (`unidades.exibir_fila_tv`).
+- Cálculo preciso do "Último Chamado" analisando a propriedade `hora_saida` (recente).
 - Executa nativamente sem sobrecarregar servidor.
-- Conta com controle de volume deslizante e tempo por mÃ­dia.
+- Conta com controle de volume deslizante e tempo por mídia.
 
 **RLS Policies:**
 ```sql
@@ -646,14 +652,14 @@ CREATE POLICY "tv_playlist_permissive_all" ON tv_playlist FOR ALL USING (true) W
 ---
 
 ### TABELA: franquia_cobrancas
-Registro de cobranÃ§as geradas para cada franquia (integraÃ§Ã£o com Asaas).
+Registro de cobranças geradas para cada franquia (integração com Asaas).
 
 **Estrutura:**
 ```sql
 CREATE TABLE franquia_cobrancas (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   franquia_id UUID NOT NULL REFERENCES franquias(id) ON DELETE CASCADE,
-  external_id TEXT NOT NULL, -- ID da cobranÃ§a no gateway (Asaas)
+  external_id TEXT NOT NULL, -- ID da cobrança no gateway (Asaas)
   gateway TEXT NOT NULL, -- asaas, stripe, etc
   status TEXT NOT NULL, -- pending, paid, overdue, canceled
   valor NUMERIC NOT NULL,
@@ -672,7 +678,7 @@ CREATE POLICY "franquia_cobrancas_permissive_all" ON franquia_cobrancas FOR ALL 
 ---
 
 ### TABELA: senhas_pagamento
-Sistema de senhas para fila de pagamento (mÃ³dulo fila_pagamento).
+Sistema de senhas para fila de pagamento (módulo fila_pagamento).
 
 **Estrutura:**
 ```sql
@@ -701,7 +707,7 @@ CREATE POLICY "Anyone can read senhas_pagamento" ON senhas_pagamento FOR SELECT 
 ---
 
 ### TABELA: maquininhas
-Estoque de mÃ¡quinas de cartÃ£o da unidade.
+Estoque de máquinas de cartão da unidade.
 
 **Estrutura:**
 ```sql
@@ -720,7 +726,7 @@ CREATE TABLE maquininhas (
 ---
 
 ### TABELA: maquininha_vinculos
-Registro histÃ³rico e ativo de qual motoboy estÃ¡ com qual mÃ¡quina.
+Registro histórico e ativo de qual motoboy está com qual máquina.
 
 **Estrutura:**
 ```sql
@@ -751,14 +757,14 @@ CREATE TABLE franquia_bag_tipos (
   nome TEXT NOT NULL,
   descricao TEXT,
   ativo BOOLEAN NOT NULL DEFAULT true,
-  audio_url TEXT, -- Ã�udio amarrado da galeria de mÃ­dia (opcional bypass ao motoboy_voices)
+  audio_url TEXT, -- Áudio amarrado da galeria de mídia (opcional bypass ao motoboy_voices)
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 ```
 
 **Dados Cadastrados (Franquia Dom Fiorentino):**
 
-| Nome | DescriÃ§Ã£o | Ativo |
+| Nome | Descrição | Ativo |
 |------|-----------|-------|
 | Normau | - | true |
 | Metro | - | true |
@@ -771,7 +777,7 @@ CREATE POLICY "franquia_bag_tipos_permissive_all" ON franquia_bag_tipos FOR ALL 
 ---
 
 ### TABELA: unidade_bag_tipos
-Relacionamento entre unidades e tipos de bags disponÃ­veis.
+Relacionamento entre unidades e tipos de bags disponíveis.
 
 **Estrutura:**
 ```sql
@@ -794,7 +800,7 @@ CREATE POLICY "unidade_bag_tipos_permissive_all" ON unidade_bag_tipos FOR ALL US
 ### TABELAS AUXILIARES
 
 #### global_config
-ConfiguraÃ§Ãµes globais do sistema (chave-valor).
+Configurações globais do sistema (chave-valor).
 ```sql
 CREATE TABLE global_config (
   id UUID PRIMARY KEY,
@@ -806,7 +812,7 @@ CREATE TABLE global_config (
 ```
 
 #### system_config
-ConfiguraÃ§Ãµes por unidade (nome da loja, webhook URL). Centralizada no uso de `unidade_id` para persistÃªncia SaaS.
+Configurações por unidade (nome da loja, webhook URL). Centralizada no uso de `unidade_id` para persistência SaaS.
 ```sql
 CREATE TABLE system_config (
   id UUID PRIMARY KEY,
@@ -823,7 +829,7 @@ CREATE TABLE system_config (
 ```
 
 #### logs_auditoria
-Registro de aÃ§Ãµes importantes no sistema.
+Registro de ações importantes no sistema.
 ```sql
 CREATE TABLE logs_auditoria (
   id UUID PRIMARY KEY,
@@ -836,7 +842,7 @@ CREATE TABLE logs_auditoria (
 ```
 
 #### whatsapp_templates
-Templates de mensagens WhatsApp personalizÃ¡veis por unidade.
+Templates de mensagens WhatsApp personalizáveis por unidade.
 ```sql
 CREATE TABLE whatsapp_templates (
   id UUID PRIMARY KEY,
@@ -851,7 +857,7 @@ CREATE TABLE whatsapp_templates (
 ```
 
 #### whatsapp_historico
-HistÃ³rico de mensagens enviadas via WhatsApp.
+Histórico de mensagens enviadas via WhatsApp.
 ```sql
 CREATE TABLE whatsapp_historico (
   id UUID PRIMARY KEY,
@@ -866,7 +872,7 @@ CREATE TABLE whatsapp_historico (
 ```
 
 #### api_keys
-Chaves de API para integraÃ§Ãµes externas.
+Chaves de API para integrações externas.
 ```sql
 CREATE TABLE api_keys (
   id UUID PRIMARY KEY,
@@ -881,7 +887,7 @@ CREATE TABLE api_keys (
 ```
 
 #### unidade_payment_config
-ConfiguraÃ§Ãµes de gateways de pagamento por unidade.
+Configurações de gateways de pagamento por unidade.
 ```sql
 CREATE TABLE unidade_payment_config (
   id UUID PRIMARY KEY,
@@ -895,7 +901,7 @@ CREATE TABLE unidade_payment_config (
 ```
 
 #### unidade_planos
-Planos associados Ã s unidades (para cÃ¡lculos de faturamento).
+Planos associados às unidades (para cálculos de faturamento).
 ```sql
 CREATE TABLE unidade_planos (
   id UUID PRIMARY KEY,
@@ -910,18 +916,18 @@ CREATE TABLE unidade_planos (
 
 ---
 
-## ðŸ”� POLÃ�TICAS DE ROW LEVEL SECURITY (RLS)
+## 🔐 POLÍTICAS DE ROW LEVEL SECURITY (RLS)
 
-### VisÃ£o Geral
+### Visão Geral
 O sistema utiliza RLS permissivo (`USING (true)` e `WITH CHECK (true)`) em todas as tabelas. Isso significa que:
 
-- âœ… **Qualquer usuÃ¡rio autenticado pode realizar qualquer operaÃ§Ã£o**
-- âš ï¸� **A seguranÃ§a Ã© gerenciada na camada de aplicaÃ§Ã£o** (AuthContext)
-- ðŸ”’ **NÃ£o hÃ¡ isolamento automÃ¡tico de dados por usuÃ¡rio/franquia no banco**
+- ✅ **Qualquer usuário autenticado pode realizar qualquer operação**
+- ⚠️ **A segurança é gerenciada na camada de aplicação** (AuthContext)
+- 🔒 **Não há isolamento automático de dados por usuário/franquia no banco**
 
-### ImplementaÃ§Ã£o Atual
+### Implementação Atual
 ```sql
--- PadrÃ£o aplicado em todas as tabelas principais
+-- Padrão aplicado em todas as tabelas principais
 CREATE POLICY "nome_tabela_permissive_all" 
   ON nome_tabela 
   FOR ALL 
@@ -929,9 +935,9 @@ CREATE POLICY "nome_tabela_permissive_all"
   WITH CHECK (true);
 ```
 
-### âš ï¸� RECOMENDAÃ‡Ã•ES DE SEGURANÃ‡A
+### ⚠️ RECOMENDAÇÕES DE SEGURANÇA
 
-Para ambientes de produÃ§Ã£o, considere implementar RLS mais restritivo:
+Para ambientes de produção, considere implementar RLS mais restritivo:
 
 ```sql
 -- Exemplo: Isolar entregadores por franquia
@@ -946,7 +952,7 @@ CREATE POLICY "users_can_view_own_franchise_entregadores"
     )
   );
 
--- Exemplo: Impedir modificaÃ§Ã£o de franquias por nÃ£o-admins
+-- Exemplo: Impedir modificação de franquias por não-admins
 CREATE POLICY "only_admins_can_modify_franquias"
   ON franquias
   FOR UPDATE
@@ -962,11 +968,11 @@ CREATE POLICY "only_admins_can_modify_franquias"
 
 ---
 
-## ðŸ› ï¸� EDGE FUNCTIONS (SUPABASE)
+## 🛠️ EDGE FUNCTIONS (SUPABASE)
 
 ### 1. elevenlabs-tts
 **Rota:** `POST /elevenlabs-tts`  
-**DescriÃ§Ã£o:** Gera Ã¡udio TTS usando ElevenLabs e salva no storage.  
+**Descrição:** Gera áudio TTS usando ElevenLabs e salva no storage.  
 **Input:**
 ```json
 {
@@ -976,19 +982,19 @@ CREATE POLICY "only_admins_can_modify_franquias"
   "filename": "carlos.mp3"
 }
 ```
-**Output:** URL pÃºblica do arquivo de Ã¡udio gerado.
+**Output:** URL pública do arquivo de áudio gerado.
 
 ---
 
 ### 2. send-whatsapp
 **Rota:** `POST /send-whatsapp`  
-**DescriÃ§Ã£o:** Envia mensagem via Evolution API WhatsApp.  
+**Descrição:** Envia mensagem via Evolution API WhatsApp.  
 **Input:**
 ```json
 {
   "unidade_id": "uuid",
   "telefone": "11999999999",
-  "mensagem": "Sua entrega estÃ¡ pronta!"
+  "mensagem": "Sua entrega está pronta!"
 }
 ```
 **Output:** Status do envio.
@@ -997,7 +1003,7 @@ CREATE POLICY "only_admins_can_modify_franquias"
 
 ### 3. send-webhook
 **Rota:** `POST /send-webhook`  
-**DescriÃ§Ã£o:** Envia dados de entregas para webhook configurado (ex: Google Sheets).  
+**Descrição:** Envia dados de entregas para webhook configurado (ex: Google Sheets).  
 **Input:**
 ```json
 {
@@ -1010,23 +1016,23 @@ CREATE POLICY "only_admins_can_modify_franquias"
 
 ### 4. reset-daily (Reset de Expediente)
 **Rota:** `POST /reset-daily`  
-**DescriÃ§Ã£o:** Reseta status de motoboys. Funciona como botÃ£o "Reset de Expediente" da aba da loja.  
-**AÃ§Ãµes:**
+**Descrição:** Reseta status de motoboys. Funciona como botão "Reset de Expediente" da aba da loja.  
+**Ações:**
 - Define todos motoboys como `disponivel` e os desativa `ativo: false`
 - Limpa `hora_saida` de todos para garantir zeramento da fila
-- Prepara o sistema para o prÃ³ximo dia sem excluir os dados em nuvem do HistÃ³rico (`historico_entregas`).
+- Prepara o sistema para o próximo dia sem excluir os dados em nuvem do Histórico (`historico_entregas`).
 
 ---
 
 ### 5. cleanup-old-data
 **Rota:** `POST /cleanup-old-data`  
-**DescriÃ§Ã£o:** Remove dados antigos do histÃ³rico de entregas (>90 dias).
+**Descrição:** Remove dados antigos do histórico de entregas (>90 dias).
 
 ---
 
 ### 6. criar-cobranca-franquia
 **Rota:** `POST /criar-cobranca-franquia`  
-**DescriÃ§Ã£o:** Cria cobranÃ§a no Asaas para franquia.  
+**Descrição:** Cria cobrança no Asaas para franquia.  
 **Input:**
 ```json
 {
@@ -1040,55 +1046,55 @@ CREATE POLICY "only_admins_can_modify_franquias"
 
 ### 7. webhook-asaas
 **Rota:** `POST /webhook-asaas`  
-**DescriÃ§Ã£o:** Recebe notificaÃ§Ãµes de pagamento do Asaas e atualiza status.
+**Descrição:** Recebe notificações de pagamento do Asaas e atualiza status.
 
 ---
 
 ### 8. sync-payment-status
 **Rota:** `POST /sync-payment-status`  
-**DescriÃ§Ã£o:** Sincroniza status de pagamento com Asaas manualmente.
+**Descrição:** Sincroniza status de pagamento com Asaas manualmente.
 
 ---
 
 ### 9. update-franquias-status
 **Rota:** `POST /update-franquias-status`  
-**DescriÃ§Ã£o:** Atualiza status de pagamento das franquias baseado nas cobranÃ§as.
+**Descrição:** Atualiza status de pagamento das franquias baseado nas cobranças.
 
 ---
 
 ### 10. delete-expired-franchises
 **Rota:** `POST /delete-expired-franchises`  
-**DescriÃ§Ã£o:** Remove franquias de teste expiradas (trial + 30 dias).
+**Descrição:** Remove franquias de teste expiradas (trial + 30 dias).
 
 ---
 
 ### 11. clear-motoboy-voices
 **Rota:** `POST /clear-motoboy-voices`  
-**DescriÃ§Ã£o:** Remove arquivos de voz do storage para uma franquia.
+**Descrição:** Remove arquivos de voz do storage para uma franquia.
 
 ---
 
 ### 12. api-payments-create
 **Rota:** `POST /api-payments-create`  
-**DescriÃ§Ã£o:** API pÃºblica para criar cobranÃ§as via API key.
+**Descrição:** API pública para criar cobranças via API key.
 
 ---
 
 ### 13. api-store-status
 **Rota:** `GET /api-store-status`  
-**DescriÃ§Ã£o:** Retorna status pÃºblico da loja (se estÃ¡ aberta/fechada baseado no turno).
+**Descrição:** Retorna status público da loja (se está aberta/fechada baseado no turno).
 
 ---
 
 ### 14. webhooks-payments
 **Rota:** `POST /webhooks-payments`  
-**DescriÃ§Ã£o:** Endpoint genÃ©rico para receber webhooks de mÃºltiplos gateways.
+**Descrição:** Endpoint genérico para receber webhooks de múltiplos gateways.
 
 ---
 
 ### 15. register-franchise
 **Rota:** `POST /register-franchise`  
-**DescriÃ§Ã£o:** Registra nova franquia com perÃ­odo de teste.  
+**Descrição:** Registra nova franquia com período de teste.  
 **Input:**
 ```json
 {
@@ -1102,66 +1108,66 @@ CREATE POLICY "only_admins_can_modify_franquias"
   "password": "senha123"
 }
 ```
-**AÃ§Ãµes:**
+**Ações:**
 1. Cria registro em `franquias`
 2. Cria `unidades` (primeira loja)
-3. Cria usuÃ¡rio admin em `system_users`
-4. Vincula usuÃ¡rio Ã  unidade em `user_unidades`
-5. Associa plano em `unidade_planos` (se aplicÃ¡vel)
+3. Cria usuário admin em `system_users`
+4. Vincula usuário à unidade em `user_unidades`
+5. Associa plano em `unidade_planos` (se aplicável)
 
 ---
 
-## ðŸŽ¨ FUNCIONALIDADES PRINCIPAIS
+## 🎨 FUNCIONALIDADES PRINCIPAIS
 
 ### 1. Roteirista (/roteirista)
-**Tela principal para gestÃ£o de entregas.**
+**Tela principal para gestão de entregas.**
 
 **Funcionalidades:**
-- **Drag & Drop:** Arraste motoboys na "Fila de DisponÃ­veis" para reordenar posiÃ§Ãµes.
-- **Check-in RÃ¡pido:** Registra saÃ­da do motoboy com quantidade de bags e tag de bebidas.
-- **Deixar DisponÃ­vel (Check-out):** Ex-botÃ£o "Finalizar", devolve motoboy da lista "Em Entrega" para a lista "Na Fila".
-- **NÃ£o Apareceu (Card Inteligente):** Modal 10s nÃ£o bloqueante para marcar motoboy como ausente ou chamar novamente.
-- **AÃ§Ã£o Em Entrega:** Mova rapidamente motoboys equivocados da "Fila" para a aba "Em Entrega" a qualquer momento.
-- **IntegraÃ§Ã£o Viva Sisfood:** Acompanhamento dinÃ¢mico direto da integraÃ§Ã£o com badges alertando pedidos atrasados.
+- **Drag & Drop:** Arraste motoboys na "Fila de Disponíveis" para reordenar posições.
+- **Check-in Rápido:** Registra saída do motoboy com quantidade de bags e tag de bebidas.
+- **Deixar Disponível (Check-out):** Ex-botão "Finalizar", devolve motoboy da lista "Em Entrega" para a lista "Na Fila".
+- **Não Apareceu (Card Inteligente):** Modal 10s não bloqueante para marcar motoboy como ausente ou chamar novamente.
+- **Ação Em Entrega:** Mova rapidamente motoboys equivocados da "Fila" para a aba "Em Entrega" a qualquer momento.
+- **Integração Viva Sisfood:** Acompanhamento dinâmico direto da integração com badges alertando pedidos atrasados.
 
 **Fluxo:**
 1. Motoboy aparece na coluna "Na Fila"
 2. Operador arrasta para "Em Entrega" ou clica em "Check-in"
-3. Sistema registra hora de saÃ­da em `historico_entregas`
+3. Sistema registra hora de saída em `historico_entregas`
 4. Atualiza `entregadores.status = 'em_entrega'`
 5. Ao retornar, operador clica em "Check-out"
 6. Sistema registra `hora_retorno` e volta status para `disponivel`
 
-**IntegraÃ§Ãµes:**
-- **WhatsApp:** Envia mensagem automÃ¡tica ao motoboy na saÃ­da (se mÃ³dulo ativo)
+**Integrações:**
+- **WhatsApp:** Envia mensagem automática ao motoboy na saída (se módulo ativo)
 - **Google Sheets:** Exporta dados da entrega via webhook (se configurado)
 - **TV:** Atualiza tela de chamadas em tempo real
 
 ---
 
 ### 2. TV (/tv)
-**Tela pÃºblica para chamar motoboys (exibida em TVs na loja).**
+**Tela pública para chamar motoboys (exibida em TVs na loja).**
 
 **Funcionalidades:**
-- **Chamadas Visuais:** AnimaÃ§Ãµes exclusivas com nome do motoboy
+- **Chamadas Visuais:** Animações exclusivas com nome do motoboy
 - **TTS (Text-to-Speech):** Voz sintetizada via ElevenLabs
-- **Toques ConfigurÃ¡veis:** 6 opÃ§Ãµes de ringtone
-- **Volume AjustÃ¡vel:** 0-100%
+- **Toques Configuráveis:** 6 opções de ringtone
+- **Volume Ajustável:** 0-100%
 - **Modos de Voz:**
   - ElevenLabs (vozes customizadas por motoboy)
   - Browser TTS (fallback nativo)
 - **Check-in Direto:** Modal para check-in sem sair da tela
-- **HistÃ³rico de Chamadas:** Ãšltimas 5 chamadas exibidas no rodapÃ©
+- **Histórico de Chamadas:** Últimas 5 chamadas exibidas no rodapé
 
 **Fluxo:**
 1. Operador chama motoboy no Roteirista
 2. Sistema dispara evento via Realtime Supabase
-3. TV detecta evento e inicia animaÃ§Ã£o
+3. TV detecta evento e inicia animação
 4. Reproduz toque + voz do nome do motoboy
-5. Exibe animaÃ§Ã£o por 10 segundos
+5. Exibe animação por 10 segundos
 6. Retorna ao estado de espera
 
-**ConfiguraÃ§Ã£o (franquia.config_pagamento.tv_tts):**
+**Configuração (franquia.config_pagamento.tv_tts):**
 ```json
 {
   "enabled": true,
@@ -1173,16 +1179,16 @@ CREATE POLICY "only_admins_can_modify_franquias"
 ```
 
 **Modo Ocioso (Screensaver & Widget Clima):**
-1. O tempo mÃ­nimo inerte para ativar o modo ocioso Ã© um Custom Slider definido na aba Config > TV de cada loja (entre 5 e 60 segundos, default: 15s).
-2. Se o tempo da variÃ¡vel estourar sem uso de botÃµes e sem novas chamadas de entrega, a TV recua.
+1. O tempo mínimo inerte para ativar o modo ocioso é um Custom Slider definido na aba Config > TV de cada loja (entre 5 e 60 segundos, default: 15s).
+2. Se o tempo da variável estourar sem uso de botões e sem novas chamadas de entrega, a TV recua.
 3. Aciona nativamente o `play` nas listas do banco de dados `tv_playlist` (imagens, videos da Galeria `franquia_media` e YouTube iframe sync).
-4. Se houver Clima, puxarÃ¡ dados abertos da "OpenWeatherMap" buscando a temperatura e Ã­cone da `cidade_clima` cadastrada na configuraÃ§Ã£o local da Unidade.
-5. Qualquer movimento de mouse via operador muta, esconde e cessa a Playlist com repasse inteligente de posiÃ§Ã£o temporal.
+4. Se houver Clima, puxará dados abertos da "OpenWeatherMap" buscando a temperatura e ícone da `cidade_clima` cadastrada na configuração local da Unidade.
+5. Qualquer movimento de mouse via operador muta, esconde e cessa a Playlist com repasse inteligente de posição temporal.
 
-**IntegraÃ§Ã£o Galeria de MÃ­dia (Storage `franquia_media`):**
-- Os Franqueados possuem um gerenciador modal UI visual contendo abas nativas de (Fotos, VÃ­deos e Ã�udios).
-- A API restringe e alimenta os uploads baseados no RLS vinculado ao prÃ³prio `franquia_id` do enviador para que lixos de outras lojas nÃ£o colidam.
-- Esses botÃµes da Galeria e URLs estÃ£o dispostos na **FormulaÃ§Ã£o da Playlist da TV**, na aba de **ConfiguraÃ§Ãµes de Bags** para vozes e em **EdiÃ§Ã£o de TtS do Motoboy** (como Bypass do sistema ElevenLabs convencional).
+**Integração Galeria de Mídia (Storage `franquia_media`):**
+- Os Franqueados possuem um gerenciador modal UI visual contendo abas nativas de (Fotos, Vídeos e Áudios).
+- A API restringe e alimenta os uploads baseados no RLS vinculado ao próprio `franquia_id` do enviador para que lixos de outras lojas não colidam.
+- Esses botões da Galeria e URLs estão dispostos na **Formulação da Playlist da TV**, na aba de **Configurações de Bags** para vozes e em **Edição de TtS do Motoboy** (como Bypass do sistema ElevenLabs convencional).
 
 ---
 
@@ -1190,13 +1196,13 @@ CREATE POLICY "only_admins_can_modify_franquias"
 **Portal para motoboys verificarem seu status.**
 
 **Funcionalidades:**
-- **Busca por Telefone:** Motoboy insere seu nÃºmero
-- **VisualizaÃ§Ã£o de Status:**
-  - ðŸŸ¢ DisponÃ­vel: "VocÃª estÃ¡ na fila!"
-  - ðŸ”´ Em Entrega: "VocÃª estÃ¡ em entrega desde [hora]"
-  - âš« Ausente: "VocÃª estÃ¡ marcado como ausente"
-- **HistÃ³rico Pessoal:** Ãšltimas 10 entregas realizadas
-- **Tempo MÃ©dio:** CÃ¡lculo automÃ¡tico do tempo de entrega
+- **Busca por Telefone:** Motoboy insere seu número
+- **Visualização de Status:**
+  - 🟢 Disponível: "Você está na fila!"
+  - 🔴 Em Entrega: "Você está em entrega desde [hora]"
+  - ⚫ Ausente: "Você está marcado como ausente"
+- **Histórico Pessoal:** Últimas 10 entregas realizadas
+- **Tempo Médio:** Cálculo automático do tempo de entrega
 
 ---
 
@@ -1204,54 +1210,54 @@ CREATE POLICY "only_admins_can_modify_franquias"
 **Sistema de senhas para organizar pagamentos de motoboys.**
 
 **Funcionalidades:**
-- **GeraÃ§Ã£o de Senhas:** Cria senha automÃ¡tica (formato: #001, #002...)
-- **Chamada de Senhas:** BotÃ£o para chamar prÃ³xima senha
+- **Geração de Senhas:** Cria senha automática (formato: #001, #002...)
+- **Chamada de Senhas:** Botão para chamar próxima senha
 - **Status de Senhas:**
-  - ðŸŸ¡ Aguardando
-  - ðŸ”µ Chamada
-  - ðŸŸ¢ Atendida
-  - ðŸ”´ Cancelada
-- **ExpiraÃ§Ã£o:** Senhas expiram apÃ³s 24h
-- **HistÃ³rico:** VisualizaÃ§Ã£o de senhas do dia
+  - 🟡 Aguardando
+  - 🔵 Chamada
+  - 🟢 Atendida
+  - 🔴 Cancelada
+- **Expiração:** Senhas expiram após 24h
+- **Histórico:** Visualização de senhas do dia
 
-**MÃ³dulo:** Requer `fila_pagamento` ativo.
+**Módulo:** Requer `fila_pagamento` ativo.
 
 ---
 
-### 5. ConfiguraÃ§Ã£o (/config)
-**Painel de configuraÃ§Ã£o da unidade.**
+### 5. Configuração (/config)
+**Painel de configuração da unidade.**
 
 **Abas:**
 
 #### 5.1 Motoboys
-- Cadastro, ediÃ§Ã£o e exclusÃ£o de motoboys
-- ConfiguraÃ§Ã£o de turnos personalizados
+- Cadastro, edição e exclusão de motoboys
+- Configuração de turnos personalizados
 - Dias de trabalho da semana
-- GeraÃ§Ã£o de voz TTS individual
-- ImportaÃ§Ã£o em lote via XLSX
+- Geração de voz TTS individual
+- Importação em lote via XLSX
 
-#### 5.2 UsuÃ¡rios
-- GestÃ£o de operadores e admins da franquia
-- VinculaÃ§Ã£o de usuÃ¡rios a mÃºltiplas unidades
-- AlteraÃ§Ã£o de senha
-- Controle de permissÃµes
+#### 5.2 Usuários
+- Gestão de operadores e admins da franquia
+- Vinculação de usuários a múltiplas unidades
+- Alteração de senha
+- Controle de permissões
 
-#### 5.3 MÃ³dulos
-- AtivaÃ§Ã£o/desativaÃ§Ã£o de mÃ³dulos opcionais
-- VisualizaÃ§Ã£o de mÃ³dulos inclusos no plano
+#### 5.3 Módulos
+- Ativação/desativação de módulos opcionais
+- Visualização de módulos inclusos no plano
 
 #### 5.4 Webhook
-- ConfiguraÃ§Ã£o de URL do webhook (Google Sheets)
+- Configuração de URL do webhook (Google Sheets)
 - Templates de mensagens WhatsApp
 - Teste de envio
 
 #### 5.5 Financeiro (Admin Franquia)
-- VisualizaÃ§Ã£o do plano atual
+- Visualização do plano atual
 - Status de pagamento
-- Dias atÃ© vencimento
-- HistÃ³rico de cobranÃ§as
-- BotÃ£o "Pagar com PIX"
-- SincronizaÃ§Ã£o de status com Asaas
+- Dias até vencimento
+- Histórico de cobranças
+- Botão "Pagar com PIX"
+- Sincronização de status com Asaas
 
 ---
 
@@ -1265,110 +1271,110 @@ CREATE POLICY "only_admins_can_modify_franquias"
   - Faturamento Mensal Bruto
   - Faturamento Mensal Estimado (com descontos)
   - Total de Franquias Ativas
-  - Novas Franquias (Ãºltimos 30 dias)
+  - Novas Franquias (últimos 30 dias)
 - **Tabela de Franquias:**
   - Nome, slug, status pagamento, vencimento
   - Faturamento mensal individual
-  - BotÃµes de aÃ§Ã£o (editar, descontos)
+  - Botões de ação (editar, descontos)
 
 #### 6.2 Planos
 - Cadastro de novos planos (mensal, trimestral, anual)
-- EdiÃ§Ã£o de valores e descriÃ§Ãµes
-- ConfiguraÃ§Ã£o de trial
-- AtivaÃ§Ã£o/desativaÃ§Ã£o
+- Edição de valores e descrições
+- Configuração de trial
+- Ativação/desativação
 
-#### 6.3 MÃ³dulos
-- Cadastro de mÃ³dulos opcionais
-- CÃ³digo Ãºnico, nome, descriÃ§Ã£o
-- PreÃ§o mensal
+#### 6.3 Módulos
+- Cadastro de módulos opcionais
+- Código único, nome, descrição
+- Preço mensal
 - Status ativo/inativo
 
 #### 6.4 Pacotes
-- CriaÃ§Ã£o de pacotes comerciais
-- AssociaÃ§Ã£o de plano base + mÃ³dulos
-- DefiniÃ§Ã£o de desconto percentual
-- PreÃ§o total
+- Criação de pacotes comerciais
+- Associação de plano base + módulos
+- Definição de desconto percentual
+- Preço total
 
 #### 6.5 Descontos
-- AtribuiÃ§Ã£o de descontos por franquia
+- Atribuição de descontos por franquia
 - **Tipos:**
   - Percentual (ex: 20% off)
   - Valor Fixo (ex: R$ 50 off)
-- **OpÃ§Ãµes:**
-  - Pontual (apenas prÃ³xima cobranÃ§a)
-  - Recorrente (todas as cobranÃ§as futuras)
-- **VisualizaÃ§Ã£o:** Desconto ativo exibido abaixo do botÃ£o
-- **RemoÃ§Ã£o:** BotÃ£o "Remover desconto" quando aplicÃ¡vel
+- **Opções:**
+  - Pontual (apenas próxima cobrança)
+  - Recorrente (todas as cobranças futuras)
+- **Visualização:** Desconto ativo exibido abaixo do botão
+- **Remoção:** Botão "Remover desconto" quando aplicável
 
 #### 6.6 Financeiro
-- VisÃ£o consolidada de todas as franquias
+- Visão consolidada de todas as franquias
 - Faturamento mensal/trimestral/anual
 - Franquias inadimplentes
-- CÃ¡lculos consideram descontos ativos
+- Cálculos consideram descontos ativos
 
 ---
 
-### 7. HistÃ³rico (/historico)
+### 7. Histórico (/historico)
 **Consulta de entregas passadas.**
 
 **Funcionalidades:**
 - Filtros por data, unidade, entregador
-- ExportaÃ§Ã£o para Excel
-- CÃ¡lculo de tempo mÃ©dio de entrega
-- DeleÃ§Ã£o de registros (admins)
+- Exportação para Excel
+- Cálculo de tempo médio de entrega
+- Deleção de registros (admins)
 
 ---
 
 ### 8. Cadastro de Franquias (/register)
-**PÃ¡gina pÃºblica para registro de novas franquias.**
+**Página pública para registro de novas franquias.**
 
 **Campos:**
 - Nome da franquia
 - CPF/CNPJ
 - Email e telefone
 - Nome da primeira loja
-- SeleÃ§Ã£o de plano
-- CriaÃ§Ã£o de usuÃ¡rio admin
+- Seleção de plano
+- Criação de usuário admin
 
 **Processo:**
-1. UsuÃ¡rio preenche formulÃ¡rio
+1. Usuário preenche formulário
 2. Sistema chama edge function `register-franchise`
 3. Cria franquia com status `trial`
 4. Define `data_vencimento` = hoje + `dias_trial`
 5. Cria unidade inicial
-6. Cria usuÃ¡rio admin
+6. Cria usuário admin
 7. Redireciona para login
 
-**Trial:** 7 dias grÃ¡tis por padrÃ£o.
+**Trial:** 7 dias grátis por padrão.
 
 ---
 
-## ðŸ”„ FLUXOS PRINCIPAIS
+## 🔄 FLUXOS PRINCIPAIS
 
 ### Fluxo 1: Check-in de Motoboy
 
 ```
 Operador clica em "Check-in" no Roteirista
-    â†“
-Sistema abre modal para seleÃ§Ã£o de tipo de bag
-    â†“
+    ↓
+Sistema abre modal para seleção de tipo de bag
+    ↓
 Operador confirma
-    â†“
+    ↓
 Sistema cria registro em historico_entregas:
   - entregador_id
   - hora_saida = NOW()
   - tipo_bag
   - unidade, unidade_id, franquia_id
-    â†“
+    ↓
 Atualiza entregadores:
   - status = 'em_entrega'
   - hora_saida = NOW()
-    â†“
-[MÃ³dulo WhatsApp] Envia mensagem ao motoboy (se ativo)
-    â†“
-[MÃ³dulo Planilha] Envia dados via webhook (se configurado)
-    â†“
-Tela TV Ã© notificada via Realtime e exibe animaÃ§Ã£o + voz
+    ↓
+[Módulo WhatsApp] Envia mensagem ao motoboy (se ativo)
+    ↓
+[Módulo Planilha] Envia dados via webhook (se configurado)
+    ↓
+Tela TV é notificada via Realtime e exibe animação + voz
 ```
 
 ---
@@ -1376,89 +1382,89 @@ Tela TV Ã© notificada via Realtime e exibe animaÃ§Ã£o + voz
 ### Fluxo 2: Check-out de Motoboy
 
 ```
-Motoboy retorna Ã  loja
-    â†“
+Motoboy retorna à loja
+    ↓
 Operador clica em "Check-out" no card do motoboy
-    â†“
+    ↓
 Sistema atualiza historico_entregas:
   - hora_retorno = NOW()
-    â†“
+    ↓
 Atualiza entregadores:
   - status = 'disponivel'
   - hora_saida = NULL
   - fila_posicao = NOW() (volta ao final da fila)
-    â†“
+    ↓
 [Opcional] Calcula tempo de entrega e exibe toast
 ```
 
 ---
 
-### Fluxo 3: CobranÃ§a Mensal AutomÃ¡tica
+### Fluxo 3: Cobrança Mensal Automática
 
 ```
 Cronjob dispara edge function update-franquias-status
-    â†“
+    ↓
 Para cada franquia:
   - Verifica data_vencimento
   - Se vencido e sem pagamento:
     - status_pagamento = 'bloqueado'
-    â†“
+    ↓
     - Bloqueia acesso ao Roteirista e TV
-    - Permite acesso Ã  aba Financeiro em Config
-    â†“
+    - Permite acesso à aba Financeiro em Config
+    ↓
 Admin de franquia acessa /config?tab=financeiro
-    â†“
+    ↓
 Clica em "Pagar com PIX"
-    â†“
+    ↓
 Sistema chama criar-cobranca-franquia:
-  - Calcula valor (plano + mÃ³dulos - descontos)
-  - Cria cobranÃ§a no Asaas
+  - Calcula valor (plano + módulos - descontos)
+  - Cria cobrança no Asaas
   - Salva em franquia_cobrancas
   - Retorna checkout_url
-    â†“
-Admin Ã© redirecionado para pÃ¡gina de pagamento Asaas
-    â†“
-ApÃ³s pagamento, Asaas envia webhook para webhook-asaas
-    â†“
+    ↓
+Admin é redirecionado para página de pagamento Asaas
+    ↓
+Após pagamento, Asaas envia webhook para webhook-asaas
+    ↓
 Sistema atualiza:
   - franquia_cobrancas.status = 'paid'
   - franquias.status_pagamento = 'ativo'
   - franquias.data_vencimento = hoje + 30 dias
-    â†“
-Acesso ao sistema Ã© liberado
+    ↓
+Acesso ao sistema é liberado
 ```
 
 ---
 
-### Fluxo 4: AplicaÃ§Ã£o de Desconto Recorrente
+### Fluxo 4: Aplicação de Desconto Recorrente
 
 ```
-Super Admin acessa /admin â†’ aba Descontos
-    â†“
+Super Admin acessa /admin → aba Descontos
+    ↓
 Seleciona franquia
-    â†“
-Preenche formulÃ¡rio:
+    ↓
+Preenche formulário:
   - Tipo: Percentual (ex: 20%)
   - Aplicar em: Imediatamente
   - Recorrente: SIM
-    â†“
+    ↓
 Clica em "Aplicar Desconto"
-    â†“
+    ↓
 Sistema atualiza franquias:
   - desconto_tipo = 'percentual'
   - desconto_percentual = 20
   - desconto_recorrente = true
-    â†“
-PrÃ³xima cobranÃ§a criada via criar-cobranca-franquia:
-  - valor_base = plano + mÃ³dulos
+    ↓
+Próxima cobrança criada via criar-cobranca-franquia:
+  - valor_base = plano + módulos
   - valor_final = valor_base * (1 - 0.20)
-  - Exemplo: R$ 249,90 â†’ R$ 199,92
-    â†“
-Desconto Ã© exibido:
+  - Exemplo: R$ 249,90 → R$ 199,92
+    ↓
+Desconto é exibido:
   - Na aba Financeiro da franquia
   - No dashboard Super Admin
-  - Na modal de ediÃ§Ã£o da franquia
-    â†“
+  - Na modal de edição da franquia
+    ↓
 Para remover:
   - Super Admin clica em "Remover desconto"
   - Sistema seta desconto_tipo = 'nenhum'
@@ -1466,103 +1472,103 @@ Para remover:
 
 ---
 
-## ðŸŽ¯ REGRAS DE NEGÃ“CIO
+## 🎯 REGRAS DE NEGÓCIO
 
 ### 1. Controle de Acesso
-- **Super Admin:** Acesso total sem restriÃ§Ãµes
+- **Super Admin:** Acesso total sem restrições
 - **Admin Franquia:** 
-  - Acesso Ã s suas unidades
-  - GestÃ£o de usuÃ¡rios da franquia
-  - ConfiguraÃ§Ãµes de webhook/WhatsApp
-  - VisualizaÃ§Ã£o financeira
-  - **Bloqueio se inadimplente:** NÃ£o acessa Roteirista/TV, apenas Config (aba Financeiro)
+  - Acesso às suas unidades
+  - Gestão de usuários da franquia
+  - Configurações de webhook/WhatsApp
+  - Visualização financeira
+  - **Bloqueio se inadimplente:** Não acessa Roteirista/TV, apenas Config (aba Financeiro)
 - **Operador:**
-  - Acesso apenas Ã  unidade vinculada
-  - Roteirista, TV, Fila de Pagamento, HistÃ³rico
+  - Acesso apenas à unidade vinculada
+  - Roteirista, TV, Fila de Pagamento, Histórico
   - **Bloqueio se inadimplente:** Deslogado automaticamente com aviso
 
-### 2. Reset DiÃ¡rio (03:00)
-- Executado via cron â†’ edge function `reset-daily`
-- AÃ§Ãµes:
+### 2. Reset Diário (03:00)
+- Executado via cron → edge function `reset-daily`
+- Ações:
   - Todos motoboys voltam a `status = 'disponivel'`
   - `hora_saida = NULL`
   - `fila_posicao` reorganizada
-- Registros antigos em `historico_entregas` (>90 dias) sÃ£o deletados
+- Registros antigos em `historico_entregas` (>90 dias) são deletados
 
 ### 3. Trial e Vencimento
 - Nova franquia recebe 7 dias de trial gratuito
 - `data_vencimento = data_registro + dias_trial`
-- ApÃ³s vencimento:
+- Após vencimento:
   - `status_pagamento = 'bloqueado'`
   - Bloqueia funcionalidades operacionais
-  - NotificaÃ§Ã£o enviada ao admin da franquia
-- Se sem pagamento por 30 dias apÃ³s trial, franquia Ã© deletada (edge function `delete-expired-franchises`)
+  - Notificação enviada ao admin da franquia
+- Se sem pagamento por 30 dias após trial, franquia é deletada (edge function `delete-expired-franchises`)
 
 ### 4. Fila de Motoboys
 - Ordem determinada por `fila_posicao` (timestamp)
 - Ao fazer check-out, motoboy vai para o final da fila (`fila_posicao = NOW()`)
-- Drag & Drop no Roteirista nÃ£o altera `fila_posicao` (apenas UI temporÃ¡ria)
+- Drag & Drop no Roteirista não altera `fila_posicao` (apenas UI temporária)
 
 ### 5. Tipos de Bag
-- CustomizÃ¡vel por franquia em `franquia_bag_tipos`
-- Associado Ã s unidades via `unidade_bag_tipos`
+- Customizável por franquia em `franquia_bag_tipos`
+- Associado às unidades via `unidade_bag_tipos`
 - Registrado em `historico_entregas.tipo_bag`
-- Usado para anÃ¡lises (ex: tempo mÃ©dio por tipo de bag)
+- Usado para análises (ex: tempo médio por tipo de bag)
 
-### 6. MÃ³dulos Opcionais
+### 6. Módulos Opcionais
 - Verificados no frontend via `franquias.config_pagamento.modulos_ativos`
-- RenderizaÃ§Ã£o condicional de features:
+- Renderização condicional de features:
   - `whatsapp`: Aba "Webhook" em Config
   - `planilha`: Campo URL do webhook
   - `fila_pagamento`: Rota /fila-pagamento
-  - `tv_avancada`: AnimaÃ§Ãµes exclusivas na TV
-- DesativaÃ§Ã£o de mÃ³dulo esconde funcionalidade (nÃ£o deleta dados)
+  - `tv_avancada`: Animações exclusivas na TV
+- Desativação de módulo esconde funcionalidade (não deleta dados)
 
-### 7. CÃ¡lculo de Faturamento
+### 7. Cálculo de Faturamento
 ```javascript
-// Super Admin â†’ Dashboard
-faturamentoBruto = Î£(plano_base de cada franquia)
-faturamentoEstimado = Î£(
+// Super Admin → Dashboard
+faturamentoBruto = Σ(plano_base de cada franquia)
+faturamentoEstimado = Σ(
   plano_base - (desconto_percentual * plano_base / 100) - desconto_valor
 )
 
 // Exemplo:
-// Franquia A: R$ 249,90 com 20% off â†’ R$ 199,92
-// Franquia B: R$ 199,90 sem desconto â†’ R$ 199,90
+// Franquia A: R$ 249,90 com 20% off → R$ 199,92
+// Franquia B: R$ 199,90 sem desconto → R$ 199,90
 // Total Bruto: R$ 449,80
 // Total Estimado: R$ 399,82
 ```
 
-### 8. SeguranÃ§a de Senha
-- **Armazenamento:** Texto plano em `system_users.password_hash` (âš ï¸� nome incorreto)
-- **ValidaÃ§Ã£o:** ComparaÃ§Ã£o direta na funÃ§Ã£o `login()` do `AuthContext`
-- **SessÃ£o:** LocalStorage com expiraÃ§Ã£o no reset diÃ¡rio (05:00)
-- **âš ï¸� IMPORTANTE:** Em produÃ§Ã£o, implementar bcrypt ou argon2 para hash real
+### 8. Segurança de Senha
+- **Armazenamento:** Texto plano em `system_users.password_hash` (⚠️ nome incorreto)
+- **Validação:** Comparação direta na função `login()` do `AuthContext`
+- **Sessão:** LocalStorage com expiração no reset diário (05:00)
+- **⚠️ IMPORTANTE:** Em produção, implementar bcrypt ou argon2 para hash real
 
 ### 9. Turnos de Trabalho
-- **PadrÃ£o:** 16:00 - 02:00 (turno noite)
+- **Padrão:** 16:00 - 02:00 (turno noite)
 - **Personalizado:** Cada motoboy pode ter turno diferente
 - **Dias da Semana:** JSONB `dias_trabalho` controla disponibilidade
 - **Filtros no Roteirista:** Exibe apenas motoboys no turno atual
 
 ### 10. Webhooks
 - **Google Sheets:** Envia dados de entrega para planilha via POST
-- **WhatsApp:** Notifica motoboy na saÃ­da
-- **Asaas:** Recebe notificaÃ§Ãµes de pagamento
-- **Personalizado:** Franquias podem configurar URL prÃ³pria em `system_config.webhook_url`
+- **WhatsApp:** Notifica motoboy na saída
+- **Asaas:** Recebe notificações de pagamento
+- **Personalizado:** Franquias podem configurar URL própria em `system_config.webhook_url`
 
 ---
 
-## ðŸ”Œ INTEGRAÃ‡Ã•ES
+## 🔌 INTEGRAÇÕES
 
 ### ElevenLabs (Text-to-Speech)
 **API Key:** Armazenada em `ELEVENLABS_API_KEY` (secret)  
 **Uso:**
-- GeraÃ§Ã£o de voz para chamadas na TV
-- Ã�udios salvos no bucket `motoboy_voices`
+- Geração de voz para chamadas na TV
+- Áudios salvos no bucket `motoboy_voices`
 - Path: `{franquia_id}/{entregador_id}.mp3`
 
-**ConfiguraÃ§Ã£o:**
+**Configuração:**
 ```javascript
 // franquias.config_pagamento.tv_tts
 {
@@ -1578,7 +1584,7 @@ faturamentoEstimado = Î£(
 ---
 
 ### Evolution API (WhatsApp)
-**ConfiguraÃ§Ã£o por Franquia:**
+**Configuração por Franquia:**
 ```javascript
 // franquias.config_pagamento.whatsapp
 {
@@ -1588,12 +1594,12 @@ faturamentoEstimado = Î£(
 }
 ```
 
-**Templates:** PersonalizÃ¡veis em `whatsapp_templates` por unidade.  
+**Templates:** Personalizáveis em `whatsapp_templates` por unidade.  
 **Exemplo:**
 ```
-OlÃ¡ {nome}! 
-VocÃª estÃ¡ saindo para entrega. 
-Boa viagem! ðŸ��ï¸�
+Olá {nome}! 
+Você está saindo para entrega. 
+Boa viagem! 🏍️
 ```
 
 **Envio:** Edge function `send-whatsapp` chamada ao fazer check-in.
@@ -1601,9 +1607,9 @@ Boa viagem! ðŸ��ï¸�
 ---
 
 ### Asaas (Pagamentos)
-**ConfiguraÃ§Ã£o:** `franquias.config_pagamento.customer_id`  
+**Configuração:** `franquias.config_pagamento.customer_id`  
 **Fluxo:**
-1. Sistema cria cobranÃ§a via API Asaas
+1. Sistema cria cobrança via API Asaas
 2. Retorna `checkout_url` e `external_id`
 3. Salva em `franquia_cobrancas`
 4. Asaas notifica via webhook `webhook-asaas`
@@ -1614,7 +1620,7 @@ Boa viagem! ðŸ��ï¸�
 ---
 
 ### Google Sheets (Webhook)
-**ConfiguraÃ§Ã£o:** `unidades.config_sheets_url`  
+**Configuração:** `unidades.config_sheets_url`  
 **Payload Enviado:**
 ```json
 {
@@ -1626,46 +1632,46 @@ Boa viagem! ðŸ��ï¸�
 }
 ```
 
-**MÃ©todo:** POST para URL configurada.
+**Método:** POST para URL configurada.
 
 ---
 
-## ðŸ“± ROTAS E NAVEGAÃ‡ÃƒO
+## 📱 ROTAS E NAVEGAÇÃO
 
 ```
 / (Index)
-  â”œâ”€â”€ /login (Login Administrativo)
-  â”œâ”€â”€ /register (Cadastro de Franquias)
-  - `/meu-lugar`: Portal "Sou Motoboy" para check-in por senha pessoal com **exigÃªncia obrigatÃ³ria de GPS**
+  ├── /login (Login Administrativo)
+  ├── /register (Cadastro de Franquias)
+  - `/meu-lugar`: Portal "Sou Motoboy" para check-in por senha pessoal com **exigência obrigatória de GPS**
   
   - `[Protegido - Operacional]`
-  - `/roteirista`: GestÃ£o da Fila e Mapa de Motoboys em Tempo Real
-  â”œâ”€â”€ /tv (Tela de Chamadas)
-  â”œâ”€â”€ /fila-pagamento (Sistema de Senhas)
-  â”œâ”€â”€ /historico (Consulta de Entregas)
-  â”‚
-  â”œâ”€â”€ [Protegido - Administrativo]
-  â”œâ”€â”€ /config (ConfiguraÃ§Ãµes da Unidade)
-  â”‚   â”œâ”€â”€ ?tab=motoboys
-  â”‚   â”œâ”€â”€ ?tab=usuarios
-  â”‚   â”œâ”€â”€ ?tab=modulos
-  â”‚   â”œâ”€â”€ ?tab=webhook
-  â”‚   â””â”€â”€ ?tab=financeiro&bloqueio=1
-  â”‚
-  â””â”€â”€ /admin (Super Admin Dashboard)
-      â”œâ”€â”€ ?tab=dashboard
-      â”œâ”€â”€ ?tab=planos
-      â”œâ”€â”€ ?tab=modulos
-      â”œâ”€â”€ ?tab=pacotes
-      â”œâ”€â”€ ?tab=descontos
-      â””â”€â”€ ?tab=financeiro
+  - `/roteirista`: Gestão da Fila e Mapa de Motoboys em Tempo Real
+  ├── /tv (Tela de Chamadas)
+  ├── /fila-pagamento (Sistema de Senhas)
+  ├── /historico (Consulta de Entregas)
+  │
+  ├── [Protegido - Administrativo]
+  ├── /config (Configurações da Unidade)
+  │   ├── ?tab=motoboys
+  │   ├── ?tab=usuarios
+  │   ├── ?tab=modulos
+  │   ├── ?tab=webhook
+  │   └── ?tab=financeiro&bloqueio=1
+  │
+  └── /admin (Super Admin Dashboard)
+      ├── ?tab=dashboard
+      ├── ?tab=planos
+      ├── ?tab=modulos
+      ├── ?tab=pacotes
+      ├── ?tab=descontos
+      └── ?tab=financeiro
 ```
 
 ---
 
-## ðŸŽ¨ DESIGN SYSTEM
+## 🎨 DESIGN SYSTEM
 
-### Cores SemÃ¢nticas (index.css)
+### Cores Semânticas (index.css)
 ```css
 :root {
   --background: 0 0% 100%;
@@ -1695,25 +1701,25 @@ Boa viagem! ðŸ��ï¸�
 
 ### Responsividade
 - Mobile-first com Tailwind breakpoints
-- Ajustes especÃ­ficos em SuperAdmin, Roteirista e Config
+- Ajustes específicos em SuperAdmin, Roteirista e Config
 - Layout adaptativo para tablets e desktops
 
 ---
 
-## ðŸš€ DEPLOY E AMBIENTES
+## 🚀 DEPLOY E AMBIENTES
 
 ### Desenvolvimento
 - **URL:** `http://localhost:5173`
 - **Vite Dev Server:** Hot reload ativo
 - **Supabase Local:** Opcional via Supabase CLI
 
-### ProduÃ§Ã£o
-- **Frontend:** Deploy automÃ¡tico via Lovable
-- **Edge Functions:** Deploy automÃ¡tico no Lovable Cloud
+### Produção
+- **Frontend:** Deploy automático via Lovable
+- **Edge Functions:** Deploy automático no Lovable Cloud
 - **Banco de Dados:** Supabase (PostgreSQL hospedado)
 - **Storage:** Supabase Storage (S3-compatible)
 
-### VariÃ¡veis de Ambiente (.env)
+### Variáveis de Ambiente (.env)
 ```
 VITE_SUPABASE_URL=https://wekdrdcvwecaoafnrwhl.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGc...
@@ -1727,61 +1733,61 @@ VITE_SUPABASE_PROJECT_ID=wekdrdcvwecaoafnrwhl
 
 ---
 
-## ðŸ“Š MÃ‰TRICAS E ANALYTICS
+## 📊 MÉTRICAS E ANALYTICS
 
 ### Dashboard Financeiro (Super Admin)
 - Faturamento mensal bruto e estimado
 - Crescimento MoM (Month over Month)
-- Taxa de conversÃ£o de trial para pago
+- Taxa de conversão de trial para pago
 - Churn rate
 - Franquias ativas vs. bloqueadas
 
-### RelatÃ³rios de Entregas
-- Tempo mÃ©dio de entrega por unidade
+### Relatórios de Entregas
+- Tempo médio de entrega por unidade
 - Entregas por motoboy
 - Picos de movimento (horas/dias)
-- Taxa de "nÃ£o apareceu"
+- Taxa de "não apareceu"
 
 ---
 
-## ðŸ”§ MANUTENÃ‡ÃƒO E SUPORTE
+## 🔧 MANUTENÇÃO E SUPORTE
 
 ### Logs de Auditoria
-- AÃ§Ãµes administrativas registradas em `logs_auditoria`
+- Ações administrativas registradas em `logs_auditoria`
 - Campos: franquia_id, usuario_email, acao, detalhes (JSONB)
 
-### Cleanup AutomÃ¡tico
-- **HistÃ³rico:** Registros >90 dias deletados diariamente
+### Cleanup Automático
+- **Histórico:** Registros >90 dias deletados diariamente
 - **Senhas:** Senhas expiradas (>24h) removidas automaticamente
-- **Franquias Trial:** Deletadas apÃ³s 30 dias sem pagamento
+- **Franquias Trial:** Deletadas após 30 dias sem pagamento
 
 ### Backup
-- **Banco de Dados:** Backup automÃ¡tico Supabase (point-in-time recovery)
-- **Storage:** ReplicaÃ§Ã£o S3 habilitada
+- **Banco de Dados:** Backup automático Supabase (point-in-time recovery)
+- **Storage:** Replicação S3 habilitada
 
 ---
 
-## ðŸ›¡ï¸� SEGURANÃ‡A - CHECKLIST
+## 🛡️ SEGURANÇA - CHECKLIST
 
-### âœ… Implementado
-- HTTPS obrigatÃ³rio (Supabase)
+### ✅ Implementado
+- HTTPS obrigatório (Supabase)
 - CORS configurado em edge functions
-- ValidaÃ§Ã£o de entrada em forms (React Hook Form + Zod)
-- ProteÃ§Ã£o de rotas via `ProtectedRoute`
+- Validação de entrada em forms (React Hook Form + Zod)
+- Proteção de rotas via `ProtectedRoute`
 - Segredos gerenciados via Supabase Secrets
 
-### âš ï¸� Melhorias Recomendadas
+### ⚠️ Melhorias Recomendadas
 - [ ] Implementar hash de senha (bcrypt/argon2)
 - [ ] RLS mais restritivo (isolar dados por franquia)
 - [ ] Rate limiting em edge functions
-- [ ] AutenticaÃ§Ã£o via Supabase Auth (OAuth, MFA)
-- [ ] Criptografia de dados sensÃ­veis em JSONB
+- [ ] Autenticação via Supabase Auth (OAuth, MFA)
+- [ ] Criptografia de dados sensíveis em JSONB
 - [ ] Logs de acesso e atividade suspeita
-- [ ] SanitizaÃ§Ã£o de HTML em mensagens WhatsApp
+- [ ] Sanitização de HTML em mensagens WhatsApp
 
 ---
 
-## ðŸ“š DOCUMENTAÃ‡ÃƒO TÃ‰CNICA ADICIONAL
+## 📚 DOCUMENTAÇÃO TÉCNICA ADICIONAL
 
 ### Como Adicionar Nova Franquia Manualmente
 ```sql
@@ -1794,12 +1800,12 @@ VALUES ('Nova Pizzaria', 'nova-pizzaria', '12345678900', 'ativo', '2026-02-01',
 INSERT INTO unidades (franquia_id, nome_loja)
 VALUES ((SELECT id FROM franquias WHERE slug = 'nova-pizzaria'), 'Loja Centro');
 
--- 3. Criar usuÃ¡rio admin
+-- 3. Criar usuário admin
 INSERT INTO system_users (username, password_hash, role, unidade, franquia_id)
 VALUES ('admin_nova', 'senha123', 'admin', 'CENTRO', 
   (SELECT id FROM franquias WHERE slug = 'nova-pizzaria'));
 
--- 4. Vincular usuÃ¡rio Ã  unidade
+-- 4. Vincular usuário à unidade
 INSERT INTO user_unidades (user_id, unidade_id)
 SELECT 
   (SELECT id FROM system_users WHERE username = 'admin_nova'),
@@ -1807,7 +1813,7 @@ SELECT
 ```
 
 ### Como Debugar Problema de Chamada na TV
-1. Verificar se motoboy estÃ¡ ativo (`entregadores.ativo = true`)
+1. Verificar se motoboy está ativo (`entregadores.ativo = true`)
 2. Confirmar `franquias.config_pagamento.tv_tts.enabled = true`
 3. Checar se arquivo de voz existe no storage (`motoboy_voices/{franquia_id}/{entregador_id}.mp3`)
 4. Inspecionar logs do edge function `elevenlabs-tts`
@@ -1819,9 +1825,9 @@ SELECT
    }
    ```
 
-### Como Exportar Dados para AnÃ¡lise
+### Como Exportar Dados para Análise
 ```sql
--- Entregas por motoboy (Ãºltimos 30 dias)
+-- Entregas por motoboy (últimos 30 dias)
 SELECT 
   e.nome,
   COUNT(*) as total_entregas,
@@ -1848,70 +1854,72 @@ ORDER BY valor_final DESC;
 
 ---
 
-## ðŸ“� CHANGELOG
+## 📝 CHANGELOG
 
 ### v2.9.1 (2026-06-16)
-- âœ… **Erros corrigidos**:
-    - Resolvidos os problemas de tela preta no Analytics Pro e logout ao recarregar a pÃ¡gina (F5).
-- âœ… **Registro de horÃ¡rio de retorno na planilha**:
-    - Agora o sistema registra o horÃ¡rio de retorno e o tempo de rua do motoboy na mesma linha de saÃ­da na planilha.
-- âœ… **Melhoria no histÃ³rico**:
-    - Aprimoramento visual e de mÃ©tricas na listagem e exportaÃ§Ã£o do painel de HistÃ³rico.
+- ✅ **Estabilização do Analytics Pro & Sessão F5 (Reload)**:
+    - Correção do `ReferenceError: useMemo` no `AnalyticsDashboard.tsx`.
+    - Resolução da falha de recarregamento e logout forçado através da padronização e unificação do retorno do cache do React Query para a configuração da franquia (`['franquia-config']`).
+    - Ajuste no mapeamento de unidade nas páginas `Historico.tsx` e `Config.tsx` para consultar via `slug` em vez de `nome_loja`.
+- ✅ **Conserto na Telemetria de Retorno da Planilha (Google Sheets)**:
+    - Atualização do Apps Script para unificar dados de saída e retorno de motoboys na mesma linha e evitar geração de abas duplicadas ou com nome `-undefined`.
+- ✅ **Correção MIME Type no Index**:
+    - Limpeza do registro de service worker inexistente em `index.html` que gerava erro no console.
 
 ### v2.8.0 (2026-06-14)
-- âœ… **Screensaver de TransmissÃ£o via WebRTC (SaaS Screen Sharing)**:
-    - Novo tipo de mÃ­dia `transmissao` adicionado ao Screensaver da TV.
-    - CriaÃ§Ã£o dos componentes `ScreenShareReceiver.tsx`, `ScreenShareTransmitter.tsx` e do contexto `ScreenShareContext.tsx` utilizando Supabase como canal de Signaling em tempo real para os Peers WebRTC.
-    - IntegraÃ§Ã£o com servidores STUN/TURN (script de instalaÃ§Ã£o `install_coturn.sh` incluÃ­do) para garantir conectividade de rede atrÃ¡s de NATs simÃ©tricos.
-    - PÃ¡gina de diagnÃ³stico local `/public/test-rtc.html` criada para testar conectividade e handshake WebRTC.
-- âœ… **RefatoraÃ§Ã£o Completa do Modal de Controle de Maquininhas (`MaquininhaControlModal.tsx`)**:
-    - AlteraÃ§Ã£o do layout de grid-cols para flexbox nas colunas de Motoboys ElegÃ­veis e Maquininhas Livres, garantindo o scroll independente de cada lista sem quebrar a proporÃ§Ã£o do modal.
-    - Ajuste do contÃªiner de scroll da aba "Devolver" para manter os estados de carregamento (Loader) e vazio (CheckCircle) centralizados na tela, em vez de ficarem restritos Ã  Ã¡rea de rolagem.
-- âœ… **LÃ³gica Unificada de Check-in DiÃ¡rio na TV (`TV.tsx`)**:
-    - SincronizaÃ§Ã£o dos campos `primeiro_checkin` (usado para o cÃ¡lculo do screensaver) e `checkin_diario` (usado para controle administrativo de check-in diÃ¡rio) na funÃ§Ã£o `handleCheckin` da TV, resetando-os automaticamente na primeira entrada do dia.
+- ✅ **Screensaver de Transmissão via WebRTC (SaaS Screen Sharing)**:
+    - Novo tipo de mídia `transmissao` adicionado ao Screensaver da TV.
+    - Criação dos componentes `ScreenShareReceiver.tsx`, `ScreenShareTransmitter.tsx` e do contexto `ScreenShareContext.tsx` utilizando Supabase como canal de Signaling em tempo real para os Peers WebRTC.
+    - Integração com servidores STUN/TURN (script de instalação `install_coturn.sh` incluído) para garantir conectividade de rede atrás de NATs simétricos.
+    - Página de diagnóstico local `/public/test-rtc.html` criada para testar conectividade e handshake WebRTC.
+- ✅ **Refatoração Completa do Modal de Controle de Maquininhas (`MaquininhaControlModal.tsx`)**:
+    - Alteração do layout de grid-cols para flexbox nas colunas de Motoboys Elegíveis e Maquininhas Livres, garantindo o scroll independente de cada lista sem quebrar a proporção do modal.
+    - Ajuste do contêiner de scroll da aba "Devolver" para manter os estados de carregamento (Loader) e vazio (CheckCircle) centralizados na tela, em vez de ficarem restritos à área de rolagem.
+- ✅ **Lógica Unificada de Check-in Diário na TV (`TV.tsx`)**:
+    - Sincronização dos campos `primeiro_checkin` (usado para o cálculo do screensaver) e `checkin_diario` (usado para controle administrativo de check-in diário) na função `handleCheckin` da TV, resetando-os automaticamente na primeira entrada do dia.
 
 ### v2.7.0 (2026-05-11)
-- âœ… **Aesthetic Refactor (Glassmorphism):** RefatoraÃ§Ã£o estÃ©tica profunda em todas as pÃ¡ginas do sistema (`Index`, `Login`, `Register`, `Roteirista`, `Config`, `FilaPagamento`, `MeuLugar`, `Historico`, `SuperAdmin`), adotando a linguagem visual premium *Glassmorphism* com tipografia de alto contraste e animaÃ§Ãµes de estado.
-- âœ… **Plano de AutomaÃ§Ã£o Sisfood Backend:** CriaÃ§Ã£o do plano arquitetural (`SISFOOD_AUTOMATION_PLAN.md`) para migraÃ§Ã£o da baixa de pedidos do Tampermonkey (Client-Side) para Supabase Edge Functions (Server-Side).
+- ✅ **Aesthetic Refactor (Glassmorphism):** Refatoração estética profunda em todas as páginas do sistema (`Index`, `Login`, `Register`, `Roteirista`, `Config`, `FilaPagamento`, `MeuLugar`, `Historico`, `SuperAdmin`), adotando a linguagem visual premium *Glassmorphism* com tipografia de alto contraste e animações de estado.
+- ✅ **Plano de Automação Sisfood Backend:** Criação do plano arquitetural (`SISFOOD_AUTOMATION_PLAN.md`) para migração da baixa de pedidos do Tampermonkey (Client-Side) para Supabase Edge Functions (Server-Side).
 
 ### v2.6.2 (2026-03-21)
-- âœ… **App Motoboy (Expo React Native):** Frontend e Backend com notificaÃ§Ãµes nativas Expo push ao longo das chamadas na tela de TV.
-- âœ… **AÃ§Ãµes Roteirista (SemÃ¢nticas):** CriaÃ§Ã£o do atalho rÃ¡pido (`Em Entrega`) e renomeaÃ§Ã£o estratÃ©gica para `Deixar DisponÃ­vel`.
-- âœ… **TV e Call UX:** O modal de nÃ£o-comparecimento agora Ã© um banner 10 segundos flutuante nÃ£o-bloqueante no bottom-40 garantindo visibilidade em resoluÃ§Ãµes mais espremidas.
+- ✅ **App Motoboy (Expo React Native):** Frontend e Backend com notificações nativas Expo push ao longo das chamadas na tela de TV.
+- ✅ **Ações Roteirista (Semânticas):** Criação do atalho rápido (`Em Entrega`) e renomeação estratégica para `Deixar Disponível`.
+- ✅ **TV e Call UX:** O modal de não-comparecimento agora é um banner 10 segundos flutuante não-bloqueante no bottom-40 garantindo visibilidade em resoluções mais espremidas.
 
 ### v2.6.0 (2026-03-12)
-- âœ… **Kanban de AtualizaÃ§Ãµes:** Refatorado painel de Super Admin para visualizaÃ§Ã£o Kanban das atualizaÃ§Ãµes.
-- âœ… **Sisfood v9.6:** CorreÃ§Ã£o crÃ­tica no cÃ¡lculo de tempo em fila preservando timestamp original do Sisfood.
-- âœ… **Termos e Privacidade:** Adicionados modais de conformidade na Landing Page.
-- âœ… **ResiliÃªncia de Dados:** Alterado comportamento de reset para preservaÃ§Ã£o de histÃ³rico em anÃ¡lises futuras.
+- ✅ **Kanban de Atualizações:** Refatorado painel de Super Admin para visualização Kanban das atualizações.
+- ✅ **Sisfood v9.6:** Correção crítica no cálculo de tempo em fila preservando timestamp original do Sisfood.
+- ✅ **Termos e Privacidade:** Adicionados modais de conformidade na Landing Page.
+- ✅ **Resiliência de Dados:** Alterado comportamento de reset para preservação de histórico em análises futuras.
 
 ### v1.3.0 (2026-02-28)
-- âœ… **Estabilidade da TV (Redescagem):** Implementado sistema de rediscagem automÃ¡tica de 10 segundos entre tentativas (mÃ¡ximo 3) com aviso por voz em caso de falha persistente.
-- âœ… **Ã�udios de BAG/Bebida:** Caminhos de Ã¡udio agora sÃ£o construÃ­dos dinamicamente no Storage (`[franquiaId]/bags/[bagId].mp3`), resolvendo silÃªncios nas chamadas.
-- âœ… **Conserto Analytics Pro:** Implementada retrocompatibilidade na RPC de mÃ©tricas. Novos registros agora salvam `unidade_id` corretamente para precisÃ£o estatÃ­stica.
-- âœ… **Limpeza AutomÃ¡tica:** Adicionado rotina de limpeza de cache diÃ¡rio (localStorage) na tela de TV para manutenÃ§Ã£o de performance.
+- ✅ **Estabilidade da TV (Redescagem):** Implementado sistema de rediscagem automática de 10 segundos entre tentativas (máximo 3) com aviso por voz em caso de falha persistente.
+- ✅ **Áudios de BAG/Bebida:** Caminhos de áudio agora são construídos dinamicamente no Storage (`[franquiaId]/bags/[bagId].mp3`), resolvendo silêncios nas chamadas.
+- ✅ **Conserto Analytics Pro:** Implementada retrocompatibilidade na RPC de métricas. Novos registros agora salvam `unidade_id` corretamente para precisão estatística.
+- ✅ **Limpeza Automática:** Adicionado rotina de limpeza de cache diário (localStorage) na tela de TV para manutenção de performance.
 
 ### v1.2.0 (2026-02-26)
-- âœ… **ImplementaÃ§Ã£o Mobile Base Real:** RefatoraÃ§Ã£o completa da UI/UX mobile executada. Drawers de navegaÃ§Ã£o aplicados (Home e Dashboard), tabelas substituÃ­das por Grid Cards responsivos no Roteirista e HistÃ³rico, botÃµes de aÃ§Ã£o e modais (ex: Reset) reestruturados para width 100% visando mÃ¡xima usabilidade em telas pequenas.
+- ✅ **Implementação Mobile Base Real:** Refatoração completa da UI/UX mobile executada. Drawers de navegação aplicados (Home e Dashboard), tabelas substituídas por Grid Cards responsivos no Roteirista e Histórico, botões de ação e modais (ex: Reset) reestruturados para width 100% visando máxima usabilidade em telas pequenas.
 
 ### v1.1.0 (2026-02-23)
-- âœ… **Mapa de Entregadores:** Implementado painel Mapa no Roteirista para visualizaÃ§Ã£o em tempo real.
-- âœ… **Obrigatoriedade GPS:** Adicionada permissÃ£o silenciosa de GPS Ã  pÃ¡gina `/meu-lugar` para motoboys operacionais.
+- ✅ **Mapa de Entregadores:** Implementado painel Mapa no Roteirista para visualização em tempo real.
+- ✅ **Obrigatoriedade GPS:** Adicionada permissão silenciosa de GPS à página `/meu-lugar` para motoboys operacionais.
 
 ### v1.0.0 (2026-01-02)
-- âœ… **LanÃ§amento Base:** Sistema de descontos, faturamento e responsividade inicial.
+- ✅ **Lançamento Base:** Sistema de descontos, faturamento e responsividade inicial.
 
-### PrÃ³ximas Features (Roadmap)
-- [ ] Multi-tenant completo com RLS restritivo (PragmÃ¡tico atual -> Custom Claims JWT)
-- [ ] Dashboard de analytics avanÃ§ado para franquias
+### Próximas Features (Roadmap)
+- [ ] Multi-tenant completo com RLS restritivo (Pragmático atual -> Custom Claims JWT)
+- [ ] Dashboard de analytics avançado para franquias
 - [ ] App mobile nativo para motoboys PWA -> Native
-- [ ] IntegraÃ§Ã£o com Mercado Pago e PagSeguro
-- [ ] Sistema de notificaÃ§Ãµes push (Web Push atual -> Mobile)
-- [ ] RelatÃ³rios exportÃ¡veis em PDF
+- [ ] Integração com Mercado Pago e PagSeguro
+- [ ] Sistema de notificações push (Web Push atual -> Mobile)
+- [ ] Relatórios exportáveis em PDF
 
 ---
 
-**FIM DA DOCUMENTAÃ‡ÃƒO**
+**FIM DA DOCUMENTAÇÃO**
 
 *Este documento foi atualizado em 2026-06-16.*  
-*Todos os dados cadastrados, estruturas de tabelas, polÃ­ticas RLS e funcionalidades foram extraÃ­dos diretamente do banco de dados e cÃ³digo-fonte.*
+*Todos os dados cadastrados, estruturas de tabelas, políticas RLS e funcionalidades foram extraídos diretamente do banco de dados e código-fonte.*
