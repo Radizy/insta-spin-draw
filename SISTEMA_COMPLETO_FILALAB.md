@@ -26,13 +26,20 @@ Esses módulos podem ser geridos livremente pelo painel Super Admin na visualiza
 ### Versão do Sistema
 - **Versão Atual**: `2.9.1` (Junho 2026)
 - **Últimas Implementações**:
+    - **Separação de Conceitos (Saídas vs Entregas) e Analytics**:
+        - Introdução da migração SQL `20260615062200_add_quantidade_entregas.sql` para rastrear a `quantidade_entregas` por viagem em `historico_entregas`.
+        - Interface do Histórico reestruturada para exibir cartões, estatísticas e listagens separando saídas físicas (viagens) de entregas totais, incluindo exportação Excel/CSV atualizada.
+        - Ajuste na RPC do Analytics Pro para calcular o tempo médio com base em entregas reais, trazendo estatísticas de desempenho mais precisas por motoboy e por unidade.
     - **Estabilização do Analytics Pro e Persistência de Sessão no F5 (Reload)**:
-        - Resolvido bug crítico em que a recarga da página deslogava o usuário ou renderizava uma tela preta no Histórico, decorrente de uma colisão de cache no React Query pela chave `['franquia-config']` e por um `ReferenceError: useMemo is not defined` no componente `AnalyticsDashboard.tsx`.
-        - Padronizado o retorno da configuração da franquia em todo o ecossistema do frontend para `{ config_pagamento, ...config }`, eliminando inconsistências e quebras de estado.
-        - Corrigido o mapeamento de busca de unidades que usava `nome_loja` (ex: "ITAQUA") em vez de `slug` (ex: "itaquaquecetuba"), prevenindo retornos vazios em consultas de dados históricos de unidades específicas.
+        - Resolvido bug crítico de tela preta causado por `ReferenceError: useMemo is not defined` no componente `AnalyticsDashboard.tsx`.
+        - Padronizado o retorno da configuração da franquia em todo o ecossistema do frontend para `{ config_pagamento, ...config }`, eliminando colisões de cache e deslogamentos automáticos no F5.
+        - Corrigido o mapeamento de busca de unidades que usava `nome_loja` em vez de `slug`, prevenindo retornos vazios em consultas de dados históricos de unidades específicas.
     - **Correção da Telemetria de Retorno e Integração Planilhas (Apps Script)**:
-        - Ajustado o script do Google Apps Script e o disparo em `Historico.tsx` para usar o fallback correto de datas (`data.data_dia || data.data || dateStr`) evitando a criação de abas `-undefined` ou abas duplicadas indesejadas.
+        - Ajustado o script do Google Apps Script e o disparo em `Historico.tsx` para usar o parâmetro `data_dia` no lugar do de escopo `data`, evitando a duplicação ou abas `-undefined`.
         - Implementada a gravação inteligente da hora de retorno e duração da entrega na mesma linha da respectiva saída na planilha de controle, permitindo acompanhamento unificado em tempo real.
+    - **Melhorias de Fluxo e Ações no Sistema**:
+        - Correção no botão "Retorno" no totem da TV (`TV.tsx`) que antes mudava o status mas ignorava o envio de baixa e telemetria de retorno para a planilha do Sheets.
+        - Ajuste na ação "Remover da Fila" no painel do Roteirista (`Roteirista.tsx`) para motoboys em entrega, desativando-os corretamente no banco de dados (`ativo: false`).
     - **Remoção de Service Worker Obsoleto**:
         - Retirada a chamada de registro de `sw.js` em `index.html` que causava erros de MIME type incompatível ("text/html") no console.
     - **Transmissão Automatizada e Telemetria de Desempenho (FPS Real & Resolução) com Trava de 60 FPS**: 
@@ -1857,14 +1864,22 @@ ORDER BY valor_final DESC;
 ## 📝 CHANGELOG
 
 ### v2.9.1 (2026-06-16)
+- ✅ **Separação de Conceitos (Saídas vs Entregas)**:
+    - Adicionado suporte a `quantidade_entregas` no histórico de entregas via nova migração SQL.
+    - Reformulados os painéis e listagens de histórico para segmentar contagem de viagens (Saídas) e pedidos totais entregues (Entregas), com suporte a exportação.
+    - Atualização na RPC de Analytics Pro para calcular médias ponderadas de tempo com base nas entregas reais e não no número de saídas físicas.
 - ✅ **Estabilização do Analytics Pro & Sessão F5 (Reload)**:
-    - Correção do `ReferenceError: useMemo` no `AnalyticsDashboard.tsx`.
-    - Resolução da falha de recarregamento e logout forçado através da padronização e unificação do retorno do cache do React Query para a configuração da franquia (`['franquia-config']`).
-    - Ajuste no mapeamento de unidade nas páginas `Historico.tsx` e `Config.tsx` para consultar via `slug` em vez de `nome_loja`.
-- ✅ **Conserto na Telemetria de Retorno da Planilha (Google Sheets)**:
-    - Atualização do Apps Script para unificar dados de saída e retorno de motoboys na mesma linha e evitar geração de abas duplicadas ou com nome `-undefined`.
-- ✅ **Correção MIME Type no Index**:
-    - Limpeza do registro de service worker inexistente em `index.html` que gerava erro no console.
+    - Correção de erro fatal de renderização no `AnalyticsDashboard.tsx` (`ReferenceError: useMemo`).
+    - Resolução da falha de recarregamento e logout automático padronizando a estrutura de dados de cache do React Query em todo o frontend (`{ config_pagamento, ...config }`).
+    - Correção na consulta de unidades que agora busca por `slug` ao invés de `nome_loja` no Histórico e Configurações, reativando a URL da planilha e Analytics Pro de forma dinâmica.
+- ✅ **Melhorias na Telemetria de Planilhas (Google Sheets)**:
+    - Ajustado Apps Script e parâmetros de webhook (`data_dia`) para evitar a geração de abas duplicadas ou com nome `-undefined`.
+    - Sincronização inteligente do Retorno do entregador na mesma linha de sua respectiva Saída por meio do `ID_SAIDA` (telemetria de tempo de rua em minutos).
+- ✅ **Correções de Fluxo e Ações Operacionais**:
+    - Disparo síncrono do webhook de retorno ao clicar em "Retorno" no totem da TV.
+    - Correção de remoção de entregadores em rota no painel do Roteirista (desativação lógica `ativo: false`).
+- ✅ **Correção de MIME Type no Console**:
+    - Remoção do registro do Service Worker obsoleto no `index.html` que poluia o log do console com erros de tipo de MIME incompatível.
 
 ### v2.8.0 (2026-06-14)
 - ✅ **Screensaver de Transmissão via WebRTC (SaaS Screen Sharing)**:
