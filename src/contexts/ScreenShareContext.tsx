@@ -73,6 +73,7 @@ interface ScreenShareContextType {
   isBroadcasting: boolean;
   stream: MediaStream | null;
   connectedTVs: number;
+  activeTVs: { [tvId: string]: string };
   videoFit: 'contain' | 'cover';
   showPreview: boolean;
   setShowPreview: (show: boolean) => void;
@@ -81,6 +82,7 @@ interface ScreenShareContextType {
   volume: number;
   startScreenShare: () => Promise<void>;
   stopScreenShare: () => void;
+  syncScreenShare: () => void;
   changeVideoFit: (fit: 'contain' | 'cover') => void;
   changeVolume: (val: number) => void;
   resetCrop: () => void;
@@ -98,7 +100,8 @@ export function ScreenShareProvider({ children }: { children: React.ReactNode })
   const { selectedUnit } = useUnit();
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [connectedTVs, setConnectedTVs] = useState<number>(0);
+  const [activeTVs, setActiveTVs] = useState<{ [tvId: string]: string }>({});
+  const connectedTVs = Object.keys(activeTVs).length;
   const [videoFit, setVideoFit] = useState<'contain' | 'cover'>('contain');
   const [showPreview, setShowPreview] = useState(false);
   const [crop, setCrop] = useState({ top: 0, bottom: 0, left: 0, right: 0 });
@@ -179,9 +182,13 @@ export function ScreenShareProvider({ children }: { children: React.ReactNode })
         pc.onconnectionstatechange = () => {
           console.log(`[Transmitter] Connection state changed for TV ${tvId}:`, pc.connectionState);
           if (pc.connectionState === 'connected') {
-            setConnectedTVs(prev => prev + 1);
+            setActiveTVs(prev => ({ ...prev, [tvId]: payload.lojaNome || 'TV' }));
           } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-            setConnectedTVs(prev => Math.max(0, prev - 1));
+            setActiveTVs(prev => {
+              const next = { ...prev };
+              delete next[tvId];
+              return next;
+            });
             delete pcsRef.current[tvId];
             delete iceCandidatesQueuesRef.current[tvId];
           }
@@ -338,7 +345,7 @@ export function ScreenShareProvider({ children }: { children: React.ReactNode })
     setIsBroadcasting(false);
     Object.values(pcsRef.current).forEach(pc => pc.close());
     pcsRef.current = {};
-    setConnectedTVs(0);
+    setActiveTVs({});
     
     if (channelRef.current) {
       channelRef.current.track({ isBroadcasting: false });
@@ -348,6 +355,15 @@ export function ScreenShareProvider({ children }: { children: React.ReactNode })
 
 
     toast.info('Transmissão encerrada.');
+  };
+
+  const syncScreenShare = () => {
+    if (!isBroadcastingRef.current || !channelRef.current) return;
+    
+    console.log('[Transmitter] Disparando sinal de sincronização (broadcast-started) para todas as TVs...');
+    setActiveTVs({});
+    channelRef.current.send({ type: 'broadcast', event: 'broadcast-started', payload: {} });
+    toast.info('Sinal de sincronização enviado para as TVs.');
   };
 
   const changeVideoFit = (fit: 'contain' | 'cover') => {
@@ -527,6 +543,7 @@ export function ScreenShareProvider({ children }: { children: React.ReactNode })
       isBroadcasting,
       stream,
       connectedTVs,
+      activeTVs,
       videoFit,
       showPreview,
       setShowPreview,
@@ -535,6 +552,7 @@ export function ScreenShareProvider({ children }: { children: React.ReactNode })
       volume,
       startScreenShare,
       stopScreenShare,
+      syncScreenShare,
       changeVideoFit,
       changeVolume,
       resetCrop,

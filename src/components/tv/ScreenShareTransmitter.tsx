@@ -8,6 +8,7 @@ export function ScreenShareTransmitter() {
     isBroadcasting,
     stream,
     connectedTVs,
+    activeTVs,
     videoFit,
     showPreview,
     setShowPreview,
@@ -16,6 +17,7 @@ export function ScreenShareTransmitter() {
     volume,
     startScreenShare,
     stopScreenShare,
+    syncScreenShare,
     changeVideoFit,
     changeVolume,
     resetCrop,
@@ -151,6 +153,17 @@ export function ScreenShareTransmitter() {
                 <Users className="w-4 h-4" /> {connectedTVs} TV(s) conectadas
               </div>
             </div>
+
+            {connectedTVs > 0 && (
+              <div className="text-xs text-muted-foreground select-none font-medium flex flex-wrap justify-center items-center gap-1.5 max-w-md pb-2 animate-fade-in">
+                <span className="opacity-75">Assistindo agora:</span>
+                {Object.entries(activeTVs).map(([id, name]) => (
+                  <span key={id} className="bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold px-2 py-0.5 rounded border border-emerald-500/20 shadow-sm">
+                    {name}
+                  </span>
+                ))}
+              </div>
+            )}
 
 
 
@@ -396,10 +409,16 @@ export function ScreenShareTransmitter() {
               Iniciar Compartilhamento
             </Button>
           ) : (
-            <Button size="lg" variant="destructive" onClick={stopScreenShare} className="gap-2 text-lg px-8 py-6">
-              <MonitorOff className="w-6 h-6" />
-              Parar Transmissão
-            </Button>
+            <div className="flex gap-4">
+              <Button size="lg" onClick={syncScreenShare} className="gap-2 text-lg px-6 py-6 bg-indigo-600 hover:bg-indigo-500 text-white">
+                <RefreshCw className="w-5 h-5 animate-[spin_3s_linear_infinite]" />
+                Sincronizar
+              </Button>
+              <Button size="lg" variant="destructive" onClick={stopScreenShare} className="gap-2 text-lg px-6 py-6">
+                <MonitorOff className="w-6 h-6" />
+                Parar Transmissão
+              </Button>
+            </div>
           )}
         </div>
       </div>

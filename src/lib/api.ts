@@ -1289,6 +1289,24 @@ export async function fetchSystemUpdates(): Promise<SystemUpdate[]> {
 
   const manualUpdates: SystemUpdate[] = [
     {
+      id: 'v2.9.2-err',
+      titulo: 'Erros corrigidos',
+      tipo: 'MELHORIAS',
+      status: 'lancado',
+      data_publicacao: '2026-06-18',
+      ordem: -15,
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 'v2.9.2-ident',
+      titulo: 'Identificação das TVs assistindo em tempo real',
+      tipo: 'MELHORIAS',
+      status: 'lancado',
+      data_publicacao: '2026-06-18',
+      ordem: -14,
+      created_at: new Date().toISOString()
+    },
+    {
       id: 'v2.9.1-err',
       titulo: 'Erros corrigidos',
       tipo: 'MELHORIAS',

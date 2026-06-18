@@ -24,8 +24,11 @@ Os 5 módulos principais são:
 Esses módulos podem ser geridos livremente pelo painel Super Admin na visualização e edição de uma franquia.
 
 ### Versão do Sistema
-- **Versão Atual**: `2.9.1` (Junho 2026)
+- **Versão Atual**: `2.9.2` (Junho 2026)
 - **Últimas Implementações**:
+    - **Precisão e Identificação na Transmissão de Tela (WebRTC)**:
+        - Resolvido o bug de oscilação do contador de conexões (onde subia para 2 e zerava) ao gerenciar o estado como um mapa de conexões ativas (`activeTVs`) indexado pelo `tvId` das RTCPeerConnections no estado real de `connected`.
+        - Adicionado HUD de alto contraste que exibe os nomes das lojas ativas que estão assistindo à transmissão em tempo real (ex: "Assistindo agora: Itaquá, Poá") usando o payload nominal de `tv-ready`.
     - **Separação de Conceitos (Saídas vs Entregas) e Analytics**:
         - Introdução da migração SQL `20260615062200_add_quantidade_entregas.sql` para rastrear a `quantidade_entregas` por viagem em `historico_entregas`.
         - Interface do Histórico reestruturada para exibir cartões, estatísticas e listagens separando saídas físicas (viagens) de entregas totais, incluindo exportação Excel/CSV atualizada.
@@ -793,7 +796,7 @@ CREATE TABLE unidade_bag_tipos (
   unidade_id UUID NOT NULL REFERENCES unidades(id) ON DELETE CASCADE,
   bag_tipo_id UUID NOT NULL REFERENCES franquia_bag_tipos(id) ON DELETE CASCADE,
   ativo BOOLEAN NOT NULL DEFAULT true,
-  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 ```
 
@@ -901,7 +904,7 @@ CREATE TABLE unidade_payment_config (
   unidade_id UUID NOT NULL,
   gateway TEXT NOT NULL, -- asaas, mercadopago, etc
   config JSONB NOT NULL DEFAULT '{}',
-  ativo BOOLEAN NOT NULL DEFAULT true,
+  ativo BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE,
   updated_at TIMESTAMP WITH TIME ZONE
 );
@@ -916,7 +919,7 @@ CREATE TABLE unidade_planos (
   plano_id UUID NOT NULL,
   valor NUMERIC NOT NULL,
   desconto_percent NUMERIC DEFAULT 0,
-  ativo BOOLEAN NOT NULL DEFAULT true,
+  ativo BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE
 );
 ```
@@ -1863,6 +1866,11 @@ ORDER BY valor_final DESC;
 
 ## 📝 CHANGELOG
 
+### v2.9.2 (2026-06-18)
+- ✅ **Precisão e Identificação na Transmissão de Tela (WebRTC)**:
+    - Resolvido o bug de oscilação do contador de conexões (onde subia para 2 e zerava) ao gerenciar o estado como um mapa de conexões ativas (`activeTVs`) indexado pelo `tvId` das RTCPeerConnections no estado real de `connected`.
+    - Adicionado HUD de alto contraste que exibe os nomes das lojas ativas que estão assistindo à transmissão em tempo real (ex: "Assistindo agora: Itaquá, Poá") usando o payload nominal de `tv-ready`.
+
 ### v2.9.1 (2026-06-16)
 - ✅ **Separação de Conceitos (Saídas vs Entregas)**:
     - Adicionado suporte a `quantidade_entregas` no histórico de entregas via nova migração SQL.
@@ -1936,5 +1944,5 @@ ORDER BY valor_final DESC;
 
 **FIM DA DOCUMENTAÇÃO**
 
-*Este documento foi atualizado em 2026-06-16.*  
+*Este documento foi atualizado em 2026-06-18.*  
 *Todos os dados cadastrados, estruturas de tabelas, políticas RLS e funcionalidades foram extraídos diretamente do banco de dados e código-fonte.*
