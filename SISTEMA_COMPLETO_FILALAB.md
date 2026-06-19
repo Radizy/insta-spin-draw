@@ -1881,7 +1881,7 @@ ORDER BY valor_final DESC;
     - Remoção de redundância visual: o botão "Sincronizar" do cabeçalho agora só aparece quando o painel de configurações expandidas está visível, evitando botões de sincronização duplicados.
     - Correção de erro 400 no console: Corrigido o método `isModuloAtivo` em `api.ts` para buscar `config_pagamento` da tabela `franquias` (onde os módulos estão salvos) em vez da coluna inexistente `modulos_ativos`.
     - Correção de ícone do PWA: Substituído o ícone ausente `/vite.svg` por `/favicon.ico` no arquivo `manifest.json`, resolvendo o erro de download de recurso no console.
-    - Otimização do Player HLS: Ajustados os parâmetros de buffer de vídeo e latência em `HLSPlayer.tsx` (aumentado buffer de 2s/1MB para 8-15s/30MB) para garantir uma reprodução fluida. Corrigida a falha de inicialização (`Illegal hls.js config`) ao remover a opção conflitante `liveSyncDurationCount`.
+    - Otimização do Player HLS: Ajustados os parâmetros de buffer de vídeo e latência em `HLSPlayer.tsx` para garantir uma reprodução fluida. Após a otimização de Keyframes no OBS pelo usuário (GOP = 1s), reduzimos o delay alvo do player na TV de 8s para apenas 3s, cortando o delay total da transmissão pela metade (~4s a 5s total) mantendo total estabilidade.
     - Correção de erro 400 da TV: Ajustada a query da tabela `unidades` no arquivo `TV.tsx` mapeando `lat:latitude` e `lng:longitude` para bater com as colunas reais do banco de dados, eliminando o erro `Bad Request`.
 
 ### v2.9.2 (2026-06-18)

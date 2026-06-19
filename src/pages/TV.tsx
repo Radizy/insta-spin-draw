@@ -111,7 +111,7 @@ export default function TV() {
     queryKey: ['unidade-cidade-clima', user?.unidadeId],
     queryFn: async () => {
       if (!user?.unidadeId) return null;
-      const { data, error } = await supabase.from('unidades').select('cidade_clima, estado, lat:latitude, lng:longitude, exibir_fila_tv, sisfood_pedidos_fila, saipos_pedidos_fila, saipos_mapa_pedidos').eq('id', user.unidadeId).maybeSingle();
+      const { data, error } = await supabase.from('unidades').select('cidade_clima, lat:latitude, lng:longitude, exibir_fila_tv, sisfood_pedidos_fila, saipos_pedidos_fila, saipos_mapa_pedidos').eq('id', user.unidadeId).maybeSingle();
       if (error) return null;
       return data;
     },
