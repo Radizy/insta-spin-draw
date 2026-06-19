@@ -39,7 +39,6 @@ export function HLSPlayer({ url, volume, isActive }: HLSPlayerProps) {
       const hls = new Hls({
         enableWorker: true,
         lowLatencyMode: true,
-        liveSyncDurationCount: 3,
         liveSyncDuration: 4,
         liveMaxLatencyDuration: 8,
         maxBufferLength: 8,
