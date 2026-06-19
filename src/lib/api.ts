@@ -947,12 +947,14 @@ export async function isModuloAtivo(unidadeId: string, moduloCodigo: string): Pr
   if (und && und.franquia_id) {
     const { data: fra } = await supabase
       .from('franquias')
-      .select('modulos_ativos')
+      .select('config_pagamento')
       .eq('id', und.franquia_id)
       .maybeSingle();
 
-    if (fra && fra.modulos_ativos && Array.isArray(fra.modulos_ativos)) {
-      if (fra.modulos_ativos.includes(moduloCodigo)) return true;
+    if (fra && fra.config_pagamento) {
+      const config = fra.config_pagamento as any;
+      const modulosAtivos = config.modulos_ativos || [];
+      if (Array.isArray(modulosAtivos) && modulosAtivos.includes(moduloCodigo)) return true;
     }
   }
 

@@ -1876,8 +1876,9 @@ ORDER BY valor_final DESC;
 - ✅ **Estabilização e Unificação da Transmissão (RTMP / HLS)**:
     - Correção do erro no botão "Adicionar a todas as Lojas" (removidos os campos não existentes `unidades.nome` e `tv_playlist.nome` que causavam erros de banco de dados).
     - Unificação dos tipos de playlist no painel do administrador, eliminando a redundância do tipo `hls_stream` e renomeando a opção principal para "Transmissão Ao Vivo (RTMP / OBS)".
-    - Otimização do monitor de inatividade: o item de transmissão é removido automaticamente de todas as lojas após 5 minutos offline, mantendo a TV sempre dinâmica.
+    - Otimização do monitor de inatividade: o item de transmissão é removido automaticamente de todas as lojas após 5 minutos offline. Adicionado estado `hasCheckedStatus` para evitar o disparo falso deste timer no console durante o carregamento inicial da página.
     - Remoção de redundância visual: o botão "Sincronizar" do cabeçalho agora só aparece quando o painel de configurações expandidas está visível, evitando botões de sincronização duplicados.
+    - Correção de erro 400 no console: Corrigido o método `isModuloAtivo` em `api.ts` para buscar `config_pagamento` da tabela `franquias` (onde os módulos estão salvos) em vez da coluna inexistente `modulos_ativos`.
 
 ### v2.9.2 (2026-06-18)
 - ✅ **Precisão e Identificação na Transmissão de Tela (WebRTC)**:

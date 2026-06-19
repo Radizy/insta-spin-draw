@@ -11,6 +11,7 @@ export function ScreenShareTransmitter() {
   const [copiedKey, setCopiedKey] = useState(false);
   const [copiedHls, setCopiedHls] = useState(false);
   const [isLive, setIsLive] = useState(false);
+  const [hasCheckedStatus, setHasCheckedStatus] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isAddingPlaylist, setIsAddingPlaylist] = useState(false);
@@ -28,6 +29,8 @@ export function ScreenShareTransmitter() {
         setIsLive(response.ok);
       } catch (err) {
         setIsLive(false);
+      } finally {
+        setHasCheckedStatus(true);
       }
     };
 
@@ -40,7 +43,7 @@ export function ScreenShareTransmitter() {
   useEffect(() => {
     let afkTimeout: NodeJS.Timeout;
 
-    if (!isLive && user?.franquiaId) {
+    if (hasCheckedStatus && !isLive && user?.franquiaId) {
       console.log('[Transmitter] Sem transmissão ativa. Iniciando timer de 5 min para remoção automática...');
       afkTimeout = setTimeout(() => {
         removeTransmissionFromFranchise(true); // true indica que foi por timeout automático
@@ -52,7 +55,7 @@ export function ScreenShareTransmitter() {
         clearTimeout(afkTimeout);
       }
     };
-  }, [isLive, user?.franquiaId]);
+  }, [isLive, hasCheckedStatus, user?.franquiaId]);
 
   const copyToClipboard = (text: string, setCopiedState: (v: boolean) => void) => {
     navigator.clipboard.writeText(text);
