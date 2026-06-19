@@ -31,6 +31,7 @@ import { MapScreensaverWidget } from '@/components/tv/MapScreensaverWidget';
 import { QueueSidebarWidget } from '@/components/tv/QueueSidebarWidget';
 import { YouTubePlayer } from '@/components/tv/YouTubePlayer';
 import { ScreenShareReceiver } from '@/components/tv/ScreenShareReceiver';
+import { HLSPlayer } from '@/components/tv/HLSPlayer';
 import { supabase } from '@/integrations/supabase/client';
 
 const DEFAULT_CALL_AUDIO_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
@@ -611,6 +612,16 @@ export default function TV() {
               url={slide.url} 
               volume={slide.volume || 0} 
               isActive={isActive} 
+            />
+          );
+        }
+        case 'hls_stream': {
+          if (!slide.url) return null;
+          return (
+            <HLSPlayer
+              url={slide.url}
+              volume={slide.volume || 0}
+              isActive={isActive}
             />
           );
         }
