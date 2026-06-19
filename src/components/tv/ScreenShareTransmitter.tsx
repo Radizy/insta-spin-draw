@@ -1,427 +1,279 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { MonitorUp, MonitorOff, Users, RefreshCw, Volume2 } from 'lucide-react';
-import { useScreenShare } from '@/contexts/ScreenShareContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { Copy, Check, Tv, Radio, Shield, Settings, Info, ExternalLink, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 
 export function ScreenShareTransmitter() {
-  const {
-    isBroadcasting,
-    stream,
-    connectedTVs,
-    activeTVs,
-    videoFit,
-    showPreview,
-    setShowPreview,
-    crop,
-    isAnotherBroadcasterActive,
-    volume,
-    startScreenShare,
-    stopScreenShare,
-    syncScreenShare,
-    changeVideoFit,
-    changeVolume,
-    resetCrop,
-    handleCornerDragStart,
-    handleBodyDragStart,
-    handleSliderChange,
-    containerRef,
-    previewVideoRef
-  } = useScreenShare();
+  const { user } = useAuth();
+  const [copiedServer, setCopiedServer] = useState(false);
+  const [copiedKey, setCopiedKey] = useState(false);
+  const [copiedHls, setCopiedHls] = useState(false);
+  const [isLive, setIsLive] = useState(false);
+  const [showConfig, setShowConfig] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  const [measuredFps, setMeasuredFps] = useState<number | null>(null);
-  const [streamSettings, setStreamSettings] = useState<{ width?: number; height?: number; frameRate?: number } | null>(null);
-  const [videoAspectRatio, setVideoAspectRatio] = useState<number>(16 / 9);
+  // Chave de transmissão padrão baseada na franquia ou "filalab"
+  const streamKey = user?.franquiaId || 'filalab';
+  const rtmpServer = 'rtmp://2.27.112.232/live';
+  const hlsUrl = `https://dom-rtmfila.begyiq.easypanel.host/live/${streamKey}.m3u8`;
 
-  // Monitora as configurações do track de vídeo (Resolução e FPS nominal)
+  // Monitora se o arquivo HLS está acessível (transmissão ativa)
   useEffect(() => {
-    if (stream) {
-      const videoTrack = stream.getVideoTracks()[0];
-      if (videoTrack) {
-        const updateSettings = () => {
-          const settings = videoTrack.getSettings();
-          setStreamSettings({
-            width: settings.width,
-            height: settings.height,
-            frameRate: settings.frameRate
-          });
-        };
-        
-        updateSettings();
-        
-        // Alguns navegadores atualizam as configurações dinamicamente se o track mudar
-        videoTrack.addEventListener('configurationchange', updateSettings);
-        return () => {
-          videoTrack.removeEventListener('configurationchange', updateSettings);
-        };
-      }
-    } else {
-      setStreamSettings(null);
-    }
-  }, [stream]);
-
-  // Mede o FPS real renderizado no elemento de vídeo de preview
-  useEffect(() => {
-    const videoEl = previewVideoRef.current;
-    if (!videoEl || !showPreview || !stream) {
-      setMeasuredFps(null);
-      return;
-    }
-
-    let frameCount = 0;
-    let lastTime = performance.now();
-    let animationFrameId: number;
-    let callbackId: number;
-
-    const updateFps = () => {
-      const now = performance.now();
-      frameCount++;
-      const elapsed = now - lastTime;
-      
-      if (elapsed >= 1000) {
-        const fps = Math.round((frameCount * 1000) / elapsed);
-        setMeasuredFps(fps);
-        frameCount = 0;
-        lastTime = now;
+    const checkStreamStatus = async () => {
+      try {
+        const response = await fetch(hlsUrl, { method: 'HEAD', cache: 'no-cache' });
+        setIsLive(response.ok);
+      } catch (err) {
+        setIsLive(false);
       }
     };
 
-    if ('requestVideoFrameCallback' in videoEl) {
-      const doCallback = () => {
-        updateFps();
-        callbackId = (videoEl as any).requestVideoFrameCallback(doCallback);
-      };
-      callbackId = (videoEl as any).requestVideoFrameCallback(doCallback);
-    } else {
-      const loop = () => {
-        updateFps();
-        animationFrameId = requestAnimationFrame(loop);
-      };
-      animationFrameId = requestAnimationFrame(loop);
-    }
+    checkStreamStatus();
+    const interval = setInterval(checkStreamStatus, 5000);
+    return () => clearInterval(interval);
+  }, [hlsUrl]);
 
-    return () => {
-      if (callbackId && 'cancelVideoFrameCallback' in videoEl) {
-        (videoEl as any).cancelVideoFrameCallback(callbackId);
-      }
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
-    };
-  }, [stream, showPreview, previewVideoRef]);
+  const copyToClipboard = (text: string, setCopiedState: (v: boolean) => void) => {
+    navigator.clipboard.writeText(text);
+    setCopiedState(true);
+    setTimeout(() => setCopiedState(false), 2000);
+  };
 
-  // Re-bind the stream to the preview video element on mount / state change
-  useEffect(() => {
-    const video = previewVideoRef.current;
-    if (video && stream && showPreview) {
-      video.srcObject = stream;
-      video.play().catch(e => console.error('Preview play error:', e));
-      
-      const updateAspect = () => {
-        if (video.videoWidth && video.videoHeight) {
-          setVideoAspectRatio(video.videoWidth / video.videoHeight);
-        }
-      };
-      
-      video.addEventListener('loadedmetadata', updateAspect);
-      if (video.readyState >= 1) {
-        updateAspect();
+  // Dispara o evento de sincronização em tempo real para todas as TVs receptoras
+  const handleSync = () => {
+    setIsSyncing(true);
+    const channelName = `hls-broadcast-${streamKey}`;
+    console.log('[Transmitter] Disparando hls-sync no canal:', channelName);
+    const channel = supabase.channel(channelName);
+    
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        channel.send({
+          type: 'broadcast',
+          event: 'hls-sync',
+          payload: {}
+        });
+        
+        // Mantém o estado visual de loading por 1.5s e limpa a conexão
+        setTimeout(() => {
+          supabase.removeChannel(channel);
+          setIsSyncing(false);
+        }, 1500);
       }
-      
-      return () => {
-        video.removeEventListener('loadedmetadata', updateAspect);
-      };
-    }
-  }, [stream, showPreview, previewVideoRef]);
+    });
+  };
 
   return (
-    <div className="bg-card border border-border rounded-xl p-6 flex flex-col items-center justify-center mt-6">
-      <div className="w-full space-y-6">
-        <div className="text-center">
-          <h3 className="text-xl font-bold mb-2">Transmissão para a TV</h3>
-          <p className="text-muted-foreground text-sm">
-            Compartilhe a tela deste computador para TODAS as TVs da franquia. Apenas uma loja pode transmitir por vez.
-          </p>
-        </div>
-        
-        {isBroadcasting && (
-          <div className="flex flex-col items-center space-y-4 animate-fade-in">
-            <div className="flex justify-center items-center gap-4 py-2">
-              <div className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold animate-pulse flex items-center gap-2">
-                <div className="w-2 h-2 bg-white rounded-full" /> AO VIVO
-              </div>
-              <div className="bg-secondary text-secondary-foreground px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2">
-                <Users className="w-4 h-4" /> {connectedTVs} TV(s) conectadas
-              </div>
-            </div>
-
-            {connectedTVs > 0 && (
-              <div className="text-xs text-muted-foreground select-none font-medium flex flex-wrap justify-center items-center gap-1.5 max-w-md pb-2 animate-fade-in">
-                <span className="opacity-75">Assistindo agora:</span>
-                {Object.entries(activeTVs).map(([id, name]) => (
-                  <span key={id} className="bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold px-2 py-0.5 rounded border border-emerald-500/20 shadow-sm">
-                    {name}
-                  </span>
-                ))}
-              </div>
-            )}
-
-
-
-            {/* Img Fit Control */}
-            <div className="flex flex-col items-center space-y-2 bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-border/50 w-full max-w-md">
-              <p className="text-xs font-bold text-muted-foreground select-none">Ajuste da Imagem na TV:</p>
-              <div className="flex gap-2">
-                <Button 
-                  variant={videoFit === 'contain' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => changeVideoFit('contain')}
-                  className={videoFit === 'contain' ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-transparent' : ''}
-                >
-                  Ajustar (Com Bordas)
-                </Button>
-                <Button 
-                  variant={videoFit === 'cover' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => changeVideoFit('cover')}
-                  className={videoFit === 'cover' ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-transparent' : ''}
-                >
-                  Preencher Tela (Recortar)
-                </Button>
-              </div>
-            </div>
-
-            {/* Volume control */}
-            <div className="flex flex-col items-center space-y-2 bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-border/50 w-full max-w-md">
-              <div className="flex justify-between text-xs font-bold text-muted-foreground w-full select-none">
-                <span className="flex items-center gap-1">
-                  <Volume2 className="w-3.5 h-3.5" /> 
-                  Volume da Transmissão (TV):
-                </span>
-                <span>{volume}%</span>
-              </div>
-              <input 
-                type="range" min="0" max="100" value={volume}
-                onChange={(e) => changeVolume(parseInt(e.target.value))}
-                className="w-full accent-emerald-500 cursor-pointer h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none"
-              />
-            </div>
-
-            <div className="flex items-center space-x-2 py-1 select-none">
-              <input 
-                type="checkbox" 
-                id="toggle-preview" 
-                checked={showPreview} 
-                onChange={(e) => setShowPreview(e.target.checked)}
-                className="rounded border-border text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
-              />
-              <label htmlFor="toggle-preview" className="text-sm font-medium cursor-pointer">
-                Mostrar Pré-visualização local
-              </label>
-            </div>
-            
-            {showPreview && (
-              <div className="flex flex-col items-center space-y-4 w-full animate-fade-in">
-                <p className="text-xs text-muted-foreground select-none">Arraste as bordas/cantos da caixa de seleção ou use os controles abaixo:</p>
-                
-                {/* Visual crop selection container */}
-                <div 
-                  ref={containerRef}
-                  className="relative w-full max-w-md bg-black rounded-xl overflow-hidden border border-border shadow-md select-none"
-                  style={{ aspectRatio: videoAspectRatio }}
-                >
-                  {/* HUD de Estatísticas (FPS & Resolução) */}
-                  <div className="absolute top-3 left-3 bg-black/80 backdrop-blur-md text-white text-[11px] font-mono py-1.5 px-2.5 rounded-lg border border-white/10 flex items-center gap-2 select-none z-50 shadow-lg">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="font-bold">
-                      {streamSettings?.width && streamSettings?.height 
-                        ? `${streamSettings.width}x${streamSettings.height}` 
-                        : 'Resolvendo...'}
-                    </span>
-                    <span className="text-white/20">|</span>
-                    <span>
-                      FPS Preview: <span className="font-bold text-emerald-400">{measuredFps ?? '--'}</span>
-                      {streamSettings?.frameRate && ` (Nominal: ${Math.round(streamSettings.frameRate)})`}
-                    </span>
-                  </div>
-
-                  {/* Video rendered standard (un-cropped) */}
-                  <video 
-                    ref={previewVideoRef} 
-                    className="w-full h-full object-fill bg-black"
-                    muted 
-                    playsInline
-                  />
-
-                  {/* Dark overlays (shaded areas outside crop box) */}
-                  <div 
-                    className="absolute top-0 left-0 right-0 bg-black/60 pointer-events-none"
-                    style={{ height: `${crop.top}%` }}
-                  />
-                  <div 
-                    className="absolute bottom-0 left-0 right-0 bg-black/60 pointer-events-none"
-                    style={{ height: `${crop.bottom}%` }}
-                  />
-                  <div 
-                    className="absolute left-0 bg-black/60 pointer-events-none"
-                    style={{ 
-                      top: `${crop.top}%`, 
-                      bottom: `${crop.bottom}%`, 
-                      width: `${crop.left}%` 
-                    }}
-                  />
-                  <div 
-                    className="absolute right-0 bg-black/60 pointer-events-none"
-                    style={{ 
-                      top: `${crop.top}%`, 
-                      bottom: `${crop.bottom}%`, 
-                      width: `${crop.right}%` 
-                    }}
-                  />
-
-                  {/* Selection crop box */}
-                  <div 
-                    className="absolute border-2 border-emerald-500 border-dashed"
-                    style={{
-                      left: `${crop.left}%`,
-                      right: `${crop.right}%`,
-                      top: `${crop.top}%`,
-                      bottom: `${crop.bottom}%`,
-                    }}
-                  >
-                    {/* Draggable body (inside box) */}
-                    <div 
-                      className="absolute inset-0 cursor-move"
-                      onMouseDown={(e) => handleBodyDragStart(e)}
-                    />
-
-                    {/* Draggable Corner Handles */}
-                    {/* Top-Left */}
-                    <div 
-                      className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-emerald-500 rounded-full cursor-nwse-resize z-40"
-                      onMouseDown={(e) => handleCornerDragStart('top-left', e)}
-                    />
-                    {/* Top-Right */}
-                    <div 
-                      className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-emerald-500 rounded-full cursor-nesw-resize z-40"
-                      onMouseDown={(e) => handleCornerDragStart('top-right', e)}
-                    />
-                    {/* Bottom-Left */}
-                    <div 
-                      className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-emerald-500 rounded-full cursor-nesw-resize z-40"
-                      onMouseDown={(e) => handleCornerDragStart('bottom-left', e)}
-                    />
-                    {/* Bottom-Right */}
-                    <div 
-                      className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-emerald-500 rounded-full cursor-nwse-resize z-40"
-                      onMouseDown={(e) => handleCornerDragStart('bottom-right', e)}
-                    />
-                  </div>
-                </div>
-
-                {/* Slider Controls for precise adjustments */}
-                <div className="w-full space-y-3 p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-border/50 max-w-md">
-                  <p className="text-xs font-bold text-muted-foreground mb-1 select-none">Recorte Preciso (Controles deslizantes):</p>
-                  
-                  <div className="space-y-2">
-                    <div>
-                      <div className="flex justify-between text-[11px] font-semibold text-muted-foreground mb-0.5 select-none">
-                        <span>Recortar Topo (Cima)</span>
-                        <span>{Math.round(crop.top)}%</span>
-                      </div>
-                      <input 
-                        type="range" min="0" max="90" value={crop.top}
-                        onChange={(e) => handleSliderChange('top', parseFloat(e.target.value))}
-                        className="w-full accent-emerald-500 cursor-pointer h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none"
-                      />
-                    </div>
-                    
-                    <div>
-                      <div className="flex justify-between text-[11px] font-semibold text-muted-foreground mb-0.5 select-none">
-                        <span>Recortar Fundo (Baixo)</span>
-                        <span>{Math.round(crop.bottom)}%</span>
-                      </div>
-                      <input 
-                        type="range" min="0" max="90" value={crop.bottom}
-                        onChange={(e) => handleSliderChange('bottom', parseFloat(e.target.value))}
-                        className="w-full accent-emerald-500 cursor-pointer h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none"
-                      />
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between text-[11px] font-semibold text-muted-foreground mb-0.5 select-none">
-                        <span>Recortar Esquerda</span>
-                        <span>{Math.round(crop.left)}%</span>
-                      </div>
-                      <input 
-                        type="range" min="0" max="90" value={crop.left}
-                        onChange={(e) => handleSliderChange('left', parseFloat(e.target.value))}
-                        className="w-full accent-emerald-500 cursor-pointer h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none"
-                      />
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between text-[11px] font-semibold text-muted-foreground mb-0.5 select-none">
-                        <span>Recortar Direita</span>
-                        <span>{Math.round(crop.right)}%</span>
-                      </div>
-                      <input 
-                        type="range" min="0" max="90" value={crop.right}
-                        onChange={(e) => handleSliderChange('right', parseFloat(e.target.value))}
-                        className="w-full accent-emerald-500 cursor-pointer h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-                
-                {(crop.top > 0 || crop.bottom > 0 || crop.left > 0 || crop.right > 0) && (
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1 select-none animate-fade-in">
-                    <span>Recorte ativo: T:{Math.round(crop.top)}% B:{Math.round(crop.bottom)}% L:{Math.round(crop.left)}% R:{Math.round(crop.right)}%</span>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={resetCrop}
-                      className="h-6 px-2 text-red-500 hover:text-red-400 hover:bg-red-50/10 gap-1"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin-hover" />
-                      Redefinir Recorte
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
+    <div className="bg-card border border-border rounded-xl p-6 flex flex-col mt-6 w-full max-w-4xl mx-auto shadow-sm transition-all duration-300">
+      
+      {/* Cabeçalho */}
+      <div className="flex items-center justify-between border-b border-border pb-4 mb-6">
+        <div className="flex items-center gap-3">
+          <div className={`p-2.5 rounded-lg transition-colors duration-300 ${
+            isLive 
+              ? 'bg-red-500/10 dark:bg-red-500/20 text-red-500' 
+              : 'bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+          }`}>
+            <Radio className={`w-6 h-6 ${isLive ? 'animate-pulse' : ''}`} />
           </div>
-        )}
-        
-        <div className="flex justify-center gap-4">
-          {isAnotherBroadcasterActive ? (
-            <div className="text-center space-y-2">
-              <Button size="lg" disabled className="gap-2 text-lg px-8 py-6 bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed">
-                <MonitorUp className="w-6 h-6" />
-                Transmissão Indisponível
-              </Button>
-              <p className="text-xs text-red-500 font-semibold mt-1">
-                Outra loja da franquia já está transmitindo no momento.
-              </p>
-            </div>
-          ) : !isBroadcasting ? (
-            <Button size="lg" onClick={startScreenShare} className="gap-2 text-lg px-8 py-6 bg-emerald-600 hover:bg-emerald-500 text-white">
-              <MonitorUp className="w-6 h-6" />
-              Iniciar Compartilhamento
+          <div>
+            <h3 className="text-xl font-bold flex items-center gap-2">
+              Transmissão Externa ao Vivo
+              {isLive && (
+                <span className="bg-red-500 text-white text-[10px] uppercase font-bold px-2 py-0.5 rounded-full animate-pulse select-none">
+                  AO VIVO
+                </span>
+              )}
+            </h3>
+            <p className="text-muted-foreground text-xs md:text-sm">
+              {isLive 
+                ? 'Sua transmissão via OBS Studio está ativa e sendo exibida nas TVs.' 
+                : 'Transmita a tela do seu computador ou estúdio usando o OBS Studio.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {isLive && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSync}
+              disabled={isSyncing}
+              className="text-xs gap-1.5 border-indigo-500/25 dark:border-indigo-500/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/5 transition-all duration-200"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'Sincronizando...' : 'Sincronizar'}
             </Button>
-          ) : (
-            <div className="flex gap-4">
-              <Button size="lg" onClick={syncScreenShare} className="gap-2 text-lg px-6 py-6 bg-indigo-600 hover:bg-indigo-500 text-white">
-                <RefreshCw className="w-5 h-5 animate-[spin_3s_linear_infinite]" />
-                Sincronizar
-              </Button>
-              <Button size="lg" variant="destructive" onClick={stopScreenShare} className="gap-2 text-lg px-6 py-6">
-                <MonitorOff className="w-6 h-6" />
-                Parar Transmissão
-              </Button>
-            </div>
+          )}
+
+          {isLive && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowConfig(!showConfig)}
+              className="text-xs text-muted-foreground hover:text-foreground gap-1"
+            >
+              {showConfig ? (
+                <>Ocultar Configuração <ChevronUp className="w-4 h-4" /></>
+              ) : (
+                <>Ver Configuração OBS <ChevronDown className="w-4 h-4" /></>
+              )}
+            </Button>
           )}
         </div>
       </div>
+
+      {/* Se estiver AO VIVO e NÃO estiver com a config expandida, exibe tela simplificada */}
+      {isLive && !showConfig ? (
+        <div className="flex flex-col items-center justify-center py-8 text-center space-y-4 animate-fade-in">
+          <div className="relative flex items-center justify-center">
+            <span className="absolute inline-flex h-16 w-16 rounded-full bg-red-500/20 animate-ping" />
+            <span className="relative inline-flex rounded-full h-10 w-10 bg-red-500 items-center justify-center text-white">
+              <Tv className="w-5 h-5" />
+            </span>
+          </div>
+
+          <div className="space-y-1">
+            <h4 className="text-lg font-bold text-foreground">Sinal Conectado com Sucesso!</h4>
+            <p className="text-muted-foreground text-sm max-w-md mx-auto">
+              O sistema FilaLab identificou a stream do OBS. As TVs que possuem o item <span className="font-semibold text-emerald-600 dark:text-emerald-400">Transmissão</span> na playlist já estão exibindo o sinal.
+            </p>
+          </div>
+
+          <div className="pt-4 flex flex-col sm:flex-row gap-3 items-center justify-center w-full max-w-md">
+            <Button
+              onClick={handleSync}
+              disabled={isSyncing}
+              className="gap-2 px-6 py-5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold w-full sm:w-auto"
+            >
+              <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'Sincronizando TVs...' : 'Sincronizar TVs'}
+            </Button>
+            <a 
+              href={hlsUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-400 font-semibold"
+            >
+              Visualizar sinal HLS <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </div>
+        </div>
+      ) : (
+        /* Caso contrário (ou inativo, ou expandido), exibe painel completo de configuração */
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+          {/* Painel de Credenciais */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 select-none">
+              <Shield className="w-4 h-4 text-emerald-500" />
+              Dados para configurar o OBS
+            </h4>
+
+            {/* Servidor RTMP */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground/80">Servidor (URL RTMP):</label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-muted p-2 rounded text-xs overflow-x-auto border border-border/55 select-all font-mono">
+                  {rtmpServer}
+                </code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => copyToClipboard(rtmpServer, setCopiedServer)}
+                  className="shrink-0 h-9"
+                >
+                  {copiedServer ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                </Button>
+              </div>
+            </div>
+
+            {/* Chave de Transmissão */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground/80">Chave de Transmissão (Stream Key):</label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-muted p-2 rounded text-xs overflow-x-auto border border-border/55 select-all font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                  {streamKey}
+                </code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => copyToClipboard(streamKey, setCopiedKey)}
+                  className="shrink-0 h-9"
+                >
+                  {copiedKey ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                </Button>
+              </div>
+            </div>
+
+            {/* URL da Stream HLS */}
+            <div className="space-y-1.5 pt-2 border-t border-border/50">
+              <label className="text-xs font-bold text-foreground/90 flex items-center gap-1.5">
+                <Tv className="w-3.5 h-3.5 text-indigo-500" />
+                Link da Stream HLS (Detecção Automática):
+              </label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-indigo-500/5 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 p-2 rounded text-xs overflow-x-auto border border-indigo-500/20 select-all font-mono font-semibold">
+                  {hlsUrl}
+                </code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => copyToClipboard(hlsUrl, setCopiedHls)}
+                  className="shrink-0 h-9 border-indigo-500/20 hover:bg-indigo-500/5"
+                >
+                  {copiedHls ? <Check className="w-4 h-4 text-indigo-500" /> : <Copy className="w-4 h-4" />}
+                </Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-normal mt-1">
+                <strong>Vantagem:</strong> O FilaLab vincula esse link automaticamente na sua TV quando você usa o item <span className="font-bold text-indigo-500">Transmissão</span> na playlist. Não precisa cadastrar URL manualmente!
+              </p>
+            </div>
+          </div>
+
+          {/* Guia Passo a Passo */}
+          <div className="bg-slate-50 dark:bg-slate-900/40 p-5 rounded-xl border border-border/50 space-y-4">
+            <h4 className="text-sm font-bold text-foreground flex items-center gap-2 border-b border-border/60 pb-2 select-none">
+              <Settings className="w-4 h-4 text-slate-500" />
+              Configurando no OBS Studio
+            </h4>
+
+            <ul className="space-y-3 text-xs text-muted-foreground leading-relaxed">
+              <li className="flex gap-2">
+                <span className="flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-800 text-foreground font-bold text-[10px]">1</span>
+                <span>No OBS, vá em <strong>Configurações</strong> e depois em <strong>Transmissão</strong>.</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-800 text-foreground font-bold text-[10px]">2</span>
+                <span>Mude o <strong>Serviço</strong> para <strong>Personalizado</strong>.</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-800 text-foreground font-bold text-[10px]">3</span>
+                <span>Cole o <strong>Servidor</strong> e a <strong>Chave de Transmissão</strong> copiados ao lado.</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-800 text-foreground font-bold text-[10px]">4</span>
+                <span>Na aba Saída, use o encoder <strong>x264 (H.264)</strong> para vídeo e <strong>AAC</strong> para áudio (obrigatórios).</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-800 text-foreground font-bold text-[10px]">5</span>
+                <span>Clique em <strong>Iniciar Transmissão</strong> no OBS. O status acima mudará para <strong>AO VIVO</strong> em alguns segundos!</span>
+              </li>
+            </ul>
+
+            <div className="flex gap-2 bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 p-3 rounded-lg border border-amber-500/20 text-[11px] leading-normal">
+              <Info className="w-4 h-4 shrink-0 mt-0.5" />
+              <p>
+                <strong>Importante:</strong> Mantenha a taxa de bits (Bitrate) recomendada de <strong>1500 a 2500 Kbps</strong> no OBS para garantir fluidez perfeita e evitar travamento nas TVs receptoras.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+
+

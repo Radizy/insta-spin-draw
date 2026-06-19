@@ -24,12 +24,13 @@ Os 5 módulos principais são:
 Esses módulos podem ser geridos livremente pelo painel Super Admin na visualização e edição de uma franquia.
 
 ### Versão do Sistema
-- **Versão Atual**: `2.9.3` (Junho 2026)
+- **Versão Atual**: `2.9.5` (Junho 2026)
 - **Últimas Implementações**:
-    - **Suporte a Transmissão HLS Externa (RTMP/OBS)**:
-        - Integração da biblioteca `hls.js` para decodificar e reproduzir transmissões de vídeo `.m3u8` externas geradas por servidores de mídia (ex: Node-Media-Server rodando em VPS).
-        - Criação do componente [HLSPlayer.tsx](file:///c:/Users/Vinicius/Documents/GitHub/insta-spin-draw/src/components/tv/HLSPlayer.tsx) com rotinas de reconexão automática, controle de volume, redimensionamento responsivo de tela cheia e tratamento de políticas de autoplay (silenciamento automático se bloqueado).
-        - Novo tipo de mídia `hls_stream` integrado ao gerenciador de playlist [TvPlaylistManager.tsx](file:///c:/Users/Vinicius/Documents/GitHub/insta-spin-draw/src/components/TvPlaylistManager.tsx) e renderizado de forma independente no screensaver da TV em [TV.tsx](file:///c:/Users/Vinicius/Documents/GitHub/insta-spin-draw/src/pages/TV.tsx).
+    - **Detecção Inteligente de Live e Automação de Transmissão HLS**:
+        - O painel de controle de transmissão em [ScreenShareTransmitter.tsx](file:///c:/Users/Vinicius/Documents/GitHub/insta-spin-draw/src/components/tv/ScreenShareTransmitter.tsx) agora faz ping periódico na VPS para saber se a stream está online. Quando o sinal do OBS é recebido, as credenciais e instruções de configuração são ocultadas automaticamente, exibindo apenas um banner de status **AO VIVO** limpo e profissional.
+        - O tipo de mídia `transmissao` (nativo da playlist da TV) foi atualizado em [TV.tsx](file:///c:/Users/Vinicius/Documents/GitHub/insta-spin-draw/src/pages/TV.tsx) para buscar e reproduzir o link HLS dinâmico de forma 100% automatizada com base na franquia logada (`franquiaId`), eliminando a necessidade de cadastrar e copiar URLs manualmente.
+        - Removido o import e renderização do receptor WebRTC em segundo plano (`ScreenShareReceiver`), otimizando o consumo de rede e processamento do player da TV.
+        - **Controle Inteligente de Armazenamento**: A pasta `/tmp/hls` é mantida em memória RAM no container Docker e o Nginx rotaciona os arquivos deletando automaticamente os pedaços de vídeo mais antigos com base na regra `hls_playlist_length 60s`. Ao encerrar a transmissão, os arquivos temporários são 100% apagados, garantindo 0% de acúmulo em disco na VPS.
     - **Precisão e Identificação na Transmissão de Tela (WebRTC)**:
         - Resolvido o bug de oscilação do contador de conexões (onde subia para 2 e zerava) ao gerenciar o estado como um mapa de conexões ativas (`activeTVs`) indexado pelo `tvId` das RTCPeerConnections no estado real de `connected`.
         - Adicionado HUD de alto contraste que exibe os nomes das lojas ativas que estão assistindo à transmissão em tempo real (ex: "Assistindo agora: Itaquá, Poá") usando o payload nominal de `tv-ready`.

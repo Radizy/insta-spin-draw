@@ -30,7 +30,6 @@ import { TopRankWidget } from '@/components/tv/TopRankWidget';
 import { MapScreensaverWidget } from '@/components/tv/MapScreensaverWidget';
 import { QueueSidebarWidget } from '@/components/tv/QueueSidebarWidget';
 import { YouTubePlayer } from '@/components/tv/YouTubePlayer';
-import { ScreenShareReceiver } from '@/components/tv/ScreenShareReceiver';
 import { HLSPlayer } from '@/components/tv/HLSPlayer';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -81,11 +80,7 @@ export default function TV() {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [interactionNeeded, setInteractionNeeded] = useState(true);
 
-  // WebRTC Screen Share State
-  const [shareStream, setShareStream] = useState<MediaStream | null>(null);
-  const [shareCrop, setShareCrop] = useState({ top: 0, bottom: 0, left: 0, right: 0 });
-  const [shareFit, setShareFit] = useState<'contain' | 'cover'>('contain');
-  const [shareVolume, setShareVolume] = useState(100);
+
 
 
 
@@ -644,44 +639,14 @@ export default function TV() {
           );
         }
         case 'transmissao': {
-          if (!shareStream) {
-            return (
-              <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950 text-slate-500">
-                <MonitorPlay className="w-24 h-24 mb-4 opacity-30 animate-pulse" />
-                <h3 className="text-2xl font-semibold opacity-50">Conectando Transmissão...</h3>
-              </div>
-            );
-          }
+          const streamKey = user?.franquiaId || 'filalab';
+          const hlsUrl = `https://dom-rtmfila.begyiq.easypanel.host/live/${streamKey}.m3u8`;
           return (
-            <div className="absolute inset-0 overflow-hidden bg-black w-full h-full">
-              <video 
-                ref={el => {
-                  if (el) {
-                    if (el.srcObject !== shareStream) {
-                      console.log('[TV] Associando novo stream ao elemento de vídeo');
-                      el.srcObject = shareStream;
-                    }
-                    el.volume = shareVolume / 100;
-                    if (isActive) {
-                      el.play().catch(e => console.error('[TV] Play error', e));
-                    } else {
-                      el.pause();
-                    }
-                  }
-                }}
-                className="absolute"
-                style={{
-                  width: `${100 / (1 - (shareCrop.left + shareCrop.right) / 100)}%`,
-                  height: `${100 / (1 - (shareCrop.top + shareCrop.bottom) / 100)}%`,
-                  left: `${-shareCrop.left * (100 / (100 - shareCrop.left - shareCrop.right))}%`,
-                  top: `${-shareCrop.top * (100 / (100 - shareCrop.top - shareCrop.bottom))}%`,
-                  objectFit: shareFit === 'cover' ? 'cover' : 'fill'
-                }}
-                playsInline
-                muted={false}
-                autoPlay
-              />
-            </div>
+            <HLSPlayer
+              url={hlsUrl}
+              volume={slide.volume || 100}
+              isActive={isActive}
+            />
           );
         }
         default: return null;
@@ -821,15 +786,7 @@ export default function TV() {
       </div>
       <CheckinModal open={checkinOpen} onOpenChange={setCheckinOpen} entregadores={entregadores} onCheckin={handleCheckin} isLoading={false} />
       
-      {/* Headless WebRTC receiver kept permanently mounted in the background */}
-      <ScreenShareReceiver
-        isActive={isIdle && !displayingCalled && !displayingPagamento && activePlaylist[currentSlideIndex]?.tipo === 'transmissao'}
-        onStreamChange={setShareStream}
-        onCropChange={setShareCrop}
-        onFitChange={setShareFit}
-        onVolumeChange={setShareVolume}
-        storeName={storeName}
-      />
+
     </div>
   );
 }

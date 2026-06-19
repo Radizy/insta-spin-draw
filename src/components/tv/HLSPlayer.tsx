@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 import Hls from 'hls.js';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 interface HLSPlayerProps {
   url: string;
@@ -8,9 +10,12 @@ interface HLSPlayerProps {
 }
 
 export function HLSPlayer({ url, volume, isActive }: HLSPlayerProps) {
+  const { user } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const streamKey = user?.franquiaId || 'filalab';
 
+  // Gerenciamento e inicialização do player HLS
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -32,9 +37,13 @@ export function HLSPlayer({ url, volume, isActive }: HLSPlayerProps) {
     if (Hls.isSupported()) {
       console.log('[HLS TV] Inicializando hls.js para:', url);
       const hls = new Hls({
-        maxMaxBufferLength: 10,
+        maxMaxBufferLength: 2,
         enableWorker: true,
-        lowLatencyMode: true
+        lowLatencyMode: true,
+        liveSyncDuration: 2,
+        liveMaxLatencyDuration: 4,
+        maxBufferLength: 2,
+        maxBufferSize: 1 * 1024 * 1024 // 1MB buffer max
       });
       hlsRef.current = hls;
 
@@ -54,8 +63,12 @@ export function HLSPlayer({ url, volume, isActive }: HLSPlayerProps) {
         if (data.fatal) {
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
-              console.warn('[HLS TV] Erro de rede fatal. Tentando recuperar...', data);
-              hls.startLoad();
+              console.warn('[HLS TV] Erro de rede fatal. Tentando recuperar em 5s...', data);
+              setTimeout(() => {
+                if (hlsRef.current === hls) {
+                  hls.startLoad();
+                }
+              }, 5000);
               break;
             case Hls.ErrorTypes.MEDIA_ERROR:
               console.warn('[HLS TV] Erro de mídia fatal. Tentando recuperar...', data);
@@ -94,6 +107,36 @@ export function HLSPlayer({ url, volume, isActive }: HLSPlayerProps) {
     };
   }, [url, isActive, volume]);
 
+  // Canal Realtime para ouvir o comando de Sincronização
+  useEffect(() => {
+    if (!isActive || !user?.franquiaId) return;
+
+    const channelName = `hls-broadcast-${streamKey}`;
+    console.log('[HLS TV] Ouvindo canal de sincronização:', channelName);
+    const channel = supabase.channel(channelName);
+
+    channel
+      .on('broadcast', { event: 'hls-sync' }, () => {
+        console.log('[HLS TV] Comando de sincronização recebido! Recarregando player...');
+        const video = videoRef.current;
+        const hls = hlsRef.current;
+        if (video && hls) {
+          hls.loadSource(url);
+          video.play().catch(e => console.error('[HLS TV] Erro ao sincronizar play:', e));
+        } else if (video) {
+          // Fallback nativo
+          video.src = url;
+          video.play().catch(e => console.error('[HLS TV Native] Erro ao sincronizar play:', e));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      console.log('[HLS TV] Removendo canal de sincronização:', channelName);
+      supabase.removeChannel(channel);
+    };
+  }, [isActive, streamKey, url, user?.franquiaId]);
+
   return (
     <div className="absolute inset-0 bg-black w-full h-full flex items-center justify-center overflow-hidden">
       <video
@@ -105,3 +148,4 @@ export function HLSPlayer({ url, volume, isActive }: HLSPlayerProps) {
     </div>
   );
 }
+
