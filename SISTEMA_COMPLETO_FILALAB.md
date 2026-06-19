@@ -1879,6 +1879,7 @@ ORDER BY valor_final DESC;
     - Otimização do monitor de inatividade: o item de transmissão é removido automaticamente de todas as lojas após 5 minutos offline. Adicionado estado `hasCheckedStatus` para evitar o disparo falso deste timer no console durante o carregamento inicial da página.
     - Remoção de redundância visual: o botão "Sincronizar" do cabeçalho agora só aparece quando o painel de configurações expandidas está visível, evitando botões de sincronização duplicados.
     - Correção de erro 400 no console: Corrigido o método `isModuloAtivo` em `api.ts` para buscar `config_pagamento` da tabela `franquias` (onde os módulos estão salvos) em vez da coluna inexistente `modulos_ativos`.
+    - Correção de ícone do PWA: Substituído o ícone ausente `/vite.svg` por `/favicon.ico` no arquivo `manifest.json`, resolvendo o erro de download de recurso no console.
 
 ### v2.9.2 (2026-06-18)
 - ✅ **Precisão e Identificação na Transmissão de Tela (WebRTC)**:
