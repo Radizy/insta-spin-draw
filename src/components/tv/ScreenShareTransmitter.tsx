@@ -34,10 +34,22 @@ export function ScreenShareTransmitter() {
       }
     };
 
+    // Roda uma verificação inicial ao montar a página
     checkStreamStatus();
-    const interval = setInterval(checkStreamStatus, 5000);
-    return () => clearInterval(interval);
-  }, [hlsUrl]);
+
+    // Só define o intervalo de busca contínua se a live estiver online ou se o painel de config do OBS estiver aberto
+    let interval: NodeJS.Timeout | null = null;
+    if (isLive || showConfig) {
+      const intervalTime = isLive ? 15000 : 8000; // 15s se ativo (monitorar queda), 8s se configurando (detectar início)
+      interval = setInterval(checkStreamStatus, intervalTime);
+    }
+
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [hlsUrl, isLive, showConfig]);
 
   // Monitor de Inatividade: Se passar 5 minutos sem transmissão (isLive = false), remove o item de todas as lojas
   useEffect(() => {
