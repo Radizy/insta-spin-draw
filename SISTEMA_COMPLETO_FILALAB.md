@@ -24,8 +24,12 @@ Os 5 módulos principais são:
 Esses módulos podem ser geridos livremente pelo painel Super Admin na visualização e edição de uma franquia.
 
 ### Versão do Sistema
-- **Versão Atual**: `2.9.2` (Junho 2026)
+- **Versão Atual**: `2.9.3` (Junho 2026)
 - **Últimas Implementações**:
+    - **Suporte a Transmissão HLS Externa (RTMP/OBS)**:
+        - Integração da biblioteca `hls.js` para decodificar e reproduzir transmissões de vídeo `.m3u8` externas geradas por servidores de mídia (ex: Node-Media-Server rodando em VPS).
+        - Criação do componente [HLSPlayer.tsx](file:///c:/Users/Vinicius/Documents/GitHub/insta-spin-draw/src/components/tv/HLSPlayer.tsx) com rotinas de reconexão automática, controle de volume, redimensionamento responsivo de tela cheia e tratamento de políticas de autoplay (silenciamento automático se bloqueado).
+        - Novo tipo de mídia `hls_stream` integrado ao gerenciador de playlist [TvPlaylistManager.tsx](file:///c:/Users/Vinicius/Documents/GitHub/insta-spin-draw/src/components/TvPlaylistManager.tsx) e renderizado de forma independente no screensaver da TV em [TV.tsx](file:///c:/Users/Vinicius/Documents/GitHub/insta-spin-draw/src/pages/TV.tsx).
     - **Precisão e Identificação na Transmissão de Tela (WebRTC)**:
         - Resolvido o bug de oscilação do contador de conexões (onde subia para 2 e zerava) ao gerenciar o estado como um mapa de conexões ativas (`activeTVs`) indexado pelo `tvId` das RTCPeerConnections no estado real de `connected`.
         - Adicionado HUD de alto contraste que exibe os nomes das lojas ativas que estão assistindo à transmissão em tempo real (ex: "Assistindo agora: Itaquá, Poá") usando o payload nominal de `tv-ready`.
