@@ -263,8 +263,7 @@ export function TvPlaylistManager({ franquiaId, unidadeId }: TvPlaylistManagerPr
                             <SelectItem value="clima">Clima e Previsão Local</SelectItem>
                             <SelectItem value="top_rank">Ranking de Entregadores do Mês</SelectItem>
                             <SelectItem value="mapa">Mapa Radar de Entregadores</SelectItem>
-                            <SelectItem value="transmissao">Transmissão Ao Vivo (WebRTC)</SelectItem>
-                            <SelectItem value="hls_stream">Transmissão HLS (RTMP / OBS)</SelectItem>
+                            <SelectItem value="transmissao">Transmissão Ao Vivo (RTMP / OBS)</SelectItem>
                             <SelectItem value="imagem">Imagem (URL)</SelectItem>
                             <SelectItem value="youtube">YouTube (Vídeo ou Playlist)</SelectItem>
                             <SelectItem value="video">Vídeo Direto (.mp4 URL)</SelectItem>

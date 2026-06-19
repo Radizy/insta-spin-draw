@@ -103,7 +103,7 @@ export function ScreenShareTransmitter() {
       // 1. Busca todas as unidades da franquia
       const { data: unidades, error: uError } = await supabase
         .from('unidades')
-        .select('id, nome')
+        .select('id')
         .eq('franquia_id', user.franquiaId);
         
       if (uError || !unidades) throw uError;

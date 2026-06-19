@@ -1872,6 +1872,12 @@ ORDER BY valor_final DESC;
 
 ## 📝 CHANGELOG
 
+### v2.9.5 (2026-06-19)
+- ✅ **Estabilização e Unificação da Transmissão (RTMP / HLS)**:
+    - Correção do erro no botão "Adicionar a todas as Lojas" (removido o campo não existente `unidades.nome` da busca no Supabase).
+    - Unificação dos tipos de playlist no painel do administrador, eliminando a redundância do tipo `hls_stream` e renomeando a opção principal para "Transmissão Ao Vivo (RTMP / OBS)".
+    - Otimização do monitor de inatividade: o item de transmissão é removido automaticamente de todas as lojas após 5 minutos offline, mantendo a TV sempre dinâmica.
+
 ### v2.9.2 (2026-06-18)
 - ✅ **Precisão e Identificação na Transmissão de Tela (WebRTC)**:
     - Resolvido o bug de oscilação do contador de conexões (onde subia para 2 e zerava) ao gerenciar o estado como um mapa de conexões ativas (`activeTVs`) indexado pelo `tvId` das RTCPeerConnections no estado real de `connected`.
