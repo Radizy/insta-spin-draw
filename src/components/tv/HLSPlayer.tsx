@@ -37,13 +37,14 @@ export function HLSPlayer({ url, volume, isActive }: HLSPlayerProps) {
     if (Hls.isSupported()) {
       console.log('[HLS TV] Inicializando hls.js para:', url);
       const hls = new Hls({
-        maxMaxBufferLength: 2,
         enableWorker: true,
         lowLatencyMode: true,
-        liveSyncDuration: 2,
-        liveMaxLatencyDuration: 4,
-        maxBufferLength: 2,
-        maxBufferSize: 1 * 1024 * 1024 // 1MB buffer max
+        liveSyncDurationCount: 3,
+        liveSyncDuration: 4,
+        liveMaxLatencyDuration: 8,
+        maxBufferLength: 8,
+        maxMaxBufferLength: 15,
+        maxBufferSize: 30 * 1024 * 1024 // 30MB buffer max
       });
       hlsRef.current = hls;
 
