@@ -133,7 +133,7 @@ export function ScreenShareTransmitter() {
           await supabase.from('tv_playlist').insert({
             unidade_id: unidade.id,
             tipo: 'transmissao',
-            nome: 'Transmissão Ao Vivo',
+            url: null,
             ordem: nextOrdem,
             ativo: true,
             volume: 100
@@ -206,7 +206,7 @@ export function ScreenShareTransmitter() {
         </div>
 
         <div className="flex items-center gap-2">
-          {isLive && (
+          {isLive && showConfig && (
             <Button
               variant="outline"
               size="sm"
