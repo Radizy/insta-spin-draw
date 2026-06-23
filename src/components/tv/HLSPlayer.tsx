@@ -105,9 +105,18 @@ export function HLSPlayer({ url, volume, isActive }: HLSPlayerProps) {
         hlsRef.current = null;
       }
     };
-  }, [url, isActive, volume]);
+  }, [url, isActive]);
 
-  // Canal Realtime para ouvir o comando de Sincronização
+  // Atualiza o volume do vídeo em tempo real quando o prop volume for alterado
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) {
+      video.volume = volume / 100;
+      video.muted = volume === 0;
+    }
+  }, [volume]);
+
+  // Canal Realtime para ouvir o comando de Sincronização e Volume
   useEffect(() => {
     if (!isActive || !user?.franquiaId) return;
 
@@ -116,10 +125,23 @@ export function HLSPlayer({ url, volume, isActive }: HLSPlayerProps) {
     const channel = supabase.channel(channelName);
 
     channel
-      .on('broadcast', { event: 'hls-sync' }, () => {
-        console.log('[HLS TV] Comando de sincronização recebido! Recarregando player...');
+      .on('broadcast', { event: 'hls-sync' }, (payload: any) => {
+        console.log('[HLS TV] Comando de sincronização/volume recebido! Payload:', payload);
         const video = videoRef.current;
         const hls = hlsRef.current;
+        
+        // Se o payload contiver volume, atualiza em tempo real sem travar o vídeo
+        if (payload?.payload && typeof payload.payload.volume === 'number') {
+          const newVol = payload.payload.volume;
+          console.log('[HLS TV] Atualizando volume via broadcast:', newVol);
+          if (video) {
+            video.volume = newVol / 100;
+            video.muted = newVol === 0;
+          }
+          return;
+        }
+
+        // Caso contrário, recarrega a fonte do player (sincronização de delay)
         if (video && hls) {
           hls.loadSource(url);
           video.play().catch(e => console.error('[HLS TV] Erro ao sincronizar play:', e));

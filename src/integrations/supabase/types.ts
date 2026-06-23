@@ -1063,6 +1063,8 @@ export type Database = {
           datetime_fim: string
           datetime_inicio: string
           p_unidade_id: string
+          p_unidade_nome?: string
+          p_entregador_id?: string
         }
         Returns: Json
       }

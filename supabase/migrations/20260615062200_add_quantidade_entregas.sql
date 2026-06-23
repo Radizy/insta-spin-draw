@@ -5,7 +5,8 @@ CREATE OR REPLACE FUNCTION public.get_analytics_pro_metrics(
     p_unidade_id uuid,
     datetime_inicio timestamp with time zone,
     datetime_fim timestamp with time zone,
-    p_unidade_nome text DEFAULT NULL::text
+    p_unidade_nome text DEFAULT NULL::text,
+    p_entregador_id uuid DEFAULT NULL
 ) RETURNS jsonb AS $$
 DECLARE
     v_unidade_nome TEXT;
@@ -32,7 +33,8 @@ BEGIN
     SELECT COALESCE(SUM(COALESCE(quantidade_entregas, 1)), 0)::int INTO v_total_entregas
     FROM public.historico_entregas
     WHERE (unidade_id = p_unidade_id OR unidade = v_unidade_nome)
-      AND hora_saida BETWEEN datetime_inicio AND datetime_fim;
+      AND hora_saida BETWEEN datetime_inicio AND datetime_fim
+      AND (p_entregador_id IS NULL OR entregador_id = p_entregador_id);
 
     -- B) Tempo Médio de Entrega (minutos inteiros por entrega)
     SELECT COALESCE(
@@ -42,7 +44,8 @@ BEGIN
     FROM public.historico_entregas
     WHERE (unidade_id = p_unidade_id OR unidade = v_unidade_nome)
       AND hora_retorno IS NOT NULL
-      AND hora_saida BETWEEN datetime_inicio AND datetime_fim;
+      AND hora_saida BETWEEN datetime_inicio AND datetime_fim
+      AND (p_entregador_id IS NULL OR entregador_id = p_entregador_id);
 
     -- C) Ranking de Motoboys (Top 10) - Por volume de entregas e tempo médio por entrega
     SELECT COALESCE(jsonb_agg(row_to_json(t)), '[]'::jsonb) INTO v_ranking_motoboys
@@ -58,6 +61,7 @@ BEGIN
         JOIN entregadores e ON e.id = h.entregador_id
         WHERE (h.unidade_id = p_unidade_id OR h.unidade = v_unidade_nome)
           AND h.hora_saida BETWEEN datetime_inicio AND datetime_fim
+          AND (p_entregador_id IS NULL OR h.entregador_id = p_entregador_id)
         GROUP BY e.nome
         ORDER BY total_entregas DESC
         LIMIT 10
@@ -76,6 +80,7 @@ BEGIN
         FROM public.historico_entregas
         WHERE (unidade_id = p_unidade_id OR unidade = v_unidade_nome)
           AND hora_saida BETWEEN datetime_inicio AND datetime_fim
+          AND (p_entregador_id IS NULL OR entregador_id = p_entregador_id)
         GROUP BY tipo_bag
         ORDER BY total DESC
     ) b;
@@ -89,6 +94,7 @@ BEGIN
         FROM public.historico_entregas
         WHERE (unidade_id = p_unidade_id OR unidade = v_unidade_nome)
           AND hora_saida BETWEEN datetime_inicio AND datetime_fim
+          AND (p_entregador_id IS NULL OR entregador_id = p_entregador_id)
         GROUP BY hora
         ORDER BY hora
     ) h_res;
@@ -102,6 +108,7 @@ BEGIN
         FROM public.historico_entregas
         WHERE (unidade_id = p_unidade_id OR unidade = v_unidade_nome)
           AND hora_saida BETWEEN datetime_inicio AND datetime_fim
+          AND (p_entregador_id IS NULL OR entregador_id = p_entregador_id)
         GROUP BY dia
     ) d_res;
 
@@ -116,6 +123,7 @@ BEGIN
             FROM public.historico_entregas
             WHERE (unidade_id = p_unidade_id OR unidade = v_unidade_nome)
               AND hora_saida BETWEEN datetime_inicio AND datetime_fim
+              AND (p_entregador_id IS NULL OR entregador_id = p_entregador_id)
             GROUP BY entregador_id, DATE(hora_saida)
         )
         SELECT 

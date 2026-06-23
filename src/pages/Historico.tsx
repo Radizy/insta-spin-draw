@@ -262,7 +262,7 @@ export default function Historico() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('unidades')
-        .select('id, config_sheets_url, franquia_id')
+        .select('id, config_sheets_url, franquia_id, nome_loja')
         .eq('slug', selectedUnit)
         .maybeSingle();
       if (error) throw error;
@@ -437,7 +437,7 @@ export default function Historico() {
 
       const payload = {
         tipo: 'resumo_entregas',
-        unidade: selectedUnit,
+        unidade: unitData?.nome_loja || selectedUnit,
         data_dia: dataFormatted,
         entregas: contagemPorEntregador.filter(e => e.entregas > 0),
       };

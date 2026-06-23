@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Copy, Check, Tv, Radio, Shield, Settings, Info, ExternalLink, ChevronDown, ChevronUp, RefreshCw, Plus } from 'lucide-react';
+import { Copy, Check, Tv, Radio, Shield, Settings, Info, ExternalLink, ChevronDown, ChevronUp, RefreshCw, Plus, Volume2, VolumeX } from 'lucide-react';
 
 export function ScreenShareTransmitter() {
   const { user } = useAuth();
@@ -15,6 +16,7 @@ export function ScreenShareTransmitter() {
   const [showConfig, setShowConfig] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isAddingPlaylist, setIsAddingPlaylist] = useState(false);
+  const [transVolume, setTransVolume] = useState<number>(100);
 
   // Chave de transmissão padrão baseada na franquia ou "filalab"
   const streamKey = user?.franquiaId || 'filalab';
@@ -151,7 +153,7 @@ export function ScreenShareTransmitter() {
             url: null,
             ordem: nextOrdem,
             ativo: true,
-            volume: 100
+            volume: transVolume
           });
           adicionadosCount++;
         }
@@ -163,6 +165,44 @@ export function ScreenShareTransmitter() {
       toast.error('Erro ao adicionar transmissão nas lojas.');
     } finally {
       setIsAddingPlaylist(false);
+    }
+  };
+
+  // Atualiza o volume de todas as unidades e avisa as TVs por broadcast realtime
+  const handleVolumeChange = async (newVolume: number) => {
+    setTransVolume(newVolume);
+    if (!user?.franquiaId) return;
+
+    try {
+      const { data: unidades } = await supabase
+        .from('unidades')
+        .select('id')
+        .eq('franquia_id', user.franquiaId);
+      
+      if (!unidades || unidades.length === 0) return;
+      const unidadeIds = unidades.map(u => u.id);
+
+      await supabase
+        .from('tv_playlist')
+        .update({ volume: newVolume })
+        .eq('tipo', 'transmissao')
+        .in('unidade_id', unidadeIds);
+
+      // Envia broadcast de áudio com payload de volume
+      const channelName = `hls-broadcast-${streamKey}`;
+      const channel = supabase.channel(channelName);
+      channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          channel.send({
+            type: 'broadcast',
+            event: 'hls-sync',
+            payload: { volume: newVolume }
+          });
+          setTimeout(() => supabase.removeChannel(channel), 1000);
+        }
+      });
+    } catch (err) {
+      console.error('[Transmitter] Erro ao atualizar volume nas TVs:', err);
     }
   };
 
@@ -265,6 +305,28 @@ export function ScreenShareTransmitter() {
             <h4 className="text-lg font-bold text-foreground">Sinal Conectado com Sucesso!</h4>
             <p className="text-muted-foreground text-sm max-w-md mx-auto">
               O sistema FilaLab identificou a stream do OBS. As TVs que possuem o item <span className="font-semibold text-emerald-600 dark:text-emerald-400">Transmissão</span> na playlist já estão exibindo o sinal.
+            </p>
+          </div>
+
+          {/* Controle de Volume em Lote */}
+          <div className="w-full max-w-md flex flex-col gap-2 p-4 bg-muted/40 border border-border/50 rounded-xl my-2">
+            <div className="flex items-center justify-between text-xs font-bold text-muted-foreground uppercase tracking-wide">
+              <span className="flex items-center gap-1.5"><Volume2 className="w-4 h-4 text-indigo-500" /> Volume da Live nas TVs</span>
+              <span className="font-extrabold text-foreground">{transVolume}%</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <VolumeX className="w-4 h-4 text-muted-foreground shrink-0" />
+              <Slider
+                value={[transVolume]}
+                onValueChange={(val) => handleVolumeChange(val[0])}
+                max={100}
+                step={5}
+                className="flex-1 cursor-pointer"
+              />
+              <Volume2 className="w-4 h-4 text-muted-foreground shrink-0" />
+            </div>
+            <p className="text-[10px] text-muted-foreground text-left mt-0.5 leading-normal">
+              <strong>Nota:</strong> Alterar este volume atualiza o som em tempo real em todas as TVs ativas da franquia sem travar o vídeo.
             </p>
           </div>
 

@@ -365,7 +365,7 @@ export function TvPlaylistManager({ franquiaId, unidadeId }: TvPlaylistManagerPr
                                                         </div>
 
                                                         <div className="flex items-center gap-2">
-                                                            {(item.tipo === 'youtube' || item.tipo === 'video') && (
+                                                            {(item.tipo === 'youtube' || item.tipo === 'video' || item.tipo === 'transmissao' || item.tipo === 'hls_stream') && (
                                                                 <div className="flex items-center gap-2 w-32 px-2">
                                                                     <span className="text-[10px] text-muted-foreground uppercase" title="Volume">Vol:</span>
                                                                     <Slider

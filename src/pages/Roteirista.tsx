@@ -727,6 +727,11 @@ export default function Roteirista() {
 
     setIsSending(true);
     try {
+      // 1. Finaliza a entrega batendo a hora de retorno (fecha o timer do Analytics Pro)
+      // Chamado antes da mutação de status para consistência com o fluxo da TV
+      await registrarRetornoEntrega(actionEntregador.id, selectedUnit, resolvedUnitId || activeUnitId);
+
+      // 2. Atualiza o status do entregador de volta para "disponivel"
       await updateMutation.mutateAsync({
         id: actionEntregador.id,
         data: {
@@ -736,11 +741,10 @@ export default function Roteirista() {
         },
       });
 
-      // Finaliza a entrega batendo a hora de retorno (fecha o timer do Analytics Pro)
-      await registrarRetornoEntrega(actionEntregador.id, selectedUnit, activeUnitId);
       queryClient.invalidateQueries({ queryKey: ['saidas-dia', selectedUnit] });
 
-      toast.success(`${actionEntregador.nome} retornou para a fila`);
+      const pos = availableQueue.length + 1;
+      toast.success(`Retorno confirmado! Posição ${pos}.`);
       setReturnToQueueOpen(false);
       setActionEntregador(null);
     } catch (error) {
@@ -1230,7 +1234,7 @@ export default function Roteirista() {
                             }}
                           >
                             <ArrowRight className="w-4 h-4" />
-                            Deixar Disponível
+                            Retornar a Fila
                           </Button>
                           <Button
                             variant="outline"

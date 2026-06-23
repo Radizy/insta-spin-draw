@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,6 +9,13 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 
 import {
     BarChart,
@@ -43,11 +50,26 @@ interface MetricResult {
 
 export function AnalyticsDashboard({ dataInicio, dataFim, unidadeId, unidadeNome }: AnalyticsDashboardProps) {
     const { user } = useAuth();
+    const [selectedEntregadorId, setSelectedEntregadorId] = useState<string>('todos');
+
+    const { data: entregadores } = useQuery({
+        queryKey: ['entregadores-analytics', unidadeId],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('entregadores')
+                .select('id, nome')
+                .eq('unidade_id', unidadeId)
+                .order('nome');
+            if (error) throw error;
+            return data || [];
+        },
+        enabled: !!unidadeId,
+    });
 
     const { data: franquiaConfig } = useQuery<any>({
         queryKey: ['franquia-config', user?.franquiaId],
-    staleTime: 1000 * 60 * 60,
-    queryFn: async () => {
+        staleTime: 1000 * 60 * 60,
+        queryFn: async () => {
             if (!user?.franquiaId) return null;
             const { data, error } = await supabase
                 .from('franquias')
@@ -89,20 +111,22 @@ export function AnalyticsDashboard({ dataInicio, dataFim, unidadeId, unidadeNome
     }, [franquiaConfig, user?.franquiaId]);
 
     const { data: metrics, isLoading, isError } = useQuery({
-        queryKey: ['analytics_pro_metrics', unidadeId, dataInicio.toISOString(), dataFim.toISOString()],
+        queryKey: ['analytics_pro_metrics', unidadeId, dataInicio.toISOString(), dataFim.toISOString(), selectedEntregadorId],
         queryFn: async () => {
             console.log('[Analytics] Chamando RPC com:', {
                 p_unidade_id: unidadeId,
                 datetime_inicio: dataInicio.toISOString(),
                 datetime_fim: dataFim.toISOString(),
-                unidade_nome: unidadeNome
+                unidade_nome: unidadeNome,
+                p_entregador_id: selectedEntregadorId === 'todos' ? undefined : selectedEntregadorId
             });
 
             const { data, error } = await supabase.rpc('get_analytics_pro_metrics', {
                 p_unidade_id: unidadeId,
                 datetime_inicio: dataInicio.toISOString(),
                 datetime_fim: dataFim.toISOString(),
-                p_unidade_nome: unidadeNome
+                p_unidade_nome: unidadeNome,
+                p_entregador_id: selectedEntregadorId === 'todos' ? undefined : selectedEntregadorId
             });
 
             if (error) {
@@ -140,6 +164,26 @@ export function AnalyticsDashboard({ dataInicio, dataFim, unidadeId, unidadeNome
                             <span>Limpeza de banco sugerida: Segundas-feiras às 09:00</span>
                         </div>
                     </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
+                    <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Filtrar por Motoboy:</span>
+                    <Select
+                        value={selectedEntregadorId}
+                        onValueChange={(val) => setSelectedEntregadorId(val)}
+                    >
+                        <SelectTrigger className="w-full sm:w-[200px] bg-background">
+                            <SelectValue placeholder="Selecione um motoboy" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="todos">Todos os Motoboys</SelectItem>
+                            {entregadores?.map((m) => (
+                                <SelectItem key={m.id} value={m.id}>
+                                    {m.nome}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </div>
             </div>
 

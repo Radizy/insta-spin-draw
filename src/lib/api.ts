@@ -469,7 +469,7 @@ export async function sendCheckinWebhook(params: {
     try {
       const { data: config } = await supabase
         .from('unidades')
-        .select('config_sheets_url')
+        .select('config_sheets_url, nome_loja')
         .eq('id', params.unidadeId)
         .maybeSingle();
 
@@ -478,7 +478,7 @@ export async function sendCheckinWebhook(params: {
 
       const payload = {
         tipo: "checkin_motoboy",
-        unidade: params.unidade,
+        unidade: config?.nome_loja || params.unidade,
         motoboy: params.motoboyNome,
         checkin: params.checkinTime,
       };
@@ -513,7 +513,7 @@ export async function sendDispatchWebhook(params: {
         // Tenta buscar do cache/config local se possível (futura melhoria), por ora buscamos uma vez
         const { data: config } = await supabase
           .from('unidades')
-          .select('config_sheets_url')
+          .select('config_sheets_url, nome_loja')
           .eq('id', params.unidadeId)
           .maybeSingle();
 
@@ -522,7 +522,7 @@ export async function sendDispatchWebhook(params: {
 
         const payload = {
           tipo: "saida_entrega",
-          unidade: params.unidade,
+          unidade: config?.nome_loja || params.unidade,
           nome: params.entregador.nome,
           horario_saida: new Date().toISOString(),
           quantidade_entregas: String(params.quantidadeEntregas),
@@ -660,7 +660,7 @@ export async function registrarRetornoEntrega(
 
         const { data: config } = await supabase
           .from('unidades')
-          .select('config_sheets_url')
+          .select('config_sheets_url, nome_loja')
           .eq('id', uId)
           .maybeSingle();
 
@@ -670,7 +670,7 @@ export async function registrarRetornoEntrega(
         const motoboyNome = (data.entregador as any)?.nome || '';
         const payload = {
           tipo: "retorno_entrega",
-          unidade: unidade,
+          unidade: config?.nome_loja || unidade,
           motoboy: motoboyNome,
           horario_retorno: now,
           id_saida: data.id
@@ -1541,7 +1541,7 @@ export async function atrelarMaquininha(params: {
   try {
     const { data: config } = await supabase
       .from('unidades')
-      .select('config_sheets_url')
+      .select('config_sheets_url, nome_loja')
       .eq('id', params.unidade_id)
       .single();
 
@@ -1557,7 +1557,7 @@ export async function atrelarMaquininha(params: {
           maquininha: params.maquininha_nome,
           checkin: params.horario_checkin || now,
           retirada: now,
-          unidade: params.unidade_nome
+          unidade: config?.nome_loja || params.unidade_nome
         })
       });
     }
@@ -1599,7 +1599,7 @@ export async function devolverMaquininha(params: {
   try {
     const { data: config } = await supabase
       .from('unidades')
-      .select('config_sheets_url')
+      .select('config_sheets_url, nome_loja')
       .eq('id', params.unidade_id)
       .single();
 
@@ -1614,7 +1614,7 @@ export async function devolverMaquininha(params: {
           motoboy: params.motoboy_nome,
           maquininha: params.maquininha_nome,
           devolucao: now,
-          unidade: params.unidade_nome
+          unidade: config?.nome_loja || params.unidade_nome
         })
       });
     }

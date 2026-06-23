@@ -40,7 +40,9 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedMotoboyId, setSelectedMotoboyId] = useState<string | null>(null);
     const [devolvingIds, setDevolvingIds] = useState<string[]>([]);
+    const [linkingIds, setLinkingIds] = useState<string[]>([]);
     const queueRef = useRef<Promise<any>>(Promise.resolve());
+    const atrelarQueueRef = useRef<Promise<any>>(Promise.resolve());
 
     // Queries
     const { data: entregadores = [], isLoading: isLoadingEntregadores } = useQuery({
@@ -111,6 +113,35 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
             .finally(() => {
                 // Remove do estado local após concluir
                 setDevolvingIds(prev => prev.filter(id => id !== vinculoId));
+            });
+    };
+
+    const handleAtrelarSequencial = (motoboy: Entregador, machine: Maquininha) => {
+        const machineId = machine.id;
+        
+        // Adiciona ao estado local de atrelagem em andamento (mostra spinner)
+        setLinkingIds(prev => [...prev, machineId]);
+        
+        // Executa a mutação sequencialmente
+        atrelarQueueRef.current = atrelarQueueRef.current
+            .then(async () => {
+                await atrelarMutation.mutateAsync({
+                    motoboy_id: motoboy.id,
+                    maquininha_id: machine.id,
+                    unidade_id: user!.unidadeId!,
+                    franquia_id: user!.franquiaId!,
+                    horario_checkin: motoboy.primeiro_checkin || motoboy.fila_posicao || new Date().toISOString(),
+                    unidade_nome: selectedUnit,
+                    motoboy_nome: motoboy.nome,
+                    maquininha_nome: machine.nome
+                });
+            })
+            .catch((err) => {
+                console.error('Erro ao processar atrelagem na fila:', err);
+            })
+            .finally(() => {
+                // Remove do estado local após concluir
+                setLinkingIds(prev => prev.filter(id => id !== machineId));
             });
     };
 
@@ -303,26 +334,17 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                                                                 <Button
                                                                     size="sm"
                                                                     variant={selectedMotoboyId ? "default" : "secondary"}
-                                                                    disabled={!selectedMotoboyId || atrelarMutation.isPending}
+                                                                    disabled={!selectedMotoboyId || linkingIds.includes(machine.id)}
                                                                     className={`h-9 px-4 rounded-lg font-medium transition-all ${!selectedMotoboyId ? 'opacity-50' : 'shadow-md shadow-primary/20'}`}
                                                                     onClick={() => {
                                                                         if (!selectedMotoboyId) return;
                                                                         const motoboy = motoboysElegiveis.find(m => m.id === selectedMotoboyId);
                                                                         if (!motoboy) return;
-                                                                        atrelarMutation.mutate({
-                                                                            motoboy_id: motoboy.id,
-                                                                            maquininha_id: machine.id,
-                                                                            unidade_id: user!.unidadeId!,
-                                                                            franquia_id: user!.franquiaId!,
-                                                                            horario_checkin: motoboy.primeiro_checkin || motoboy.fila_posicao || new Date().toISOString(),
-                                                                            unidade_nome: selectedUnit,
-                                                                            motoboy_nome: motoboy.nome,
-                                                                            maquininha_nome: machine.nome
-                                                                        });
+                                                                        handleAtrelarSequencial(motoboy, machine);
                                                                         setSelectedMotoboyId(null);
                                                                     }}
                                                                 >
-                                                                    {atrelarMutation.isPending && atrelarMutation.variables?.maquininha_id === machine.id ? (
+                                                                    {linkingIds.includes(machine.id) ? (
                                                                         <Loader2 className="w-4 h-4 animate-spin" />
                                                                     ) : 'Atrelar'}
                                                                 </Button>

@@ -1883,6 +1883,7 @@ ORDER BY valor_final DESC;
     - Correção de ícone do PWA: Substituído o ícone ausente `/vite.svg` por `/favicon.ico` no arquivo `manifest.json`, resolvendo o erro de download de recurso no console.
     - Otimização do Player HLS: Ajustados os parâmetros de buffer de vídeo e latência em `HLSPlayer.tsx` para garantir uma reprodução fluida. Após a otimização de Keyframes no OBS pelo usuário (GOP = 1s), reduzimos o delay alvo do player na TV de 8s para apenas 3s, cortando o delay total da transmissão pela metade (~4s a 5s total) mantendo total estabilidade.
     - Correção de erro 400 da TV: Ajustada a query da tabela `unidades` no arquivo `TV.tsx` mapeando `lat:latitude` e `lng:longitude` para bater com as colunas reais do banco de dados, eliminando o erro `Bad Request`.
+    - Controle de Volume da Live: Adicionado controle de volume direto no transmissor e na listagem de playlists. Ajustes de volume atualizam o banco de dados em lote e disparam um evento broadcast realtime que atualiza as TVs em tempo real e de forma suave (sem congelar ou reiniciar o vídeo).
 
 ### v2.9.2 (2026-06-18)
 - ✅ **Precisão e Identificação na Transmissão de Tela (WebRTC)**:
