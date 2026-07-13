@@ -462,6 +462,7 @@ export async function sendWhatsAppMessage(
 export async function sendCheckinWebhook(params: {
   unidade: string;
   unidadeId: string;
+  motoboyId: string;
   motoboyNome: string;
   checkinTime: string;
 }): Promise<void> {
@@ -480,6 +481,10 @@ export async function sendCheckinWebhook(params: {
         tipo: "checkin_motoboy",
         unidade: config?.nome_loja || params.unidade,
         motoboy: params.motoboyNome,
+        // motoboy_id + data são usados pelo Apps Script como chave de lookup
+        // para encontrar e atualizar a mesma linha ao atrelar/devolver maquininha
+        motoboy_id: params.motoboyId,
+        data: new Date().toISOString().split('T')[0],
         checkin: params.checkinTime,
       };
 
@@ -628,7 +633,8 @@ export async function registrarRetornoEntrega(
 
   const now = new Date().toISOString();
 
-  const query = supabase
+  // IMPORTANTE: usar 'let' e reatribuir o query para que os filtros encadeiem corretamente
+  let query = supabase
     .from('historico_entregas')
     .update({ hora_retorno: now })
     .eq('entregador_id', entregador_id)
@@ -637,9 +643,9 @@ export async function registrarRetornoEntrega(
 
   // Filtra por unidade_id se disponível, caso contrário usa o nome (legado)
   if (unidade_id) {
-    query.eq('unidade_id', unidade_id);
+    query = query.eq('unidade_id', unidade_id);
   } else {
-    query.eq('unidade', unidade);
+    query = query.eq('unidade', unidade);
   }
 
   const { data, error } = await query
@@ -696,7 +702,8 @@ export async function atualizarSaidaEntrega(
   const limitDate = new Date();
   limitDate.setHours(limitDate.getHours() - 24);
 
-  const query = supabase
+  // IMPORTANTE: usar 'let' e reatribuir o query para que os filtros encadeiem corretamente
+  let query = supabase
     .from('historico_entregas')
     .update({ hora_saida: new Date().toISOString() })
     .eq('entregador_id', entregador_id)
@@ -705,9 +712,9 @@ export async function atualizarSaidaEntrega(
 
   // Filtra por unidade_id se disponível, caso contrário usa o nome (legado)
   if (unidade_id) {
-    query.eq('unidade_id', unidade_id);
+    query = query.eq('unidade_id', unidade_id);
   } else {
-    query.eq('unidade', unidade);
+    query = query.eq('unidade', unidade);
   }
 
   const { error } = await query;
@@ -1510,6 +1517,7 @@ export async function atrelarMaquininha(params: {
   maquininha_nome: string;
 }): Promise<void> {
   const now = new Date().toISOString();
+  const dataHoje = now.split('T')[0];
 
   // 1. Criar vínculo
   const { data: vinculoData, error: vinculoError } = await supabase
@@ -1553,6 +1561,10 @@ export async function atrelarMaquininha(params: {
         body: JSON.stringify({
           tipo: "retirada_maquininha",
           id_vinculo: vinculo_id,
+          // motoboy_id + data são usados pelo Apps Script como chave de lookup
+          // para encontrar a linha do check-in e atualizar (não criar nova linha)
+          motoboy_id: params.motoboy_id,
+          data: dataHoje,
           motoboy: params.motoboy_nome,
           maquininha: params.maquininha_nome,
           checkin: params.horario_checkin || now,
@@ -1571,8 +1583,10 @@ export async function devolverMaquininha(params: {
   maquininha_id: string;
   unidade_id: string;
   unidade_nome: string;
+  motoboy_id: string;
   motoboy_nome: string;
   maquininha_nome: string;
+  data: string;
 }): Promise<void> {
   const now = new Date().toISOString();
 
@@ -1611,6 +1625,10 @@ export async function devolverMaquininha(params: {
         body: JSON.stringify({
           tipo: "devolucao_maquininha",
           id_vinculo: params.vinculo_id,
+          // motoboy_id + data são usados pelo Apps Script como chave de lookup
+          // para encontrar a linha do check-in e atualizar (não criar nova linha)
+          motoboy_id: params.motoboy_id,
+          data: params.data,
           motoboy: params.motoboy_nome,
           maquininha: params.maquininha_nome,
           devolucao: now,

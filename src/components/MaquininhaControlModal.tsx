@@ -103,8 +103,10 @@ export function MaquininhaControlModal({ open, onOpenChange }: MaquininhaControl
                     maquininha_id: vinculo.maquininha_id,
                     unidade_id: user!.unidadeId!,
                     unidade_nome: selectedUnit,
+                    motoboy_id: vinculo.motoboy_id,
                     motoboy_nome: vinculo.entregador?.nome || '',
-                    maquininha_nome: vinculo.maquininha?.nome || ''
+                    maquininha_nome: vinculo.maquininha?.nome || '',
+                    data: vinculo.data || new Date().toISOString().split('T')[0],
                 });
             })
             .catch((err) => {
