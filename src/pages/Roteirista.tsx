@@ -569,17 +569,22 @@ export default function Roteirista() {
         const comandaStrArray = sisfoodComandas.split(/[, \n]+/).map(s => s.trim()).filter(Boolean);
         if (comandaStrArray.length > 0) {
           const sisfoodPayloadPromises = comandaStrArray.map(async (comandaDigitada) => {
-             // Achar o array real da fila que pareia com essa comanda
-             // (Para suportar quando 'comanda' e 'id_interno' chegam separados se ajustarmos no Tampermonkey)
-             let codPedidoFake = comandaDigitada;
-             
              // 1. Procurar o ID Interno real do Sisfood associado a esta comanda/cod_pedido_interno visual
-              let sisfoodInternalId = String(codPedidoFake);
-              // Procurar na master list de pedidos em fila retornado pela Unidade (banco de dados)
-              const realPedido = pedidosFila.find(p => (String(p.comanda) === String(codPedidoFake)) || (String(p.id) === String(codPedidoFake)));
-              if (realPedido && realPedido.id_interno) {
-                  sisfoodInternalId = String(realPedido.id_interno);
-              }
+             let sisfoodInternalId = String(comandaDigitada);
+             // Procurar na master list de pedidos em fila retornado pela Unidade (banco de dados)
+             // Higieniza o código removendo '#' e zeros à esquerda para evitar falhas por formatação (ex: #131 ou 0131)
+             const sanitizeCode = (str: any) => String(str || '').trim().replace(/^#/, '').replace(/^0+/, '');
+             const target = sanitizeCode(comandaDigitada);
+             
+             const realPedido = pedidosFila.find(p => {
+                 const cleanedComanda = sanitizeCode(p.comanda);
+                 const cleanedId = sanitizeCode(p.id);
+                 return (cleanedComanda !== '' && cleanedComanda === target) || (cleanedId !== '' && cleanedId === target);
+             });
+
+             if (realPedido && realPedido.id_interno) {
+                 sisfoodInternalId = String(realPedido.id_interno);
+             }
 
               return supabase.from('sisfood_comandos' as any).insert({
                   unidade_nome: selectedUnit,
