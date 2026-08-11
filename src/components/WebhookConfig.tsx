@@ -196,6 +196,7 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
     let ultimaHashFila = '';
     let ultimaContagemFila = -1;
     window._filaAtualSisfood = [];
+    window._pedidosFilaSisfood = [];
 
     // ----- [PARTE 1: LEITURA] Interceptador de Rede -----
     const XHR = XMLHttpRequest.prototype;
@@ -308,7 +309,17 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
                     console.log('🎯 [FILALAB] Resolvido código curto ' + codigosLimpos + ' para ID interno ' + match.id_interno);
                     codigosLimpos = match.id_interno;
                 } else {
-                    console.warn('⏳ [FILALAB] Pedido ' + codigosLimpos + ' ainda não apareceu na fila do Sisfood. Aguardando...');
+                    window._retryCounts = window._retryCounts || {};
+                    window._retryCounts[cmd.id] = (window._retryCounts[cmd.id] || 0) + 1;
+                    
+                    if (window._retryCounts[cmd.id] > 15) { // ~60 segundos (15 * 4s)
+                        console.warn('⏳ [FILALAB] Pedido ' + codigosLimpos + ' expirou na fila de pareamento. Marcando como IGNORADO.');
+                        await patchSupabaseStatus(cmd.id, 'IGNORADO');
+                        delete window._retryCounts[cmd.id];
+                        return resolve(true); // Resolvido (ignorado)
+                    }
+                    
+                    console.warn('⏳ [FILALAB] Pedido ' + codigosLimpos + ' ainda não apareceu na fila do Sisfood (Tentativa ' + window._retryCounts[cmd.id] + '/15). Aguardando...');
                     return resolve(false); // Retorna falso para não marcar como EXECUTADO, permitindo re-tentativa no próximo poll
                 }
             }
