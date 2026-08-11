@@ -34,6 +34,7 @@
                     let contagemFila = 0;
                     const pedidosNaFila = [];
                     window._filaAtualSisfood = [];
+                    window._pedidosFilaSisfood = [];
                     
                     if (data.pedidos && Array.isArray(data.pedidos)) {
                         data.pedidos.forEach(pedido => {
@@ -61,6 +62,10 @@
                                 // Popula Array Zumbi Lock da V11 (Salva as DUAS Variações de ID pra Segurança)
                                 window._filaAtualSisfood.push(String(pedido[0]).trim());
                                 window._filaAtualSisfood.push(String(idDeVerdade).trim());
+                                window._pedidosFilaSisfood.push({
+                                    id_interno: String(idDeVerdade).trim(),
+                                    comanda: String(pedido[7] || pedido[0]).trim()
+                                });
                             }
                         });
                     }
@@ -141,47 +146,60 @@
 
     async function despacharPedidoNoSisfood(cmd) {
          return new Promise(async (resolve) => {
-             const codigosLimpos = cmd.cod_pedido_interno.replace(/\s+/g, '');
-             
-             // TRAVA ANTI-ZUMBI V11.5 - Desativada Temporariamente em Itaquá para garantir despachos
-             /*
-             if (window._filaAtualSisfood && !window._filaAtualSisfood.includes(codigosLimpos)) {
-                 console.warn("🛡️ [FILALAB Zumbi-Lock] O pedido " + codigosLimpos + " não está na lista visual. Marcando FilaLab como IGNORADO.");
-                 await patchSupabaseStatus(cmd.id, 'IGNORADO');
-                 return resolve(true);
-             }
-             */
-
-             const idMotoboy = findMotoboyIdByName(cmd.nome_motoboy);
-             if(!idMotoboy) {
-                  console.warn("[FILALAB ITAQUA] Motoboy não encontrado: " + cmd.nome_motoboy);
-                  return resolve(false);
-             }
-             
-             // Volta à base antiga v11.0: Mantém o /pdv/ se existir, remove apenas /tela
-             const urlDespacho = window.location.pathname.replace('/tela', '') + "/statusPedidosLote";
-             
-             // O Segredo verdadeiro de Itaquá da v11.0: Sem colchetes no lote!
-             const arrayPedidosFormatado = encodeURIComponent(codigosLimpos); 
-
-             const form = "pedidos="+arrayPedidosFormatado+"&status=entrega&cod_motoboy="+encodeURIComponent(idMotoboy);
-             console.log("🚀 [FILALAB ITAQUA] Despachando ID " + codigosLimpos + "...");
-
-             const xhr = new XMLHttpRequest();
-             xhr.open("POST", urlDespacho, true);
-             xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
-             xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-
-             xhr.onreadystatechange = async function () {
-                  if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
-                       await patchSupabaseStatus(cmd.id, 'EXECUTADO');
-                       console.log("✅ [FILALAB ITAQUA] Pedido " + codigosLimpos + " despachado!");
-                       resolve(true);
-                  } else if (this.readyState === XMLHttpRequest.DONE) {
-                       resolve(false);
+              let codigosLimpos = cmd.cod_pedido_interno.replace(/\s+/g, '');
+              
+              // Resolutor de códigos curtos (ex: "26" ou "131") localmente usando a fila ativa da tela do Sisfood
+              if (codigosLimpos.length < 6 && window._pedidosFilaSisfood) {
+                  const sanitize = (s) => String(s || '').trim().replace(/^#/, '').replace(/^0+/, '');
+                  const target = sanitize(codigosLimpos);
+                  const match = window._pedidosFilaSisfood.find(p => sanitize(p.comanda) === target);
+                  if (match) {
+                      console.log("🎯 [FILALAB ITAQUA] Resolvido código curto " + codigosLimpos + " para ID interno " + match.id_interno);
+                      codigosLimpos = match.id_interno;
+                  } else {
+                      console.warn("⏳ [FILALAB ITAQUA] Pedido " + codigosLimpos + " ainda não apareceu na fila do Sisfood. Aguardando...");
+                      return resolve(false); // Retorna falso para não marcar como EXECUTADO, permitindo re-tentativa no próximo poll
                   }
-             }
-             xhr.send(form);
+              }
+
+              const idMotoboy = findMotoboyIdByName(cmd.nome_motoboy);
+              if(!idMotoboy) {
+                   console.warn("[FILALAB ITAQUA] Motoboy não encontrado: " + cmd.nome_motoboy);
+                   return resolve(false);
+              }
+              
+              // Volta à base antiga v11.0: Mantém o /pdv/ se existir, remove apenas /tela
+              const urlDespacho = window.location.pathname.replace('/tela', '') + "/statusPedidosLote";
+              
+              // O Segredo verdadeiro de Itaquá da v11.0: Sem colchetes no lote!
+              const arrayPedidosFormatado = encodeURIComponent(codigosLimpos); 
+
+              const form = "pedidos="+arrayPedidosFormatado+"&status=entrega&cod_motoboy="+encodeURIComponent(idMotoboy);
+              console.log("🚀 [FILALAB ITAQUA] Despachando ID " + codigosLimpos + "...");
+
+              const xhr = new XMLHttpRequest();
+              xhr.open("POST", urlDespacho, true);
+              xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+              xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+              xhr.onreadystatechange = async function () {
+                   if (this.readyState === XMLHttpRequest.DONE) {
+                        if (this.status === 200) {
+                             // Segurança: Se Sisfood retornar a página de login/HTML por sessão expirada
+                             if (this.responseText && (this.responseText.includes('<!DOCTYPE') || this.responseText.includes('<html') || this.responseText.includes('login'))) {
+                                  console.error("❌ [FILALAB ITAQUA] Sessão do Sisfood expirada ou página de login retornada!");
+                                  resolve(false);
+                             } else {
+                                  await patchSupabaseStatus(cmd.id, 'EXECUTADO');
+                                  console.log("✅ [FILALAB ITAQUA] Pedido " + codigosLimpos + " despachado!");
+                                  resolve(true);
+                             }
+                        } else {
+                             resolve(false);
+                        }
+                   }
+              }
+              xhr.send(form);
          });
     }
 

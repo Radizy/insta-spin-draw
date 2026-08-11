@@ -208,6 +208,7 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
                     let contagemFila = 0;
                     const pedidosNaFila = [];
                     window._filaAtualSisfood = [];
+                    window._pedidosFilaSisfood = [];
                     if (data.pedidos && Array.isArray(data.pedidos)) {
                         data.pedidos.forEach(pedido => {
                             const status = pedido[4];
@@ -230,6 +231,10 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
                                 });
                                 window._filaAtualSisfood.push(String(pedido[0]).trim());
                                 window._filaAtualSisfood.push(String(idDeVerdade).trim());
+                                window._pedidosFilaSisfood.push({
+                                    id_interno: String(idDeVerdade).trim(),
+                                    comanda: String(pedido[7] || pedido[0]).trim()
+                                });
                             }
                         });
                     }
@@ -292,7 +297,22 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
 
     async function despacharPedidoNoSisfood(cmd) {
         return new Promise(async (resolve) => {
-            const codigosLimpos = cmd.cod_pedido_interno.replace(/\\s+/g, '');
+            let codigosLimpos = cmd.cod_pedido_interno.replace(/\s+/g, '');
+            
+            // Resolutor de códigos curtos (ex: "26" ou "131") localmente usando a fila ativa da tela do Sisfood
+            if (codigosLimpos.length < 6 && window._pedidosFilaSisfood) {
+                const sanitize = (s) => String(s || '').trim().replace(/^#/, '').replace(/^0+/, '');
+                const target = sanitize(codigosLimpos);
+                const match = window._pedidosFilaSisfood.find(p => sanitize(p.comanda) === target);
+                if (match) {
+                    console.log('🎯 [FILALAB] Resolvido código curto ' + codigosLimpos + ' para ID interno ' + match.id_interno);
+                    codigosLimpos = match.id_interno;
+                } else {
+                    console.warn('⏳ [FILALAB] Pedido ' + codigosLimpos + ' ainda não apareceu na fila do Sisfood. Aguardando...');
+                    return resolve(false); // Retorna falso para não marcar como EXECUTADO, permitindo re-tentativa no próximo poll
+                }
+            }
+
             const idMotoboy = findMotoboyIdByName(cmd.nome_motoboy);
             if(!idMotoboy) {
                 console.warn('[FILALAB ${nomeLoja.toUpperCase()}] Motoboy não encontrado: ' + cmd.nome_motoboy + ' — marcando IGNORADO.');
@@ -308,11 +328,21 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
             xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
             xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
             xhr.onreadystatechange = async function() {
-                if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
-                    await patchSupabaseStatus(cmd.id, 'EXECUTADO');
-                    console.log('✅ [FILALAB ${nomeLoja.toUpperCase()}] Pedido ' + codigosLimpos + ' despachado!');
-                    resolve(true);
-                } else if (this.readyState === XMLHttpRequest.DONE) { resolve(false); }
+                if (this.readyState === XMLHttpRequest.DONE) {
+                    if (this.status === 200) {
+                        // Segurança: Se Sisfood retornar a página de login/HTML por sessão expirada
+                        if (this.responseText && (this.responseText.includes('<!DOCTYPE') || this.responseText.includes('<html') || this.responseText.includes('login'))) {
+                            console.error('❌ [FILALAB] Sessão do Sisfood expirada ou página de login retornada!');
+                            resolve(false);
+                        } else {
+                            await patchSupabaseStatus(cmd.id, 'EXECUTADO');
+                            console.log('✅ [FILALAB ${nomeLoja.toUpperCase()}] Pedido ' + codigosLimpos + ' despachado!');
+                            resolve(true);
+                        }
+                    } else {
+                        resolve(false);
+                    }
+                }
             };
             xhr.send(form);
         });
