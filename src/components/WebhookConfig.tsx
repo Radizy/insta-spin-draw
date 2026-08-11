@@ -172,7 +172,7 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
     }
     const nomeLoja = selectedUnit;
     const unidadeIdLoja = unidadeId;
-    const versao = '12.0';
+    const versao = '13.0';
 
     return `// ==UserScript==
 // @name         Integração SISFOOD x FilaLab (${nomeLoja.toUpperCase()}) - v${versao} (Auto-Gerado)
