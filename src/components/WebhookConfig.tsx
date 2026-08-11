@@ -296,82 +296,118 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
         });
     }
 
-    async function despacharPedidoNoSisfood(cmd) {
-        return new Promise(async (resolve) => {
-            let codigosLimpos = cmd.cod_pedido_interno.replace(/\s+/g, '');
-            
-            // Resolutor de códigos curtos (ex: "26" ou "131") localmente usando a fila ativa da tela do Sisfood
-            if (codigosLimpos.length < 6 && window._pedidosFilaSisfood) {
-                const sanitize = (s) => String(s || '').trim().replace(/^#/, '').replace(/^0+/, '');
-                const target = sanitize(codigosLimpos);
-                const match = window._pedidosFilaSisfood.find(p => sanitize(p.comanda) === target);
-                if (match) {
-                    console.log('🎯 [FILALAB] Resolvido código curto ' + codigosLimpos + ' para ID interno ' + match.id_interno);
-                    codigosLimpos = match.id_interno;
-                } else {
-                    window._retryCounts = window._retryCounts || {};
-                    window._retryCounts[cmd.id] = (window._retryCounts[cmd.id] || 0) + 1;
-                    
-                    if (window._retryCounts[cmd.id] > 15) { // ~60 segundos (15 * 4s)
-                        console.warn('⏳ [FILALAB] Pedido ' + codigosLimpos + ' expirou na fila de pareamento. Marcando como IGNORADO.');
-                        await patchSupabaseStatus(cmd.id, 'IGNORADO');
-                        delete window._retryCounts[cmd.id];
-                        return resolve(true); // Resolvido (ignorado)
-                    }
-                    
-                    console.warn('⏳ [FILALAB] Pedido ' + codigosLimpos + ' ainda não apareceu na fila do Sisfood (Tentativa ' + window._retryCounts[cmd.id] + '/15). Aguardando...');
-                    return resolve(false); // Retorna falso para não marcar como EXECUTADO, permitindo re-tentativa no próximo poll
-                }
-            }
+    async function despacharGrupoNoSisfood(nomeMotoboy, comandos) {
+         return new Promise(async (resolve) => {
+              const idsResolvidos = [];
+              const comandosParaAtualizar = [];
 
-            const idMotoboy = findMotoboyIdByName(cmd.nome_motoboy);
-            if(!idMotoboy) {
-                console.warn('[FILALAB ${nomeLoja.toUpperCase()}] Motoboy não encontrado: ' + cmd.nome_motoboy + ' — marcando IGNORADO.');
-                await patchSupabaseStatus(cmd.id, 'IGNORADO');
-                return resolve(false);
-            }
-            const urlDespacho = window.location.pathname.replace('/tela', '') + '/statusPedidosLote';
-            const arrayPedidosFormatado = encodeURIComponent(codigosLimpos);
-            const form = 'pedidos=' + arrayPedidosFormatado + '&status=entrega&cod_motoboy=' + encodeURIComponent(idMotoboy);
-            console.log('🚀 [FILALAB ${nomeLoja.toUpperCase()}] Despachando ID ' + codigosLimpos + '...');
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', urlDespacho, true);
-            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
-            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-            xhr.onreadystatechange = async function() {
-                if (this.readyState === XMLHttpRequest.DONE) {
-                    if (this.status === 200) {
-                        // Segurança: Se Sisfood retornar a página de login/HTML por sessão expirada
-                        if (this.responseText && (this.responseText.includes('<!DOCTYPE') || this.responseText.includes('<html') || this.responseText.includes('login'))) {
-                            console.error('❌ [FILALAB] Sessão do Sisfood expirada ou página de login retornada!');
-                            resolve(false);
+              for (let cmd of comandos) {
+                  let codigosLimpos = cmd.cod_pedido_interno.replace(/\s+/g, '');
+                  
+                  // Resolutor de códigos curtos (ex: "26" ou "131") localmente usando a fila ativa da tela do Sisfood
+                  if (codigosLimpos.length < 6 && window._pedidosFilaSisfood) {
+                      const sanitize = (s) => String(s || '').trim().replace(/^#/, '').replace(/^0+/, '');
+                      const target = sanitize(codigosLimpos);
+                      const match = window._pedidosFilaSisfood.find(p => sanitize(p.comanda) === target);
+                      if (match) {
+                          console.log('🎯 [FILALAB] Resolvido código curto ' + codigosLimpos + ' para ID interno ' + match.id_interno);
+                          codigosLimpos = match.id_interno;
+                      } else {
+                          window._retryCounts = window._retryCounts || {};
+                          window._retryCounts[cmd.id] = (window._retryCounts[cmd.id] || 0) + 1;
+                          
+                          if (window._retryCounts[cmd.id] > 15) {
+                              console.warn('⏳ [FILALAB] Pedido ' + codigosLimpos + ' expirou na fila de pareamento. Marcando como IGNORADO.');
+                              await patchSupabaseStatus(cmd.id, 'IGNORADO');
+                              delete window._retryCounts[cmd.id];
+                              continue;
+                          }
+                          
+                          console.warn('⏳ [FILALAB] Pedido ' + codigosLimpos + ' ainda não apareceu na fila do Sisfood (Tentativa ' + window._retryCounts[cmd.id] + '/15). Aguardando...');
+                          continue; // Pula este pedido para tentar no próximo poll, sem travar os outros resolvidos!
+                      }
+                  }
+                  
+                  idsResolvidos.push(codigosLimpos);
+                  comandosParaAtualizar.push(cmd);
+              }
+
+              if (idsResolvidos.length === 0) {
+                  return resolve(false);
+              }
+
+              const idMotoboy = findMotoboyIdByName(nomeMotoboy);
+              if(!idMotoboy) {
+                   console.warn('[FILALAB ${nomeLoja.toUpperCase()}] Motoboy não encontrado: ' + nomeMotoboy);
+                   for (let cmd of comandosParaAtualizar) {
+                       await patchSupabaseStatus(cmd.id, 'IGNORADO');
+                   }
+                   return resolve(false);
+              }
+              
+              const urlDespacho = window.location.pathname.replace('/tela', '') + '/statusPedidosLote';
+              
+              // Une os IDs por vírgula para despacho em lote
+              const idsFormatados = idsResolvidos.join(',');
+              const arrayPedidosFormatado = encodeURIComponent(idsFormatados); 
+
+              const form = 'pedidos=' + arrayPedidosFormatado + '&status=entrega&cod_motoboy=' + encodeURIComponent(idMotoboy);
+              console.log('🚀 [FILALAB ${nomeLoja.toUpperCase()}] Despachando Lote (' + idsFormatados + ') para motoboy ' + nomeMotoboy + '...');
+
+              const xhr = new XMLHttpRequest();
+              xhr.open('POST', urlDespacho, true);
+              xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+              xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+              xhr.onreadystatechange = async function() {
+                   if (this.readyState === XMLHttpRequest.DONE) {
+                        if (this.status === 200) {
+                             if (this.responseText && (this.responseText.includes('<!DOCTYPE') || this.responseText.includes('<html') || this.responseText.includes('login'))) {
+                                  console.error('❌ [FILALAB] Sessão do Sisfood expirada ou página de login retornada!');
+                                  resolve(false);
+                             } else {
+                                  for (let cmd of comandosParaAtualizar) {
+                                      await patchSupabaseStatus(cmd.id, 'EXECUTADO');
+                                  }
+                                  console.log('✅ [FILALAB ${nomeLoja.toUpperCase()}] Lote (' + idsFormatados + ') despachado!');
+                                  resolve(true);
+                             }
                         } else {
-                            await patchSupabaseStatus(cmd.id, 'EXECUTADO');
-                            console.log('✅ [FILALAB ${nomeLoja.toUpperCase()}] Pedido ' + codigosLimpos + ' despachado!');
-                            resolve(true);
+                             resolve(false);
                         }
-                    } else {
-                        resolve(false);
-                    }
-                }
-            };
-            xhr.send(form);
-        });
+                   }
+              };
+              xhr.send(form);
+         });
     }
 
     async function pollComandos() {
-        try {
-            const resp = await fetch(SUPABASE_URL + '/rest/v1/sisfood_comandos?status=eq.PENDENTE&unidade_id=eq.' + UNIDADE_ID, {
-                headers: { 'apikey': ANON_KEY, 'Authorization': 'Bearer ' + ANON_KEY }
-            });
-            if(resp.ok) {
-                const comandos = await resp.json();
-                for(let cmd of comandos) {
-                    await despacharPedidoNoSisfood(cmd);
-                    await new Promise(r => setTimeout(r, 800));
-                }
-            }
-        } catch(e) {}
+         try {
+             const resp = await fetch(SUPABASE_URL + '/rest/v1/sisfood_comandos?status=eq.PENDENTE&unidade_id=eq.' + UNIDADE_ID, {
+                 headers: { 'apikey': ANON_KEY, 'Authorization': 'Bearer ' + ANON_KEY }
+             });
+             
+             if(resp.ok) {
+                 const comandos = await resp.json();
+                 if (comandos.length === 0) return;
+
+                 // Agrupa os comandos por nome_motoboy para despacho em lote real
+                 const grupos = {};
+                 for (let cmd of comandos) {
+                     if (!grupos[cmd.nome_motoboy]) {
+                         grupos[cmd.nome_motoboy] = [];
+                     }
+                     grupos[cmd.nome_motoboy].push(cmd);
+                 }
+
+                 // Processa cada grupo de motoboy sequencialmente
+                 for (let nomeMotoboy in grupos) {
+                     const cmdsGrupo = grupos[nomeMotoboy];
+                     await despacharGrupoNoSisfood(nomeMotoboy, cmdsGrupo);
+                     await new Promise(r => setTimeout(r, 1000));
+                 }
+             }
+         } catch(e) {}
     }
 
     setInterval(pollComandos, 4000);

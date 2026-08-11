@@ -145,48 +145,64 @@
         });
     }
 
-    async function despacharPedidoNoSisfood(cmd) {
+    async function despacharGrupoNoSisfood(nomeMotoboy, comandos) {
          return new Promise(async (resolve) => {
-              let codigosLimpos = cmd.cod_pedido_interno.replace(/\s+/g, '');
-              
-              // Resolutor de códigos curtos (ex: "26" ou "131") localmente usando a fila ativa da tela do Sisfood
-              if (codigosLimpos.length < 6 && window._pedidosFilaSisfood) {
-                  const sanitize = (s) => String(s || '').trim().replace(/^#/, '').replace(/^0+/, '');
-                  const target = sanitize(codigosLimpos);
-                  const match = window._pedidosFilaSisfood.find(p => sanitize(p.comanda) === target);
-                  if (match) {
-                      console.log("🎯 [FILALAB ITAQUA] Resolvido código curto " + codigosLimpos + " para ID interno " + match.id_interno);
-                      codigosLimpos = match.id_interno;
-                  } else {
-                      window._retryCounts = window._retryCounts || {};
-                      window._retryCounts[cmd.id] = (window._retryCounts[cmd.id] || 0) + 1;
-                      
-                      if (window._retryCounts[cmd.id] > 15) { // ~60 segundos (15 * 4s)
-                          console.warn("⏳ [FILALAB ITAQUA] Pedido " + codigosLimpos + " expirou na fila de pareamento. Marcando como IGNORADO.");
-                          await patchSupabaseStatus(cmd.id, 'IGNORADO');
-                          delete window._retryCounts[cmd.id];
-                          return resolve(true); // Resolvido (ignorado)
+              const idsResolvidos = [];
+              const comandosParaAtualizar = [];
+
+              for (let cmd of comandos) {
+                  let codigosLimpos = cmd.cod_pedido_interno.replace(/\s+/g, '');
+                  
+                  // Resolutor de códigos curtos (ex: "26" ou "131") localmente usando a fila ativa da tela do Sisfood
+                  if (codigosLimpos.length < 6 && window._pedidosFilaSisfood) {
+                      const sanitize = (s) => String(s || '').trim().replace(/^#/, '').replace(/^0+/, '');
+                      const target = sanitize(codigosLimpos);
+                      const match = window._pedidosFilaSisfood.find(p => sanitize(p.comanda) === target);
+                      if (match) {
+                          console.log("🎯 [FILALAB ITAQUA] Resolvido código curto " + codigosLimpos + " para ID interno " + match.id_interno);
+                          codigosLimpos = match.id_interno;
+                      } else {
+                          window._retryCounts = window._retryCounts || {};
+                          window._retryCounts[cmd.id] = (window._retryCounts[cmd.id] || 0) + 1;
+                          
+                          if (window._retryCounts[cmd.id] > 15) {
+                              console.warn("⏳ [FILALAB ITAQUA] Pedido " + codigosLimpos + " expirou na fila de pareamento. Marcando como IGNORADO.");
+                              await patchSupabaseStatus(cmd.id, 'IGNORADO');
+                              delete window._retryCounts[cmd.id];
+                              continue;
+                          }
+                          
+                          console.warn("⏳ [FILALAB ITAQUA] Pedido " + codigosLimpos + " ainda não apareceu na fila do Sisfood (Tentativa " + window._retryCounts[cmd.id] + "/15). Aguardando...");
+                          continue; // Pula este pedido para tentar no próximo poll, sem travar os outros resolvidos!
                       }
-                      
-                      console.warn("⏳ [FILALAB ITAQUA] Pedido " + codigosLimpos + " ainda não apareceu na fila do Sisfood (Tentativa " + window._retryCounts[cmd.id] + "/15). Aguardando...");
-                      return resolve(false); // Retorna falso para não marcar como EXECUTADO, permitindo re-tentativa no próximo poll
                   }
+                  
+                  idsResolvidos.push(codigosLimpos);
+                  comandosParaAtualizar.push(cmd);
               }
 
-              const idMotoboy = findMotoboyIdByName(cmd.nome_motoboy);
+              if (idsResolvidos.length === 0) {
+                  return resolve(false);
+              }
+
+              const idMotoboy = findMotoboyIdByName(nomeMotoboy);
               if(!idMotoboy) {
-                   console.warn("[FILALAB ITAQUA] Motoboy não encontrado: " + cmd.nome_motoboy);
+                   console.warn("[FILALAB ITAQUA] Motoboy não encontrado: " + nomeMotoboy);
+                   for (let cmd of comandosParaAtualizar) {
+                       await patchSupabaseStatus(cmd.id, 'IGNORADO');
+                   }
                    return resolve(false);
               }
               
               // Volta à base antiga v11.0: Mantém o /pdv/ se existir, remove apenas /tela
               const urlDespacho = window.location.pathname.replace('/tela', '') + "/statusPedidosLote";
               
-              // O Segredo verdadeiro de Itaquá da v11.0: Sem colchetes no lote!
-              const arrayPedidosFormatado = encodeURIComponent(codigosLimpos); 
+              // Une os IDs por vírgula para despacho em lote
+              const idsFormatados = idsResolvidos.join(',');
+              const arrayPedidosFormatado = encodeURIComponent(idsFormatados); 
 
               const form = "pedidos="+arrayPedidosFormatado+"&status=entrega&cod_motoboy="+encodeURIComponent(idMotoboy);
-              console.log("🚀 [FILALAB ITAQUA] Despachando ID " + codigosLimpos + "...");
+              console.log("🚀 [FILALAB ITAQUA] Despachando Lote (" + idsFormatados + ") para motoboy " + nomeMotoboy + "...");
 
               const xhr = new XMLHttpRequest();
               xhr.open("POST", urlDespacho, true);
@@ -201,8 +217,10 @@
                                   console.error("❌ [FILALAB ITAQUA] Sessão do Sisfood expirada ou página de login retornada!");
                                   resolve(false);
                              } else {
-                                  await patchSupabaseStatus(cmd.id, 'EXECUTADO');
-                                  console.log("✅ [FILALAB ITAQUA] Pedido " + codigosLimpos + " despachado!");
+                                  for (let cmd of comandosParaAtualizar) {
+                                      await patchSupabaseStatus(cmd.id, 'EXECUTADO');
+                                  }
+                                  console.log("✅ [FILALAB ITAQUA] Lote (" + idsFormatados + ") despachado!");
                                   resolve(true);
                              }
                         } else {
@@ -222,9 +240,22 @@
              
              if(resp.ok) {
                  const comandos = await resp.json();
-                 for(let cmd of comandos) {
-                     await despacharPedidoNoSisfood(cmd);
-                     await new Promise(r => setTimeout(r, 800)); // Delay p/ não sobrecarregar
+                 if (comandos.length === 0) return;
+
+                 // Agrupa os comandos por nome_motoboy para despacho em lote real
+                 const grupos = {};
+                 for (let cmd of comandos) {
+                     if (!grupos[cmd.nome_motoboy]) {
+                         grupos[cmd.nome_motoboy] = [];
+                     }
+                     grupos[cmd.nome_motoboy].push(cmd);
+                 }
+
+                 // Processa cada grupo de motoboy sequencialmente
+                 for (let nomeMotoboy in grupos) {
+                     const cmdsGrupo = grupos[nomeMotoboy];
+                     await despacharGrupoNoSisfood(nomeMotoboy, cmdsGrupo);
+                     await new Promise(r => setTimeout(r, 1000));
                  }
              }
          } catch(e) {}
