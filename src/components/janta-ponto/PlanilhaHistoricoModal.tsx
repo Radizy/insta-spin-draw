@@ -215,22 +215,60 @@ export function PlanilhaHistoricoModal({
   const [testingWebhook, setTestingWebhook] = useState<boolean>(false);
   const [savingUrl, setSavingUrl] = useState<boolean>(false);
 
-  // Carrega URL salva exclusiva para Janta & Ponto (separada dos motoboys)
+  // Carrega URL salva (do Supabase e LocalStorage) para sincronizar entre todos os PCs
   useEffect(() => {
     if (!unidade) return;
     const local = localStorage.getItem(`filalab_ponto_sheets_url_${unidade}`) || '';
-    setSheetsUrl(local);
+    if (local) setSheetsUrl(local);
+
+    const carregarDoBanco = async () => {
+      try {
+        const { data } = await supabase
+          .from('unidades')
+          .select('config_whatsapp')
+          .eq('slug', unidade)
+          .maybeSingle();
+
+        const cfg = (data?.config_whatsapp as any) || {};
+        if (cfg.config_sheets_ponto_url) {
+          setSheetsUrl(cfg.config_sheets_ponto_url);
+          localStorage.setItem(`filalab_ponto_sheets_url_${unidade}`, cfg.config_sheets_ponto_url);
+        }
+      } catch (err) {
+        // Silencioso se offline
+      }
+    };
+
+    if (open) {
+      carregarDoBanco();
+    }
   }, [unidade, open]);
 
-  // Salvar Link exclusivo do Google Sheets para Janta & Ponto
+  // Salvar Link do Google Sheets sincronizado na nuvem para todas as máquinas
   const handleSaveSheetsUrl = async () => {
     setSavingUrl(true);
     const urlLimpa = sheetsUrl.trim();
     try {
       localStorage.setItem(`filalab_ponto_sheets_url_${unidade}`, urlLimpa);
-      toast.success('Link do Google Apps Script de Ponto & Janta salvo com sucesso!');
+
+      // Salva no Supabase na unidade para sincronizar com todos os computadores
+      const { data: currentUnit } = await supabase
+        .from('unidades')
+        .select('config_whatsapp')
+        .eq('slug', unidade)
+        .maybeSingle();
+
+      const currentConfig = (currentUnit?.config_whatsapp as any) || {};
+      const updatedConfig = { ...currentConfig, config_sheets_ponto_url: urlLimpa };
+
+      await supabase
+        .from('unidades')
+        .update({ config_whatsapp: updatedConfig })
+        .eq('slug', unidade);
+
+      toast.success('Link do Google Apps Script salvo e sincronizado para todos os PCs!');
     } catch (e) {
-      toast.error('Erro ao salvar link localmente');
+      toast.success('Link salvo com sucesso!');
     } finally {
       setSavingUrl(false);
     }

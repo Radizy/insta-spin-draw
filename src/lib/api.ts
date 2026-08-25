@@ -2031,12 +2031,29 @@ export async function sendPontoSheetsWebhook(params: {
   tempo_total_minutos?: number;
   status: string;
   id_registro?: string;
-  customUrl?: string;
 }): Promise<void> {
   try {
-    const webhookUrl =
+    let webhookUrl =
       params.customUrl ||
       localStorage.getItem(`filalab_ponto_sheets_url_${params.unidade}`);
+
+    if (!webhookUrl) {
+      try {
+        const { data } = await supabase
+          .from('unidades')
+          .select('config_whatsapp')
+          .eq('slug', params.unidade)
+          .maybeSingle();
+
+        const cfg = (data?.config_whatsapp as any) || {};
+        if (cfg.config_sheets_ponto_url) {
+          webhookUrl = cfg.config_sheets_ponto_url;
+          localStorage.setItem(`filalab_ponto_sheets_url_${params.unidade}`, webhookUrl);
+        }
+      } catch (e) {
+        // Silencioso
+      }
+    }
 
     if (webhookUrl && webhookUrl.trim().startsWith('http')) {
       await fetch(webhookUrl.trim(), {
