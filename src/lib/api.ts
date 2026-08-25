@@ -1793,65 +1793,9 @@ const generateUUID = (): string => {
 
 /** Busca todos os funcionários internos da unidade (com isolamento estrito por loja) */
 export async function fetchFuncionariosInternos(unidade: string, apenasAtivos: boolean = false): Promise<FuncionarioInterno[]> {
-  try {
-    let query = (supabase.from('funcionarios_internos') as any)
-      .select('*')
-      .eq('unidade', unidade)
-      .order('nome', { ascending: true });
-
-    if (apenasAtivos) {
-      query = query.eq('ativo', true);
-    }
-
-    const { data, error } = await query;
-    if (!error && data) {
-      if (unidade.toUpperCase() === 'ITAQUA') {
-        const nomesExistentes = new Set((data || []).map((f: any) => f.nome.toLowerCase().trim()));
-        const faltantes = INITIAL_ITAQUA_STAFF.filter(
-          (staff) => !nomesExistentes.has(staff.nome.toLowerCase().trim())
-        );
-
-        if (faltantes.length > 0) {
-          const novosParaDb = faltantes.map((f) => ({
-            nome: f.nome,
-            cargo: f.cargo,
-            unidade: 'ITAQUA',
-            ativo: true,
-          }));
-
-          const { data: inseridos } = await (supabase.from('funcionarios_internos') as any)
-            .insert(novosParaDb)
-            .select();
-
-          const listaFinal = inseridos && inseridos.length > 0 ? [...data, ...inseridos] : [
-            ...data,
-            ...faltantes.map((f) => ({
-              id: generateUUID(),
-              nome: f.nome,
-              cargo: f.cargo,
-              unidade: 'ITAQUA',
-              ativo: true,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            }))
-          ];
-
-          const ordenados = listaFinal.sort((a, b) => a.nome.localeCompare(b.nome));
-          saveLocalFuncionarios(unidade, ordenados);
-          return apenasAtivos ? ordenados.filter((f) => f.ativo) : ordenados;
-        }
-      }
-
-      // Salva em cache local para redundância
-      saveLocalFuncionarios(unidade, data);
-      return data;
-    }
-  } catch (err) {
-    console.warn('Usando armazenamento local para funcionários da unidade:', unidade);
-  }
-
-  // Fallback LocalStorage
+  // Carrega do LocalStorage primeiro para resposta instantânea
   let local = getLocalFuncionarios(unidade);
+  
   if (unidade.toUpperCase() === 'ITAQUA') {
     const nomesExistentes = new Set(local.map((f) => f.nome.toLowerCase().trim()));
     const faltantes = INITIAL_ITAQUA_STAFF.filter(
@@ -1872,6 +1816,21 @@ export async function fetchFuncionariosInternos(unidade: string, apenasAtivos: b
     }
   }
 
+  // Tenta sincronizar silenciosamente com o Supabase caso a tabela exista
+  try {
+    const { data, error } = await (supabase.from('funcionarios_internos') as any)
+      .select('*')
+      .eq('unidade', unidade)
+      .order('nome', { ascending: true });
+
+    if (!error && data && data.length > 0) {
+      saveLocalFuncionarios(unidade, data);
+      return apenasAtivos ? data.filter((f: any) => f.ativo) : data;
+    }
+  } catch (err) {
+    // Silencioso - utiliza o cache local
+  }
+
   return apenasAtivos ? local.filter((f) => f.ativo) : local;
 }
 
@@ -1883,7 +1842,7 @@ export async function createFuncionarioInterno(params: {
   franquia_id?: string | null;
 }): Promise<FuncionarioInterno> {
   const novoFuncionario: FuncionarioInterno = {
-    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `func_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    id: generateUUID(),
     nome: params.nome.trim(),
     cargo: params.cargo.trim(),
     unidade: params.unidade,
@@ -1893,24 +1852,29 @@ export async function createFuncionarioInterno(params: {
     updated_at: new Date().toISOString(),
   };
 
+  // Salva no armazenamento local imediatamente
+  const local = getLocalFuncionarios(params.unidade);
+  saveLocalFuncionarios(params.unidade, [...local, novoFuncionario]);
+
   try {
     const { data, error } = await (supabase.from('funcionarios_internos') as any)
-      .insert([novoFuncionario])
+      .insert([{
+        nome: params.nome.trim(),
+        cargo: params.cargo.trim(),
+        unidade: params.unidade,
+        ativo: true,
+      }])
       .select()
       .single();
 
     if (!error && data) {
-      const local = getLocalFuncionarios(params.unidade);
-      saveLocalFuncionarios(params.unidade, [...local.filter((f) => f.id !== data.id), data]);
+      saveLocalFuncionarios(params.unidade, [...local.filter((f) => f.id !== novoFuncionario.id), data]);
       return data;
     }
   } catch (e) {
-    console.warn('Salvando funcionário localmente:', e);
+    // Silencioso - já persistido localmente
   }
 
-  // Salva no fallback local
-  const local = getLocalFuncionarios(params.unidade);
-  saveLocalFuncionarios(params.unidade, [...local, novoFuncionario]);
   return novoFuncionario;
 }
 
