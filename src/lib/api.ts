@@ -1279,6 +1279,20 @@ export async function resetDaily(unidade?: string, unidadeId?: string): Promise<
     console.error('Erro no resetDaily:', error);
     throw new Error('Falha ao executar reset diário');
   }
+
+  // Também finaliza turnos/intervalos pendentes de funcionários internos
+  try {
+    let pontoQuery = (supabase.from('registros_ponto_intervalo') as any)
+      .update({ status: 'finalizado' })
+      .neq('status', 'finalizado');
+
+    if (unidade) {
+      pontoQuery = pontoQuery.eq('unidade', unidade);
+    }
+    await pontoQuery;
+  } catch (err) {
+    console.warn('Aviso: Tabela registros_ponto_intervalo pode não estar criada ainda:', err);
+  }
 }
 
 // ==========================================
@@ -1297,6 +1311,24 @@ export async function fetchSystemUpdates(): Promise<SystemUpdate[]> {
   }
 
   const manualUpdates: SystemUpdate[] = [
+    {
+      id: 'v3.0.0-janta-ponto',
+      titulo: 'Novo Módulo: Janta & Ponto (Equipe Interna) com sincronização no Google Planilhas',
+      tipo: 'NOVIDADES',
+      status: 'lancado',
+      data_publicacao: '2026-08-24',
+      ordem: -20,
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 'v3.0.0-reset-equipe',
+      titulo: 'Botão de Reset diário exclusivo da equipe interna (não afeta motoboys)',
+      tipo: 'MELHORIAS',
+      status: 'lancado',
+      data_publicacao: '2026-08-24',
+      ordem: -19,
+      created_at: new Date().toISOString()
+    },
     {
       id: 'v2.9.2-err',
       titulo: 'Erros corrigidos',
@@ -1640,3 +1672,679 @@ export async function devolverMaquininha(params: {
     console.error('Erro ao enviar webhook devolução:', e);
   }
 }
+
+// ==========================================
+// JANTA & PONTO (EQUIPE INTERNA)
+// ==========================================
+
+export interface FuncionarioInterno {
+  id: string;
+  franquia_id?: string | null;
+  unidade: string;
+  nome: string;
+  cargo: string;
+  ativo: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type StatusPonto = 'ausente' | 'trabalhando' | 'em_janta' | 'finalizado';
+
+export interface RegistroPontoIntervalo {
+  id: string;
+  funcionario_id: string;
+  franquia_id?: string | null;
+  unidade: string;
+  data_referencia: string; // YYYY-MM-DD
+  checkin_at?: string | null;
+  saida_janta_at?: string | null;
+  retorno_janta_at?: string | null;
+  tempo_total_janta_minutos?: number;
+  status: StatusPonto;
+  observacao?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  funcionario?: FuncionarioInterno;
+}
+
+// Helpers de Armazenamento Local de Contingência (Isolado por Unidade)
+const getLocalFuncionarios = (unidade: string): FuncionarioInterno[] => {
+  try {
+    const raw = localStorage.getItem(`filalab_funcionarios_${unidade}`);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+};
+
+const saveLocalFuncionarios = (unidade: string, lista: FuncionarioInterno[]) => {
+  try {
+    localStorage.setItem(`filalab_funcionarios_${unidade}`, JSON.stringify(lista));
+  } catch (e) {
+    console.error('Erro ao salvar localmente:', e);
+  }
+};
+
+const getLocalRegistros = (unidade: string): RegistroPontoIntervalo[] => {
+  try {
+    const raw = localStorage.getItem(`filalab_registros_ponto_${unidade}`);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+};
+
+const saveLocalRegistros = (unidade: string, lista: RegistroPontoIntervalo[]) => {
+  try {
+    localStorage.setItem(`filalab_registros_ponto_${unidade}`, JSON.stringify(lista));
+  } catch (e) {
+    console.error('Erro ao salvar localmente:', e);
+  }
+};
+
+export const INITIAL_ITAQUA_STAFF: { nome: string; cargo: string }[] = [
+  // ATENDIMENTO
+  { nome: 'Alessandra', cargo: 'Atendimento' },
+  { nome: 'Andressa', cargo: 'Atendimento' },
+  { nome: 'Elisa', cargo: 'Atendimento' },
+  { nome: 'Julia', cargo: 'Atendimento' },
+  { nome: 'Steffani', cargo: 'Atendimento' },
+  { nome: 'Vinicius', cargo: 'Atendimento' },
+  { nome: 'Kaylaine', cargo: 'Atendimento' },
+  // CORTE
+  { nome: 'Arthur', cargo: 'Corte' },
+  { nome: 'Gustavo', cargo: 'Corte' },
+  { nome: 'Isabela', cargo: 'Corte' },
+  { nome: 'Gabriel corte', cargo: 'Corte' },
+  // PIZZA
+  { nome: 'Breno', cargo: 'Pizza' },
+  { nome: 'Daiana', cargo: 'Pizza' },
+  { nome: 'Flavio', cargo: 'Pizza' },
+  { nome: 'Brayan', cargo: 'Pizza' },
+  { nome: 'Eduarda', cargo: 'Pizza' },
+  { nome: 'Rafael pow', cargo: 'Pizza' },
+  { nome: 'Douglas', cargo: 'Pizza' },
+  { nome: 'Henrique', cargo: 'Pizza' },
+  { nome: 'Nycolas', cargo: 'Pizza' },
+  // MASSA
+  { nome: 'Bruno', cargo: 'Massa' },
+  { nome: 'Matheus', cargo: 'Massa' },
+  { nome: 'Eduardo', cargo: 'Massa' },
+  { nome: 'Antonio', cargo: 'Massa' },
+  // COZINHA
+  { nome: 'Simone', cargo: 'Cozinha' },
+  { nome: 'Sandra', cargo: 'Cozinha' },
+  // BROTO DOCE
+  { nome: 'Jaqueline', cargo: 'Broto Doce' },
+  // GERENCIA
+  { nome: 'Michael', cargo: 'Gerência' },
+];
+
+const generateUUID = (): string => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
+/** Busca todos os funcionários internos da unidade (com isolamento estrito por loja) */
+export async function fetchFuncionariosInternos(unidade: string, apenasAtivos: boolean = false): Promise<FuncionarioInterno[]> {
+  try {
+    let query = (supabase.from('funcionarios_internos') as any)
+      .select('*')
+      .eq('unidade', unidade)
+      .order('nome', { ascending: true });
+
+    if (apenasAtivos) {
+      query = query.eq('ativo', true);
+    }
+
+    const { data, error } = await query;
+    if (!error && data) {
+      if (unidade.toUpperCase() === 'ITAQUA') {
+        const nomesExistentes = new Set((data || []).map((f: any) => f.nome.toLowerCase().trim()));
+        const faltantes = INITIAL_ITAQUA_STAFF.filter(
+          (staff) => !nomesExistentes.has(staff.nome.toLowerCase().trim())
+        );
+
+        if (faltantes.length > 0) {
+          const novosParaDb = faltantes.map((f) => ({
+            nome: f.nome,
+            cargo: f.cargo,
+            unidade: 'ITAQUA',
+            ativo: true,
+          }));
+
+          const { data: inseridos } = await (supabase.from('funcionarios_internos') as any)
+            .insert(novosParaDb)
+            .select();
+
+          const listaFinal = inseridos && inseridos.length > 0 ? [...data, ...inseridos] : [
+            ...data,
+            ...faltantes.map((f) => ({
+              id: generateUUID(),
+              nome: f.nome,
+              cargo: f.cargo,
+              unidade: 'ITAQUA',
+              ativo: true,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            }))
+          ];
+
+          const ordenados = listaFinal.sort((a, b) => a.nome.localeCompare(b.nome));
+          saveLocalFuncionarios(unidade, ordenados);
+          return apenasAtivos ? ordenados.filter((f) => f.ativo) : ordenados;
+        }
+      }
+
+      // Salva em cache local para redundância
+      saveLocalFuncionarios(unidade, data);
+      return data;
+    }
+  } catch (err) {
+    console.warn('Usando armazenamento local para funcionários da unidade:', unidade);
+  }
+
+  // Fallback LocalStorage
+  let local = getLocalFuncionarios(unidade);
+  if (unidade.toUpperCase() === 'ITAQUA') {
+    const nomesExistentes = new Set(local.map((f) => f.nome.toLowerCase().trim()));
+    const faltantes = INITIAL_ITAQUA_STAFF.filter(
+      (staff) => !nomesExistentes.has(staff.nome.toLowerCase().trim())
+    );
+    if (faltantes.length > 0) {
+      const novos: FuncionarioInterno[] = faltantes.map((f) => ({
+        id: generateUUID(),
+        nome: f.nome,
+        cargo: f.cargo,
+        unidade: 'ITAQUA',
+        ativo: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }));
+      local = [...local, ...novos].sort((a, b) => a.nome.localeCompare(b.nome));
+      saveLocalFuncionarios(unidade, local);
+    }
+  }
+
+  return apenasAtivos ? local.filter((f) => f.ativo) : local;
+}
+
+/** Cadastra um novo funcionário interno (com isolamento estrito por loja) */
+export async function createFuncionarioInterno(params: {
+  nome: string;
+  cargo: string;
+  unidade: string;
+  franquia_id?: string | null;
+}): Promise<FuncionarioInterno> {
+  const novoFuncionario: FuncionarioInterno = {
+    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `func_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    nome: params.nome.trim(),
+    cargo: params.cargo.trim(),
+    unidade: params.unidade,
+    franquia_id: params.franquia_id || null,
+    ativo: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  try {
+    const { data, error } = await (supabase.from('funcionarios_internos') as any)
+      .insert([novoFuncionario])
+      .select()
+      .single();
+
+    if (!error && data) {
+      const local = getLocalFuncionarios(params.unidade);
+      saveLocalFuncionarios(params.unidade, [...local.filter((f) => f.id !== data.id), data]);
+      return data;
+    }
+  } catch (e) {
+    console.warn('Salvando funcionário localmente:', e);
+  }
+
+  // Salva no fallback local
+  const local = getLocalFuncionarios(params.unidade);
+  saveLocalFuncionarios(params.unidade, [...local, novoFuncionario]);
+  return novoFuncionario;
+}
+
+/** Atualiza dados do funcionário */
+export async function updateFuncionarioInterno(
+  id: string,
+  params: Partial<Pick<FuncionarioInterno, 'nome' | 'cargo' | 'ativo'>>,
+  unidade?: string
+): Promise<FuncionarioInterno> {
+  const now = new Date().toISOString();
+
+  try {
+    const { data, error } = await (supabase.from('funcionarios_internos') as any)
+      .update({ ...params, updated_at: now })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (!error && data) {
+      if (unidade) {
+        const local = getLocalFuncionarios(unidade);
+        saveLocalFuncionarios(unidade, local.map((f) => (f.id === id ? data : f)));
+      }
+      return data;
+    }
+  } catch (e) {
+    console.warn('Atualizando funcionário localmente:', e);
+  }
+
+  // Fallback LocalStorage
+  if (unidade) {
+    const local = getLocalFuncionarios(unidade);
+    const atualizado = local.map((f) => (f.id === id ? { ...f, ...params, updated_at: now } : f));
+    saveLocalFuncionarios(unidade, atualizado);
+    return atualizado.find((f) => f.id === id)!;
+  }
+
+  throw new Error('Não foi possível atualizar o funcionário');
+}
+
+/** Deleta funcionário interno (remove da unidade) */
+export async function deleteFuncionarioInterno(id: string, unidade?: string): Promise<void> {
+  try {
+    await (supabase.from('funcionarios_internos') as any).delete().eq('id', id);
+  } catch (e) {
+    console.warn('Erro ao excluir no Supabase:', e);
+  }
+
+  // Remove também do LocalStorage da unidade
+  if (unidade) {
+    const local = getLocalFuncionarios(unidade);
+    saveLocalFuncionarios(unidade, local.filter((f) => f.id !== id));
+
+    const registros = getLocalRegistros(unidade);
+    saveLocalRegistros(unidade, registros.filter((r) => r.funcionario_id !== id));
+  }
+}
+
+/** Busca os registros de ponto do dia atual para a unidade */
+export async function fetchRegistrosPontoDia(unidade: string, dataReferencia: string): Promise<RegistroPontoIntervalo[]> {
+  try {
+    const { data, error } = await (supabase.from('registros_ponto_intervalo') as any)
+      .select(`*, funcionario:funcionarios_internos(*)`)
+      .eq('unidade', unidade)
+      .eq('data_referencia', dataReferencia);
+
+    if (!error && data) {
+      // Mescla com cache local
+      return data;
+    }
+  } catch (e) {
+    console.warn('Buscando registros de ponto do cache local para:', unidade);
+  }
+
+  // Fallback LocalStorage
+  const funcionarios = getLocalFuncionarios(unidade);
+  const funcMap = new Map(funcionarios.map((f) => [f.id, f]));
+  const localRegistros = getLocalRegistros(unidade).filter(
+    (r) => r.unidade === unidade && r.data_referencia === dataReferencia
+  );
+
+  return localRegistros.map((r) => ({
+    ...r,
+    funcionario: funcMap.get(r.funcionario_id),
+  }));
+}
+
+/** Busca histórico completo para visualização na planilha/relatório */
+export async function fetchHistoricoPontoPlanilha(params: {
+  unidade: string;
+  dataInicio?: string;
+  dataFim?: string;
+  funcionarioId?: string;
+}): Promise<RegistroPontoIntervalo[]> {
+  try {
+    let query = (supabase.from('registros_ponto_intervalo') as any)
+      .select(`*, funcionario:funcionarios_internos(*)`)
+      .eq('unidade', params.unidade)
+      .order('data_referencia', { ascending: false })
+      .order('checkin_at', { ascending: false });
+
+    if (params.dataInicio) query = query.gte('data_referencia', params.dataInicio);
+    if (params.dataFim) query = query.lte('data_referencia', params.dataFim);
+    if (params.funcionarioId && params.funcionarioId !== 'todos') {
+      query = query.eq('funcionario_id', params.funcionarioId);
+    }
+
+    const { data, error } = await query;
+    if (!error && data) return data;
+  } catch (e) {
+    console.warn('Buscando histórico na contingência local');
+  }
+
+  // Fallback LocalStorage
+  const funcionarios = getLocalFuncionarios(params.unidade);
+  const funcMap = new Map(funcionarios.map((f) => [f.id, f]));
+  let local = getLocalRegistros(params.unidade).filter((r) => r.unidade === params.unidade);
+
+  if (params.dataInicio) local = local.filter((r) => r.data_referencia >= params.dataInicio!);
+  if (params.dataFim) local = local.filter((r) => r.data_referencia <= params.dataFim!);
+  if (params.funcionarioId && params.funcionarioId !== 'todos') {
+    local = local.filter((r) => r.funcionario_id === params.funcionarioId);
+  }
+
+  return local
+    .map((r) => ({
+      ...r,
+      funcionario: funcMap.get(r.funcionario_id),
+    }))
+    .sort((a, b) => (b.data_referencia > a.data_referencia ? 1 : -1));
+}
+
+/** Retorna a data local de hoje no formato YYYY-MM-DD (fuso do Brasil) */
+export const getHojeLocalYMD = (): string => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/** Envia webhook em segundo plano para o Google Sheets (atualiza na mesma linha do dia) */
+export async function sendPontoSheetsWebhook(params: {
+  tipo: 'ponto_intervalo_funcionario';
+  acao: 'checkin' | 'saida_janta' | 'retorno_janta';
+  unidade: string;
+  funcionario_id: string;
+  funcionario_nome: string;
+  cargo: string;
+  data: string;
+  checkin?: string | null;
+  saida_janta?: string | null;
+  retorno_janta?: string | null;
+  tempo_total_minutos?: number;
+  status: string;
+  id_registro?: string;
+  customUrl?: string;
+}): Promise<void> {
+  try {
+    const webhookUrl =
+      params.customUrl ||
+      localStorage.getItem(`filalab_ponto_sheets_url_${params.unidade}`);
+
+    if (webhookUrl && webhookUrl.trim().startsWith('http')) {
+      await fetch(webhookUrl.trim(), {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(params),
+      });
+    }
+  } catch (err) {
+    console.warn('Erro ao disparar webhook para Google Sheets:', err);
+  }
+}
+
+/** Realiza Check-in de Chegada do funcionário (1 toque) */
+export async function registrarCheckinPonto(params: {
+  funcionario_id: string;
+  unidade: string;
+  franquia_id?: string | null;
+  data_referencia: string;
+  funcionario_nome?: string;
+  cargo?: string;
+}): Promise<RegistroPontoIntervalo> {
+  const now = new Date().toISOString();
+  let resultado: RegistroPontoIntervalo | null = null;
+
+  try {
+    const { data: existente } = await (supabase.from('registros_ponto_intervalo') as any)
+      .select('*')
+      .eq('funcionario_id', params.funcionario_id)
+      .eq('data_referencia', params.data_referencia)
+      .maybeSingle();
+
+    if (existente) {
+      const { data, error } = await (supabase.from('registros_ponto_intervalo') as any)
+        .update({ checkin_at: existente.checkin_at || now, status: 'trabalhando', updated_at: now })
+        .eq('id', existente.id)
+        .select(`*, funcionario:funcionarios_internos(*)`)
+        .single();
+
+      if (!error && data) resultado = data;
+    } else {
+      const { data, error } = await (supabase.from('registros_ponto_intervalo') as any)
+        .insert([{
+          funcionario_id: params.funcionario_id,
+          unidade: params.unidade,
+          franquia_id: params.franquia_id || null,
+          data_referencia: params.data_referencia,
+          checkin_at: now,
+          status: 'trabalhando',
+        }])
+        .select(`*, funcionario:funcionarios_internos(*)`)
+        .single();
+
+      if (!error && data) resultado = data;
+    }
+  } catch (e) {
+    console.warn('Registrando check-in no armazenamento local:', e);
+  }
+
+  // Fallback LocalStorage se necessário
+  if (!resultado) {
+    const funcionarios = getLocalFuncionarios(params.unidade);
+    let funcionario = funcionarios.find((f) => f.id === params.funcionario_id);
+    if (!funcionario && params.funcionario_nome) {
+      funcionario = {
+        id: params.funcionario_id,
+        nome: params.funcionario_nome,
+        cargo: params.cargo || '-',
+        unidade: params.unidade,
+        ativo: true,
+      };
+    }
+
+    const localRegistros = getLocalRegistros(params.unidade);
+
+    const index = localRegistros.findIndex(
+      (r) => r.funcionario_id === params.funcionario_id && r.data_referencia === params.data_referencia
+    );
+
+    if (index >= 0) {
+      localRegistros[index] = {
+        ...localRegistros[index],
+        checkin_at: localRegistros[index].checkin_at || now,
+        status: 'trabalhando',
+        updated_at: now,
+      };
+      resultado = { ...localRegistros[index], funcionario: funcionario || localRegistros[index].funcionario };
+    } else {
+      resultado = {
+        id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `ponto_${Date.now()}`,
+        funcionario_id: params.funcionario_id,
+        unidade: params.unidade,
+        franquia_id: params.franquia_id || null,
+        data_referencia: params.data_referencia,
+        checkin_at: now,
+        status: 'trabalhando',
+        created_at: now,
+        updated_at: now,
+        funcionario,
+      };
+      localRegistros.push(resultado);
+    }
+    saveLocalRegistros(params.unidade, localRegistros);
+  }
+
+  // Disparo assíncrono para o Google Sheets (na mesma linha do dia)
+  sendPontoSheetsWebhook({
+    tipo: 'ponto_intervalo_funcionario',
+    acao: 'checkin',
+    unidade: params.unidade,
+    funcionario_id: params.funcionario_id,
+    funcionario_nome: resultado.funcionario?.nome || params.funcionario_nome || 'Funcionário',
+    cargo: resultado.funcionario?.cargo || params.cargo || '-',
+    data: params.data_referencia,
+    checkin: resultado.checkin_at,
+    status: 'trabalhando',
+    id_registro: resultado.id,
+  });
+
+  return resultado;
+}
+
+/** Registra Saída para Janta (Início do Intervalo) */
+export async function registrarSaidaJanta(registroId: string, unidade?: string): Promise<RegistroPontoIntervalo> {
+  const now = new Date().toISOString();
+  let resultado: RegistroPontoIntervalo | null = null;
+
+  try {
+    const { data, error } = await (supabase.from('registros_ponto_intervalo') as any)
+      .update({ saida_janta_at: now, status: 'em_janta', updated_at: now })
+      .eq('id', registroId)
+      .select(`*, funcionario:funcionarios_internos(*)`)
+      .single();
+
+    if (!error && data) resultado = data;
+  } catch (e) {
+    console.warn('Registrando saída janta no armazenamento local');
+  }
+
+  // Fallback LocalStorage
+  if (!resultado && unidade) {
+    const localRegistros = getLocalRegistros(unidade);
+    const funcionarios = getLocalFuncionarios(unidade);
+    const funcMap = new Map(funcionarios.map((f) => [f.id, f]));
+
+    const index = localRegistros.findIndex((r) => r.id === registroId);
+    if (index >= 0) {
+      localRegistros[index] = {
+        ...localRegistros[index],
+        saida_janta_at: now,
+        status: 'em_janta',
+        updated_at: now,
+      };
+      saveLocalRegistros(unidade, localRegistros);
+      resultado = { ...localRegistros[index], funcionario: funcMap.get(localRegistros[index].funcionario_id) };
+    }
+  }
+
+  if (!resultado) {
+    throw new Error('Falha ao registrar saída de janta');
+  }
+
+  // Disparo assíncrono para o Google Sheets (atualiza na mesma linha do dia)
+  sendPontoSheetsWebhook({
+    tipo: 'ponto_intervalo_funcionario',
+    acao: 'saida_janta',
+    unidade: resultado.unidade || unidade || 'Geral',
+    funcionario_id: resultado.funcionario_id,
+    funcionario_nome: resultado.funcionario?.nome || 'Funcionário',
+    cargo: resultado.funcionario?.cargo || '-',
+    data: resultado.data_referencia,
+    checkin: resultado.checkin_at,
+    saida_janta: resultado.saida_janta_at,
+    status: 'em_janta',
+    id_registro: resultado.id,
+  });
+
+  return resultado;
+}
+
+/** Registra Retorno da Janta (Fim do Intervalo) e calcula duração em minutos */
+export async function registrarRetornoJanta(
+  registroId: string,
+  saidaJantaAt: string,
+  unidade?: string
+): Promise<RegistroPontoIntervalo> {
+  const now = new Date();
+  const saida = new Date(saidaJantaAt);
+  const diffMs = Math.max(0, now.getTime() - saida.getTime());
+  const diffMin = Math.round(diffMs / 60000);
+  let resultado: RegistroPontoIntervalo | null = null;
+
+  try {
+    const { data, error } = await (supabase.from('registros_ponto_intervalo') as any)
+      .update({
+        retorno_janta_at: now.toISOString(),
+        tempo_total_janta_minutos: diffMin,
+        status: 'trabalhando',
+        updated_at: now.toISOString(),
+      })
+      .eq('id', registroId)
+      .select(`*, funcionario:funcionarios_internos(*)`)
+      .single();
+
+    if (!error && data) resultado = data;
+  } catch (e) {
+    console.warn('Registrando retorno de janta no armazenamento local');
+  }
+
+  // Fallback LocalStorage
+  if (!resultado && unidade) {
+    const localRegistros = getLocalRegistros(unidade);
+    const funcionarios = getLocalFuncionarios(unidade);
+    const funcMap = new Map(funcionarios.map((f) => [f.id, f]));
+
+    const index = localRegistros.findIndex((r) => r.id === registroId);
+    if (index >= 0) {
+      localRegistros[index] = {
+        ...localRegistros[index],
+        retorno_janta_at: now.toISOString(),
+        tempo_total_janta_minutos: diffMin,
+        status: 'trabalhando',
+        updated_at: now.toISOString(),
+      };
+      saveLocalRegistros(unidade, localRegistros);
+      resultado = { ...localRegistros[index], funcionario: funcMap.get(localRegistros[index].funcionario_id) };
+    }
+  }
+
+  if (!resultado) {
+    throw new Error('Falha ao registrar retorno de janta');
+  }
+
+  // Disparo assíncrono para o Google Sheets (atualiza na mesma linha do dia)
+  sendPontoSheetsWebhook({
+    tipo: 'ponto_intervalo_funcionario',
+    acao: 'retorno_janta',
+    unidade: resultado.unidade || unidade || 'Geral',
+    funcionario_id: resultado.funcionario_id,
+    funcionario_nome: resultado.funcionario?.nome || 'Funcionário',
+    cargo: resultado.funcionario?.cargo || '-',
+    data: resultado.data_referencia,
+    checkin: resultado.checkin_at,
+    saida_janta: resultado.saida_janta_at,
+    retorno_janta: resultado.retorno_janta_at,
+    tempo_total_minutos: resultado.tempo_total_janta_minutos,
+    status: 'trabalhando',
+    id_registro: resultado.id,
+  });
+
+  return resultado;
+}
+
+/** Reseta apenas os registros de ponto e janta do dia atual da equipe interna (NÃO afeta motoboys) */
+export async function resetPontoEquipeInterna(unidade: string, dataReferencia?: string): Promise<void> {
+  const dataHoje = dataReferencia || new Date().toISOString().split('T')[0];
+
+  try {
+    await (supabase.from('registros_ponto_intervalo') as any)
+      .delete()
+      .eq('unidade', unidade)
+      .eq('data_referencia', dataHoje);
+  } catch (err) {
+    console.warn('Erro ao resetar registros de ponto no Supabase:', err);
+  }
+
+  // Remove também do LocalStorage da unidade para o dia atual
+  const localRegistros = getLocalRegistros(unidade);
+  const filtrados = localRegistros.filter(
+    (r) => !(r.unidade === unidade && r.data_referencia === dataHoje)
+  );
+  saveLocalRegistros(unidade, filtrados);
+}
+

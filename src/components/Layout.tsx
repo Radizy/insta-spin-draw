@@ -7,7 +7,7 @@ import { Unidade } from '@/lib/api';
 import { UnitSelector } from './UnitSelector';
 import {
   Settings, Users, Tv, UserCheck, Pizza, ArrowLeft, LogOut, Ticket, History,
-  CreditCard, X as XIcon, MessageSquare, Menu, X
+  CreditCard, X as XIcon, MessageSquare, Menu, X, UtensilsCrossed
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -31,6 +31,7 @@ interface LayoutProps {
 const navItems = [
   { path: '/config', label: 'Configuração', icon: Settings },
   { path: '/roteirista', label: 'Roteirista', icon: Users },
+  { path: '/janta-ponto', label: 'Janta & Ponto', icon: UtensilsCrossed, highlight: true },
   { path: '/fila-pagamento', label: 'Pagamento', icon: Ticket },
   { path: '/tv', label: 'TV', icon: Tv },
   { path: '/historico', label: 'Histórico', icon: History },
@@ -169,10 +170,30 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
                     <ArrowLeft className="w-3.5 h-3.5" /> Sair do Modo Loja
                   </button>
                 )}
-                <nav className="flex items-center gap-1">
+                <nav className="flex items-center gap-1.5">
                   {navItems.map((item) => {
                     const Icon = item.icon;
-                    const isActive = location.pathname === item.path;
+                    const isActive = location.pathname === item.path || (item.path === '/janta-ponto' && location.pathname === '/intervalo');
+                    const isHighlight = (item as any).highlight;
+
+                    if (isHighlight) {
+                      return (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          className={cn(
+                            'flex items-center gap-2 px-3.5 py-2 rounded-lg transition-all font-semibold relative text-sm',
+                            isActive
+                              ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25 ring-2 ring-amber-400'
+                              : 'bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 hover:text-amber-300 shadow-sm'
+                          )}
+                        >
+                          <Icon className={cn("w-4 h-4", isActive ? "text-slate-950" : "text-amber-400")} />
+                          <span>{item.label}</span>
+                        </Link>
+                      );
+                    }
+
                     return (
                       <Link
                         key={item.path}
@@ -261,7 +282,9 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-2">Navegação</span>
                 {navItems.map((item) => {
                   const Icon = item.icon;
-                  const isActive = location.pathname === item.path;
+                  const isActive = location.pathname === item.path || (item.path === '/janta-ponto' && location.pathname === '/intervalo');
+                  const isHighlight = (item as any).highlight;
+
                   return (
                     <Link
                       key={item.path}
@@ -269,12 +292,15 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
                       onClick={() => setMobileMenuOpen(false)}
                       className={cn(
                         'flex items-center gap-3 p-3 rounded-lg transition-all text-base font-medium',
+                        isHighlight && !isActive && 'bg-amber-500/10 text-amber-400 border border-amber-500/25',
                         isActive
-                          ? 'bg-primary/10 text-primary'
-                          : 'text-foreground hover:bg-secondary'
+                          ? isHighlight
+                            ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
+                            : 'bg-primary/10 text-primary font-bold'
+                          : !isHighlight ? 'text-foreground hover:bg-secondary' : ''
                       )}
                     >
-                      <Icon className={cn("w-5 h-5", isActive ? "text-primary" : "text-muted-foreground")} />
+                      <Icon className={cn("w-5 h-5", isHighlight ? (isActive ? "text-slate-950" : "text-amber-400") : (isActive ? "text-primary" : "text-muted-foreground"))} />
                       {item.label}
                     </Link>
                   );

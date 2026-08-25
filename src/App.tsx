@@ -18,6 +18,7 @@ import MeuLugar from "./pages/MeuLugar";
 import NotFound from "./pages/NotFound";
 import SuperAdmin from "./pages/SuperAdmin";
 import FilaPagamento from "./pages/FilaPagamento";
+import JantaPonto from "./pages/JantaPonto";
 
 import { ScreenShareProvider, useScreenShare } from "./contexts/ScreenShareContext";
 import { MonitorPlay, X } from "lucide-react";
@@ -82,6 +83,22 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <Roteirista />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/janta-ponto"
+                  element={
+                    <ProtectedRoute>
+                      <JantaPonto />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/intervalo"
+                  element={
+                    <ProtectedRoute>
+                      <JantaPonto />
                     </ProtectedRoute>
                   }
                 />
