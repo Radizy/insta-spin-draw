@@ -75,15 +75,15 @@ export default function JantaPonto() {
     });
   }, []);
 
-  // 1. Busca lista de funcionários da loja
+  // 1. Busca lista de funcionários da loja (isolamento estrito por loja e franquia)
   const {
     data: funcionarios = [],
     isLoading: loadingFuncionarios,
     refetch: refetchFuncionarios,
     isFetching: isFetchingFuncionarios,
   } = useQuery({
-    queryKey: ['funcionarios-internos', selectedUnit],
-    queryFn: () => (selectedUnit ? fetchFuncionariosInternos(selectedUnit, true) : []),
+    queryKey: ['funcionarios-internos', selectedUnit, user?.franquiaId],
+    queryFn: () => (selectedUnit ? fetchFuncionariosInternos(selectedUnit, true, user?.franquiaId) : []),
     enabled: !!selectedUnit,
   });
 

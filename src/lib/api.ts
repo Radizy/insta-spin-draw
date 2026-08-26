@@ -1786,12 +1786,16 @@ const generateUUID = (): string => {
   });
 };
 
-/** Busca todos os funcionários internos da unidade (com isolamento estrito por loja) */
-export async function fetchFuncionariosInternos(unidade: string, apenasAtivos: boolean = false): Promise<FuncionarioInterno[]> {
+/** Busca todos os funcionários internos da unidade (com isolamento estrito por loja e franquia) */
+export async function fetchFuncionariosInternos(
+  unidade: string,
+  apenasAtivos: boolean = false,
+  franquiaId?: string | null
+): Promise<FuncionarioInterno[]> {
   // Carrega do LocalStorage primeiro para resposta instantânea
   let local = getLocalFuncionarios(unidade);
   
-  if (unidade.toUpperCase() === 'ITAQUA') {
+  if (unidade.toUpperCase() === 'ITAQUA' && local.length === 0) {
     const nomesExistentes = new Set(local.map((f) => f.nome.toLowerCase().trim()));
     const faltantes = INITIAL_ITAQUA_STAFF.filter(
       (staff) => !nomesExistentes.has(staff.nome.toLowerCase().trim())
@@ -1802,6 +1806,7 @@ export async function fetchFuncionariosInternos(unidade: string, apenasAtivos: b
         nome: f.nome,
         cargo: f.cargo,
         unidade: 'ITAQUA',
+        franquia_id: franquiaId || null,
         ativo: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -1811,12 +1816,18 @@ export async function fetchFuncionariosInternos(unidade: string, apenasAtivos: b
     }
   }
 
-  // Tenta sincronizar silenciosamente com o Supabase caso a tabela exista
+  // Tenta sincronizar silenciosamente com o Supabase
   try {
-    const { data, error } = await (supabase.from('funcionarios_internos') as any)
+    let query = (supabase.from('funcionarios_internos') as any)
       .select('*')
       .eq('unidade', unidade)
       .order('nome', { ascending: true });
+
+    if (franquiaId) {
+      query = query.eq('franquia_id', franquiaId);
+    }
+
+    const { data, error } = await query;
 
     if (!error && data && data.length > 0) {
       saveLocalFuncionarios(unidade, data);
@@ -1829,7 +1840,7 @@ export async function fetchFuncionariosInternos(unidade: string, apenasAtivos: b
   return apenasAtivos ? local.filter((f) => f.ativo) : local;
 }
 
-/** Cadastra um novo funcionário interno (com isolamento estrito por loja) */
+/** Cadastra um novo funcionário interno (com isolamento estrito por loja e franquia) */
 export async function createFuncionarioInterno(params: {
   nome: string;
   cargo: string;
@@ -1857,6 +1868,7 @@ export async function createFuncionarioInterno(params: {
         nome: params.nome.trim(),
         cargo: params.cargo.trim(),
         unidade: params.unidade,
+        franquia_id: params.franquia_id || null,
         ativo: true,
       }])
       .select()
