@@ -291,9 +291,12 @@ export default function Config() {
       if (!isTrainingMode) {
         queryClient.invalidateQueries({ queryKey: ['entregadores'] });
         queryClient.invalidateQueries({ queryKey: ['saidas-dia'] });
+        queryClient.invalidateQueries({ queryKey: ['registros-ponto-dia'] });
+        queryClient.invalidateQueries({ queryKey: ['planilha-ponto'] });
+        queryClient.invalidateQueries({ queryKey: ['funcionarios-internos'] });
       }
       setResetDialogOpen(false);
-      toast.success('Reset de expediente concluído: motoboys agora estão inativos e aguardando o próximo turno.');
+      toast.success('Reset de expediente concluído: motoboys e equipe interna foram resetados para o próximo turno.');
     },
     onError: () => {
       toast.error('Erro ao executar reset diário. Tente novamente.');
@@ -1636,8 +1639,9 @@ export default function Config() {
               <p>Tem certeza que deseja realizar o reset para a unidade <strong className="text-foreground">{selectedUnit}</strong>?</p>
               <div className="bg-muted p-4 rounded-lg space-y-2 text-sm text-foreground">
                 <p>• Todos os motoboys serão <strong>desativados</strong> e voltarão ao status Disponível.</p>
+                <p>• O ponto e horários da equipe interna (<strong>Janta & Ponto</strong>) serão resetados para o dia.</p>
                 <p>• Histórico e Analytics serão <strong className="text-emerald-500">preservados</strong>.</p>
-                <p className="text-destructive font-semibold">• O primeiro motoboy deverá fazer check-in amanhã.</p>
+                <p className="text-destructive font-semibold">• O primeiro motoboy e a equipe deverão fazer check-in no próximo expediente.</p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>

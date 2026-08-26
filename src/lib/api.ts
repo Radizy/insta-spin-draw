@@ -1280,18 +1280,13 @@ export async function resetDaily(unidade?: string, unidadeId?: string): Promise<
     throw new Error('Falha ao executar reset diário');
   }
 
-  // Também finaliza turnos/intervalos pendentes de funcionários internos
-  try {
-    let pontoQuery = (supabase.from('registros_ponto_intervalo') as any)
-      .update({ status: 'finalizado' })
-      .neq('status', 'finalizado');
-
-    if (unidade) {
-      pontoQuery = pontoQuery.eq('unidade', unidade);
+  // Também reseta o expediente dos funcionários internos (Janta & Ponto)
+  if (unidade) {
+    try {
+      await resetPontoEquipeInterna(unidade);
+    } catch (err) {
+      console.warn('Aviso: Erro ao resetar ponto da equipe interna no reset diário:', err);
     }
-    await pontoQuery;
-  } catch (err) {
-    console.warn('Aviso: Tabela registros_ponto_intervalo pode não estar criada ainda:', err);
   }
 }
 
