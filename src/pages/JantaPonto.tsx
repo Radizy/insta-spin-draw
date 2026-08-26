@@ -13,6 +13,7 @@ import {
   updateFuncionarioInterno,
   deleteFuncionarioInterno,
   resetPontoEquipeInterna,
+  resetPontoFuncionario,
   getHojeLocalYMD,
   FuncionarioInterno,
   RegistroPontoIntervalo,
@@ -58,6 +59,7 @@ export default function JantaPonto() {
   const [funcionarioEditando, setFuncionarioEditando] = useState<FuncionarioInterno | null>(null);
   const [modalPlanilhaOpen, setModalPlanilhaOpen] = useState(false);
   const [funcionarioParaExcluir, setFuncionarioParaExcluir] = useState<string | null>(null);
+  const [funcionarioParaResetar, setFuncionarioParaResetar] = useState<FuncionarioInterno | null>(null);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
 
   const dataHojeFormatada = useMemo(() => {
@@ -206,6 +208,19 @@ export default function JantaPonto() {
       setFuncionarioParaExcluir(null);
     },
     onError: () => toast.error('Erro ao excluir funcionário'),
+  });
+
+  // Reset individual de um único funcionário
+  const resetIndividualMutation = useMutation({
+    mutationFn: (func: FuncionarioInterno) =>
+      resetPontoFuncionario(func.id, selectedUnit!, dataHojeFormatada),
+    onSuccess: (_, func) => {
+      queryClient.invalidateQueries({ queryKey: ['registros-ponto-dia'] });
+      queryClient.invalidateQueries({ queryKey: ['planilha-ponto'] });
+      toast.success(`Expediente de hoje resetado para ${func.nome}!`);
+      setFuncionarioParaResetar(null);
+    },
+    onError: () => toast.error('Erro ao resetar expediente do funcionário'),
   });
 
   // Reset exclusivo para o ponto e janta da equipe interna (NÃO mexe em motoboys)
@@ -419,10 +434,12 @@ export default function JantaPonto() {
                   setModalCadastroOpen(true);
                 }}
                 onDelete={(id) => setFuncionarioParaExcluir(id)}
+                onReset={(f) => setFuncionarioParaResetar(f)}
                 loading={
                   checkinMutation.isPending ||
                   saidaJantaMutation.isPending ||
-                  retornoJantaMutation.isPending
+                  retornoJantaMutation.isPending ||
+                  resetIndividualMutation.isPending
                 }
               />
             ))}
@@ -473,6 +490,49 @@ export default function JantaPonto() {
               className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold"
             >
               Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmação de Reset Individual de Funcionário */}
+      <AlertDialog
+        open={!!funcionarioParaResetar}
+        onOpenChange={(open) => !open && setFuncionarioParaResetar(null)}
+      >
+        <AlertDialogContent className="bg-card border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-foreground flex items-center gap-2">
+              <RotateCcw className="w-5 h-5 text-amber-500" />
+              Resetar Dia de {funcionarioParaResetar?.nome}?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="text-muted-foreground text-xs space-y-2">
+                <p>
+                  Deseja zerar os registros de ponto e janta de hoje para{' '}
+                  <strong className="text-foreground">{funcionarioParaResetar?.nome}</strong> ({funcionarioParaResetar?.cargo})?
+                </p>
+                <div className="p-3 bg-muted/40 rounded-xl border border-border/50 text-[11px] space-y-1">
+                  <p className="text-foreground">
+                    ✓ O funcionário voltará para o status <strong className="text-foreground">"Ausente / Não Chegou"</strong>.
+                  </p>
+                  <p className="text-muted-foreground">
+                    ✓ Permitirá registrar novo check-in hoje caso o anterior tenha sido feito por engano.
+                  </p>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-border">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                funcionarioParaResetar && resetIndividualMutation.mutate(funcionarioParaResetar)
+              }
+              disabled={resetIndividualMutation.isPending}
+              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold"
+            >
+              {resetIndividualMutation.isPending ? 'Resetando...' : 'Confirmar Reset'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

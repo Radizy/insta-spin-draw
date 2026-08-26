@@ -2324,3 +2324,30 @@ export async function resetPontoEquipeInterna(unidade: string, dataReferencia?: 
   saveLocalRegistros(unidade, filtrados);
 }
 
+/** Reseta os registros de ponto e janta do dia atual de um único funcionário interno */
+export async function resetPontoFuncionario(
+  funcionarioId: string,
+  unidade: string,
+  dataReferencia?: string
+): Promise<void> {
+  const dataHoje = dataReferencia || new Date().toISOString().split('T')[0];
+
+  try {
+    await (supabase.from('registros_ponto_intervalo') as any)
+      .delete()
+      .eq('funcionario_id', funcionarioId)
+      .eq('unidade', unidade)
+      .eq('data_referencia', dataHoje);
+  } catch (err) {
+    console.warn('Erro ao resetar registro de ponto do funcionário no Supabase:', err);
+  }
+
+  // Remove também do LocalStorage da unidade para este funcionário no dia atual
+  const localRegistros = getLocalRegistros(unidade);
+  const filtrados = localRegistros.filter(
+    (r) => !(r.funcionario_id === funcionarioId && r.unidade === unidade && r.data_referencia === dataHoje)
+  );
+  saveLocalRegistros(unidade, filtrados);
+}
+
+

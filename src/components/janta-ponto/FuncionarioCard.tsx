@@ -12,7 +12,8 @@ import {
   Trash2,
   User,
   Coffee,
-  AlertCircle
+  AlertCircle,
+  RotateCcw,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -29,6 +30,7 @@ interface FuncionarioCardProps {
   onRetornoJanta: (registroId: string, saidaJantaAt: string) => void;
   onEdit: (funcionario: FuncionarioInterno) => void;
   onDelete: (funcionarioId: string) => void;
+  onReset?: (funcionario: FuncionarioInterno) => void;
   loading?: boolean;
 }
 
@@ -40,6 +42,7 @@ export function FuncionarioCard({
   onRetornoJanta,
   onEdit,
   onDelete,
+  onReset,
   loading = false,
 }: FuncionarioCardProps) {
   const status: StatusPonto = registro?.status || 'ausente';
@@ -151,10 +154,17 @@ export function FuncionarioCard({
                   <MoreVertical className="w-4 h-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40 bg-popover border-border">
+              <DropdownMenuContent align="end" className="w-44 bg-popover border-border">
                 <DropdownMenuItem onClick={() => onEdit(funcionario)} className="cursor-pointer gap-2">
                   <Edit2 className="w-4 h-4 text-blue-400" />
                   Editar Dados
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onReset?.(funcionario)}
+                  className="cursor-pointer text-amber-400 focus:text-amber-300 gap-2"
+                >
+                  <RotateCcw className="w-4 h-4 text-amber-400" />
+                  Resetar Dia
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => onDelete(funcionario.id)}
