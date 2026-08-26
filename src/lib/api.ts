@@ -2016,6 +2016,7 @@ export async function sendPontoSheetsWebhook(params: {
   tipo: 'ponto_intervalo_funcionario';
   acao: 'checkin' | 'saida_janta' | 'retorno_janta';
   unidade: string;
+  franquia_id?: string | null;
   funcionario_id: string;
   funcionario_nome: string;
   cargo: string;
@@ -2026,24 +2027,62 @@ export async function sendPontoSheetsWebhook(params: {
   tempo_total_minutos?: number;
   status: string;
   id_registro?: string;
+  customUrl?: string;
 }): Promise<void> {
   try {
-    let webhookUrl =
-      params.customUrl ||
-      localStorage.getItem(`filalab_ponto_sheets_url_${params.unidade}`);
+    let webhookUrl = params.customUrl;
 
+    // 1. Tenta recuperar do LocalStorage (Franquia ou Unidade)
+    if (!webhookUrl && params.franquia_id) {
+      webhookUrl = localStorage.getItem(`filalab_ponto_sheets_url_franquia_${params.franquia_id}`) || undefined;
+    }
+    if (!webhookUrl && params.unidade) {
+      webhookUrl = localStorage.getItem(`filalab_ponto_sheets_url_${params.unidade}`) || undefined;
+    }
+
+    // 2. Se não achou em cache local, busca no banco (Franquia primeiro, depois Unidade)
     if (!webhookUrl) {
       try {
-        const { data } = await supabase
-          .from('unidades')
-          .select('config_whatsapp')
-          .eq('slug', params.unidade)
-          .maybeSingle();
+        if (params.franquia_id) {
+          const { data: franq } = await supabase
+            .from('franquias')
+            .select('config_pagamento')
+            .eq('id', params.franquia_id)
+            .maybeSingle();
 
-        const cfg = (data?.config_whatsapp as any) || {};
-        if (cfg.config_sheets_ponto_url) {
-          webhookUrl = cfg.config_sheets_ponto_url;
-          localStorage.setItem(`filalab_ponto_sheets_url_${params.unidade}`, webhookUrl);
+          const cfgFranq = (franq?.config_pagamento as any) || {};
+          if (cfgFranq.config_sheets_ponto_url) {
+            webhookUrl = cfgFranq.config_sheets_ponto_url;
+            localStorage.setItem(`filalab_ponto_sheets_url_franquia_${params.franquia_id}`, webhookUrl);
+            if (params.unidade) localStorage.setItem(`filalab_ponto_sheets_url_${params.unidade}`, webhookUrl);
+          }
+        }
+
+        if (!webhookUrl && params.unidade) {
+          const { data: unitData } = await supabase
+            .from('unidades')
+            .select('config_whatsapp, franquia_id')
+            .eq('slug', params.unidade)
+            .maybeSingle();
+
+          const cfg = (unitData?.config_whatsapp as any) || {};
+          if (cfg.config_sheets_ponto_url) {
+            webhookUrl = cfg.config_sheets_ponto_url;
+            localStorage.setItem(`filalab_ponto_sheets_url_${params.unidade}`, webhookUrl);
+          } else if (unitData?.franquia_id) {
+            const { data: franq } = await supabase
+              .from('franquias')
+              .select('config_pagamento')
+              .eq('id', unitData.franquia_id)
+              .maybeSingle();
+
+            const cfgFranq = (franq?.config_pagamento as any) || {};
+            if (cfgFranq.config_sheets_ponto_url) {
+              webhookUrl = cfgFranq.config_sheets_ponto_url;
+              localStorage.setItem(`filalab_ponto_sheets_url_franquia_${unitData.franquia_id}`, webhookUrl);
+              localStorage.setItem(`filalab_ponto_sheets_url_${params.unidade}`, webhookUrl);
+            }
+          }
         }
       } catch (e) {
         // Silencioso
@@ -2217,6 +2256,7 @@ export async function registrarSaidaJanta(registroId: string, unidade?: string):
     tipo: 'ponto_intervalo_funcionario',
     acao: 'saida_janta',
     unidade: resultado.unidade || unidade || 'Geral',
+    franquia_id: resultado.funcionario?.franquia_id,
     funcionario_id: resultado.funcionario_id,
     funcionario_nome: resultado.funcionario?.nome || 'Funcionário',
     cargo: resultado.funcionario?.cargo || '-',
@@ -2288,6 +2328,7 @@ export async function registrarRetornoJanta(
     tipo: 'ponto_intervalo_funcionario',
     acao: 'retorno_janta',
     unidade: resultado.unidade || unidade || 'Geral',
+    franquia_id: resultado.funcionario?.franquia_id,
     funcionario_id: resultado.funcionario_id,
     funcionario_nome: resultado.funcionario?.nome || 'Funcionário',
     cargo: resultado.funcionario?.cargo || '-',

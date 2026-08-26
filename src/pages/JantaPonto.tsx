@@ -463,6 +463,7 @@ export default function JantaPonto() {
           open={modalPlanilhaOpen}
           onOpenChange={setModalPlanilhaOpen}
           unidade={selectedUnit}
+          franquiaId={user?.franquiaId}
           funcionarios={funcionarios}
         />
       )}

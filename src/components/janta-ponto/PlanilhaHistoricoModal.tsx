@@ -45,6 +45,7 @@ interface PlanilhaHistoricoModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   unidade: string;
+  franquiaId?: string | null;
   funcionarios: FuncionarioInterno[];
 }
 
@@ -202,6 +203,7 @@ export function PlanilhaHistoricoModal({
   open,
   onOpenChange,
   unidade,
+  franquiaId,
   funcionarios,
 }: PlanilhaHistoricoModalProps) {
   const [periodo, setPeriodo] = useState<PeriodoPreset>('7dias');
@@ -215,24 +217,69 @@ export function PlanilhaHistoricoModal({
   const [testingWebhook, setTestingWebhook] = useState<boolean>(false);
   const [savingUrl, setSavingUrl] = useState<boolean>(false);
 
-  // Carrega URL salva (do Supabase e LocalStorage) para sincronizar entre todos os PCs
+  // Carrega URL salva (da Franquia, Unidade ou LocalStorage) para sincronizar entre todas as lojas da mesma franquia
   useEffect(() => {
-    if (!unidade) return;
-    const local = localStorage.getItem(`filalab_ponto_sheets_url_${unidade}`) || '';
-    if (local) setSheetsUrl(local);
+    if (!unidade && !franquiaId) return;
+
+    // 1. Tenta recuperar do LocalStorage da franquia ou da unidade
+    const localFranq = franquiaId ? localStorage.getItem(`filalab_ponto_sheets_url_franquia_${franquiaId}`) : '';
+    const localUnidade = unidade ? localStorage.getItem(`filalab_ponto_sheets_url_${unidade}`) : '';
+    if (localFranq) {
+      setSheetsUrl(localFranq);
+    } else if (localUnidade) {
+      setSheetsUrl(localUnidade);
+    }
 
     const carregarDoBanco = async () => {
       try {
-        const { data } = await supabase
-          .from('unidades')
-          .select('config_whatsapp')
-          .eq('slug', unidade)
-          .maybeSingle();
+        let urlEncontrada = '';
 
-        const cfg = (data?.config_whatsapp as any) || {};
-        if (cfg.config_sheets_ponto_url) {
-          setSheetsUrl(cfg.config_sheets_ponto_url);
-          localStorage.setItem(`filalab_ponto_sheets_url_${unidade}`, cfg.config_sheets_ponto_url);
+        // 1. Tenta carregar da franquia (compartilhada para todas as lojas)
+        if (franquiaId) {
+          const { data: franqData } = await supabase
+            .from('franquias')
+            .select('config_pagamento')
+            .eq('id', franquiaId)
+            .maybeSingle();
+
+          const cfgFranq = (franqData?.config_pagamento as any) || {};
+          if (cfgFranq.config_sheets_ponto_url) {
+            urlEncontrada = cfgFranq.config_sheets_ponto_url;
+            localStorage.setItem(`filalab_ponto_sheets_url_franquia_${franquiaId}`, urlEncontrada);
+            if (unidade) localStorage.setItem(`filalab_ponto_sheets_url_${unidade}`, urlEncontrada);
+          }
+        }
+
+        // 2. Se não achou na franquia, busca na unidade
+        if (!urlEncontrada && unidade) {
+          const { data: unitData } = await supabase
+            .from('unidades')
+            .select('config_whatsapp, franquia_id')
+            .eq('slug', unidade)
+            .maybeSingle();
+
+          const cfg = (unitData?.config_whatsapp as any) || {};
+          if (cfg.config_sheets_ponto_url) {
+            urlEncontrada = cfg.config_sheets_ponto_url;
+            localStorage.setItem(`filalab_ponto_sheets_url_${unidade}`, urlEncontrada);
+          } else if (unitData?.franquia_id) {
+            const { data: franqData } = await supabase
+              .from('franquias')
+              .select('config_pagamento')
+              .eq('id', unitData.franquia_id)
+              .maybeSingle();
+
+            const cfgFranq = (franqData?.config_pagamento as any) || {};
+            if (cfgFranq.config_sheets_ponto_url) {
+              urlEncontrada = cfgFranq.config_sheets_ponto_url;
+              localStorage.setItem(`filalab_ponto_sheets_url_franquia_${unitData.franquia_id}`, urlEncontrada);
+              localStorage.setItem(`filalab_ponto_sheets_url_${unidade}`, urlEncontrada);
+            }
+          }
+        }
+
+        if (urlEncontrada) {
+          setSheetsUrl(urlEncontrada);
         }
       } catch (err) {
         // Silencioso se offline
@@ -242,31 +289,80 @@ export function PlanilhaHistoricoModal({
     if (open) {
       carregarDoBanco();
     }
-  }, [unidade, open]);
+  }, [unidade, franquiaId, open]);
 
-  // Salvar Link do Google Sheets sincronizado na nuvem para todas as máquinas
+  // Salvar Link do Google Sheets sincronizado na nuvem para todas as lojas da mesma franquia
   const handleSaveSheetsUrl = async () => {
     setSavingUrl(true);
     const urlLimpa = sheetsUrl.trim();
     try {
-      localStorage.setItem(`filalab_ponto_sheets_url_${unidade}`, urlLimpa);
+      if (unidade) localStorage.setItem(`filalab_ponto_sheets_url_${unidade}`, urlLimpa);
+      if (franquiaId) localStorage.setItem(`filalab_ponto_sheets_url_franquia_${franquiaId}`, urlLimpa);
 
-      // Salva no Supabase na unidade para sincronizar com todos os computadores
-      const { data: currentUnit } = await supabase
-        .from('unidades')
-        .select('config_whatsapp')
-        .eq('slug', unidade)
-        .maybeSingle();
+      let targetFranquiaId = franquiaId;
 
-      const currentConfig = (currentUnit?.config_whatsapp as any) || {};
-      const updatedConfig = { ...currentConfig, config_sheets_ponto_url: urlLimpa };
+      // Se não temos franquiaId direto, descobre pela unidade
+      if (!targetFranquiaId && unidade) {
+        const { data: unitData } = await supabase
+          .from('unidades')
+          .select('franquia_id')
+          .eq('slug', unidade)
+          .maybeSingle();
+        targetFranquiaId = unitData?.franquia_id;
+      }
 
-      await supabase
-        .from('unidades')
-        .update({ config_whatsapp: updatedConfig })
-        .eq('slug', unidade);
+      // 1. Salva na franquia para que todas as lojas herdem automaticamente
+      if (targetFranquiaId) {
+        localStorage.setItem(`filalab_ponto_sheets_url_franquia_${targetFranquiaId}`, urlLimpa);
 
-      toast.success('Link do Google Apps Script salvo e sincronizado para todos os PCs!');
+        const { data: franq } = await supabase
+          .from('franquias')
+          .select('config_pagamento')
+          .eq('id', targetFranquiaId)
+          .maybeSingle();
+
+        const currentConfig = (franq?.config_pagamento as any) || {};
+        await supabase
+          .from('franquias')
+          .update({
+            config_pagamento: {
+              ...currentConfig,
+              config_sheets_ponto_url: urlLimpa,
+            },
+          })
+          .eq('id', targetFranquiaId);
+
+        // 2. Atualiza todas as unidades filhas da mesma franquia
+        const { data: todasUnidades } = await supabase
+          .from('unidades')
+          .select('id, config_whatsapp')
+          .eq('franquia_id', targetFranquiaId);
+
+        if (todasUnidades && todasUnidades.length > 0) {
+          for (const u of todasUnidades) {
+            const uCfg = (u.config_whatsapp as any) || {};
+            await supabase
+              .from('unidades')
+              .update({ config_whatsapp: { ...uCfg, config_sheets_ponto_url: urlLimpa } })
+              .eq('id', u.id);
+          }
+        }
+      } else if (unidade) {
+        // Fallback para unidade individual se não houver franquia
+        const { data: currentUnit } = await supabase
+          .from('unidades')
+          .select('config_whatsapp')
+          .eq('slug', unidade)
+          .maybeSingle();
+
+        const currentConfig = (currentUnit?.config_whatsapp as any) || {};
+        await supabase
+          .from('unidades')
+          .update({ config_whatsapp: { ...currentConfig, config_sheets_ponto_url: urlLimpa } })
+          .eq('slug', unidade);
+      }
+
+      toast.success('Link da Planilha salvo e sincronizado para TODAS as lojas da franquia!');
     } catch (e) {
       toast.success('Link salvo com sucesso!');
     } finally {
@@ -291,13 +387,14 @@ export function PlanilhaHistoricoModal({
     }
     setTestingWebhook(true);
     try {
-      // Salva localmente também
-      localStorage.setItem(`filalab_ponto_sheets_url_${unidade}`, urlParaTestar);
+      if (unidade) localStorage.setItem(`filalab_ponto_sheets_url_${unidade}`, urlParaTestar);
+      if (franquiaId) localStorage.setItem(`filalab_ponto_sheets_url_franquia_${franquiaId}`, urlParaTestar);
 
       await sendPontoSheetsWebhook({
         tipo: 'ponto_intervalo_funcionario',
         acao: 'checkin',
         unidade,
+        franquia_id: franquiaId,
         funcionario_id: 'teste_001',
         funcionario_nome: 'Funcionário Teste (FilaLab)',
         cargo: 'Pizzaiolo',
@@ -625,6 +722,14 @@ export function PlanilhaHistoricoModal({
                     <Zap className={`w-3.5 h-3.5 text-amber-400 ${testingWebhook ? 'animate-spin' : ''}`} />
                     Testar Envio
                   </Button>
+                </div>
+              </div>
+
+              {/* Banner de Unificação por Franquia */}
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-[11px] text-amber-300 flex items-start gap-2.5">
+                <span className="text-base leading-none">🔗</span>
+                <div>
+                  <strong className="text-amber-200">Planilha Unificada para toda a Franquia:</strong> Ao definir ou salvar a URL da planilha aqui, ela é aplicada automaticamente para <strong>todas as lojas da sua franquia</strong>. A planilha criará automaticamente uma aba separada e organizada para cada loja (ex: <code>({unidade.toUpperCase()}) JANTA E PONTO</code>).
                 </div>
               </div>
 
