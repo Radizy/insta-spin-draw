@@ -47,7 +47,8 @@ import {
   AlertCircle,
   Sparkles,
   RotateCcw,
-  CheckSquare
+  CheckSquare,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -370,10 +371,27 @@ export default function JantaPonto() {
           </div>
         </div>
 
-        {/* KPIs Resumo Operacional */}
+        {/* KPIs Resumo Operacional como Filtros Rápidos */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-card/60 border border-border/60 rounded-2xl p-4 flex items-center gap-3 shadow-sm">
-            <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center text-muted-foreground border border-border/60">
+          {/* Card: Total na Equipe */}
+          <button
+            type="button"
+            onClick={() => setFiltroStatus('todos')}
+            className={cn(
+              'text-left rounded-2xl p-4 flex items-center gap-3 transition-all duration-200 border cursor-pointer select-none',
+              filtroStatus === 'todos'
+                ? 'bg-primary/10 border-primary shadow-md shadow-primary/10 ring-2 ring-primary/40'
+                : 'bg-card/60 border-border/60 hover:border-primary/50 hover:bg-card/90 shadow-sm'
+            )}
+          >
+            <div
+              className={cn(
+                'w-10 h-10 rounded-xl flex items-center justify-center transition-colors',
+                filtroStatus === 'todos'
+                  ? 'bg-primary text-primary-foreground font-bold shadow-sm'
+                  : 'bg-secondary text-muted-foreground border border-border/60'
+              )}
+            >
               <Users className="w-5 h-5" />
             </div>
             <div>
@@ -384,24 +402,58 @@ export default function JantaPonto() {
                 {stats.total}
               </span>
             </div>
-          </div>
+          </button>
 
-          <div className="bg-card/60 border border-emerald-500/30 rounded-2xl p-4 flex items-center gap-3 shadow-sm bg-emerald-950/5">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
+          {/* Card: Na Loja (Trabalhando) */}
+          <button
+            type="button"
+            onClick={() => setFiltroStatus(filtroStatus === 'trabalhando' ? 'todos' : 'trabalhando')}
+            className={cn(
+              'text-left rounded-2xl p-4 flex items-center gap-3 transition-all duration-200 border cursor-pointer select-none',
+              filtroStatus === 'trabalhando'
+                ? 'bg-emerald-950/30 border-emerald-500 shadow-md shadow-emerald-500/15 ring-2 ring-emerald-500/50'
+                : 'bg-card/60 border-emerald-500/30 bg-emerald-950/5 hover:border-emerald-500/60 hover:bg-emerald-950/15 shadow-sm'
+            )}
+          >
+            <div
+              className={cn(
+                'w-10 h-10 rounded-xl flex items-center justify-center transition-colors border',
+                filtroStatus === 'trabalhando'
+                  ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-bold shadow-sm'
+                  : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+              )}
+            >
               <CheckCircle2 className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-[11px] uppercase font-semibold text-muted-foreground tracking-wider block">
+              <span className="text-[11px] uppercase font-semibold text-emerald-400/90 tracking-wider block">
                 Na Loja (Trabalhando)
               </span>
               <span className="text-xl font-bold font-mono text-emerald-400 mt-0.5 block">
                 {stats.trabalhando}
               </span>
             </div>
-          </div>
+          </button>
 
-          <div className="bg-card/60 border border-amber-500/40 rounded-2xl p-4 flex items-center gap-3 shadow-sm bg-amber-950/10">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center border border-amber-500/30">
+          {/* Card: Em Janta Agora */}
+          <button
+            type="button"
+            onClick={() => setFiltroStatus(filtroStatus === 'em_janta' ? 'todos' : 'em_janta')}
+            className={cn(
+              'text-left rounded-2xl p-4 flex items-center gap-3 transition-all duration-200 border cursor-pointer select-none',
+              filtroStatus === 'em_janta'
+                ? 'bg-amber-950/35 border-amber-500 shadow-md shadow-amber-500/15 ring-2 ring-amber-500/50'
+                : 'bg-card/60 border-amber-500/40 bg-amber-950/10 hover:border-amber-500/70 hover:bg-amber-950/20 shadow-sm'
+            )}
+          >
+            <div
+              className={cn(
+                'w-10 h-10 rounded-xl flex items-center justify-center transition-colors border',
+                filtroStatus === 'em_janta'
+                  ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-sm'
+                  : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+              )}
+            >
               <UtensilsCrossed className="w-5 h-5 animate-pulse" />
             </div>
             <div>
@@ -412,10 +464,27 @@ export default function JantaPonto() {
                 {stats.emJanta}
               </span>
             </div>
-          </div>
+          </button>
 
-          <div className="bg-card/60 border border-border/60 rounded-2xl p-4 flex items-center gap-3 shadow-sm">
-            <div className="w-10 h-10 rounded-xl bg-secondary/80 flex items-center justify-center text-muted-foreground border border-border/60">
+          {/* Card: Ausentes / Não Chegou */}
+          <button
+            type="button"
+            onClick={() => setFiltroStatus(filtroStatus === 'ausente' ? 'todos' : 'ausente')}
+            className={cn(
+              'text-left rounded-2xl p-4 flex items-center gap-3 transition-all duration-200 border cursor-pointer select-none',
+              filtroStatus === 'ausente'
+                ? 'bg-slate-800/40 border-slate-400 shadow-md shadow-slate-500/10 ring-2 ring-slate-400/40'
+                : 'bg-card/60 border-border/60 hover:border-slate-500/50 hover:bg-card/90 shadow-sm'
+            )}
+          >
+            <div
+              className={cn(
+                'w-10 h-10 rounded-xl flex items-center justify-center transition-colors border',
+                filtroStatus === 'ausente'
+                  ? 'bg-slate-600 text-white border-slate-500 font-bold'
+                  : 'bg-secondary/80 text-muted-foreground border-border/60'
+              )}
+            >
               <Clock className="w-5 h-5" />
             </div>
             <div>
@@ -426,104 +495,33 @@ export default function JantaPonto() {
                 {stats.ausentes}
               </span>
             </div>
-          </div>
+          </button>
         </div>
 
-        {/* Barra de Filtros Rápidos com Auto-Reset de 30 segundos */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card/40 p-2 rounded-2xl border border-border/70">
-          <div className="flex flex-wrap items-center gap-1.5">
+        {/* Feedback visual quando algum filtro de status está ativo com contador de 30s */}
+        {filtroStatus !== 'todos' && segundosRestantes !== null && (
+          <div className="flex items-center justify-between px-4 py-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs animate-fade-in shadow-sm">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-400 animate-pulse shrink-0" />
+              <span>
+                Filtro ativo: <strong className="font-bold text-amber-200 uppercase">{getNomeFiltro(filtroStatus)}</strong>
+              </span>
+              <span className="text-muted-foreground hidden sm:inline">•</span>
+              <span className="text-muted-foreground hidden sm:inline">
+                Retorna ao normal em <strong className="text-amber-300 font-mono font-bold">{segundosRestantes}s</strong>
+              </span>
+            </div>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setFiltroStatus('todos')}
-              className={cn(
-                'h-9 px-3.5 rounded-xl text-xs font-semibold transition-all',
-                filtroStatus === 'todos'
-                  ? 'bg-primary text-primary-foreground shadow-sm font-bold'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/70'
-              )}
+              className="h-7 px-2.5 text-xs text-amber-400 hover:text-amber-200 hover:bg-amber-500/20 rounded-lg gap-1 font-semibold"
             >
-              Todos <span className="ml-1.5 opacity-70 text-[11px]">({stats.total})</span>
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setFiltroStatus('trabalhando')}
-              className={cn(
-                'h-9 px-3.5 rounded-xl text-xs font-semibold transition-all',
-                filtroStatus === 'trabalhando'
-                  ? 'bg-emerald-500 text-slate-950 font-bold shadow-md shadow-emerald-500/20'
-                  : 'text-emerald-400 hover:bg-emerald-500/10'
-              )}
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5 inline-block" />
-              Na Loja <span className="ml-1 text-[11px] opacity-90">({stats.trabalhando})</span>
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setFiltroStatus('em_janta')}
-              className={cn(
-                'h-9 px-3.5 rounded-xl text-xs font-semibold transition-all',
-                filtroStatus === 'em_janta'
-                  ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
-                  : 'text-amber-400 hover:bg-amber-500/10'
-              )}
-            >
-              <span className="w-2 h-2 rounded-full bg-amber-500 mr-1.5 inline-block animate-pulse" />
-              Em Janta <span className="ml-1 text-[11px] opacity-90">({stats.emJanta})</span>
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setFiltroStatus('ausente')}
-              className={cn(
-                'h-9 px-3.5 rounded-xl text-xs font-semibold transition-all',
-                filtroStatus === 'ausente'
-                  ? 'bg-slate-700 text-white font-bold shadow-sm'
-                  : 'text-muted-foreground hover:bg-secondary/70'
-              )}
-            >
-              <span className="w-2 h-2 rounded-full bg-slate-500 mr-1.5 inline-block" />
-              Ausentes <span className="ml-1 text-[11px] opacity-90">({stats.ausentes})</span>
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setFiltroStatus('finalizado')}
-              className={cn(
-                'h-9 px-3.5 rounded-xl text-xs font-semibold transition-all',
-                filtroStatus === 'finalizado'
-                  ? 'bg-purple-600 text-white font-bold shadow-sm'
-                  : 'text-purple-400 hover:bg-purple-500/10'
-              )}
-            >
-              <span className="w-2 h-2 rounded-full bg-purple-500 mr-1.5 inline-block" />
-              Finalizados <span className="ml-1 text-[11px] opacity-90">({stats.finalizados})</span>
+              <X className="w-3.5 h-3.5" />
+              Limpar Filtro
             </Button>
           </div>
-
-          {/* Badge Temporária com Regressiva de 30s */}
-          {filtroStatus !== 'todos' && segundosRestantes !== null && (
-            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-medium animate-fade-in shadow-sm">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0" />
-              <span>
-                Filtro ativo: <strong className="font-bold text-amber-200">{getNomeFiltro(filtroStatus)}</strong>
-              </span>
-              <span className="text-muted-foreground">• Retorna ao normal em <strong className="text-amber-300 font-mono font-bold">{segundosRestantes}s</strong></span>
-              <button
-                onClick={() => setFiltroStatus('todos')}
-                className="ml-1 underline hover:text-amber-100 text-amber-400 text-[11px] font-semibold"
-              >
-                Limpar agora
-              </button>
-            </div>
-          )}
-        </div>
+        )}
 
         {/* Barra de Busca */}
         <div className="flex items-center gap-3">

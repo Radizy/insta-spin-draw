@@ -1786,6 +1786,61 @@ const generateUUID = (): string => {
   });
 };
 
+/** Garante que os funcionários padrão estejam presentes e não sejam perdidos */
+const ensureStaffList = (
+  existingList: FuncionarioInterno[],
+  unidade: string,
+  franquiaId?: string | null
+): FuncionarioInterno[] => {
+  if (unidade.toUpperCase() !== 'ITAQUA') {
+    return existingList;
+  }
+
+  const nomesExistentes = new Set(existingList.map((f) => f.nome.toLowerCase().trim()));
+  const faltantes = INITIAL_ITAQUA_STAFF.filter(
+    (staff) => !nomesExistentes.has(staff.nome.toLowerCase().trim())
+  );
+
+  if (faltantes.length === 0) {
+    return existingList;
+  }
+
+  const novos: FuncionarioInterno[] = faltantes.map((f) => ({
+    id: generateUUID(),
+    nome: f.nome,
+    cargo: f.cargo,
+    unidade: 'ITAQUA',
+    franquia_id: franquiaId || null,
+    ativo: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }));
+
+  const listaCompleta = [...existingList, ...novos].sort((a, b) => a.nome.localeCompare(b.nome));
+
+  // Tenta sincronizar os faltantes no Supabase em background
+  try {
+    (supabase.from('funcionarios_internos') as any)
+      .upsert(
+        novos.map((n) => ({
+          id: n.id,
+          nome: n.nome,
+          cargo: n.cargo,
+          unidade: n.unidade,
+          franquia_id: n.franquia_id,
+          ativo: true,
+        })),
+        { onConflict: 'unidade,nome' }
+      )
+      .then(() => {})
+      .catch(() => {});
+  } catch (e) {
+    // Silencioso
+  }
+
+  return listaCompleta;
+};
+
 /** Busca todos os funcionários internos da unidade (com isolamento estrito por loja e franquia) */
 export async function fetchFuncionariosInternos(
   unidade: string,
@@ -1794,27 +1849,8 @@ export async function fetchFuncionariosInternos(
 ): Promise<FuncionarioInterno[]> {
   // Carrega do LocalStorage primeiro para resposta instantânea
   let local = getLocalFuncionarios(unidade);
-  
-  if (unidade.toUpperCase() === 'ITAQUA' && local.length === 0) {
-    const nomesExistentes = new Set(local.map((f) => f.nome.toLowerCase().trim()));
-    const faltantes = INITIAL_ITAQUA_STAFF.filter(
-      (staff) => !nomesExistentes.has(staff.nome.toLowerCase().trim())
-    );
-    if (faltantes.length > 0) {
-      const novos: FuncionarioInterno[] = faltantes.map((f) => ({
-        id: generateUUID(),
-        nome: f.nome,
-        cargo: f.cargo,
-        unidade: 'ITAQUA',
-        franquia_id: franquiaId || null,
-        ativo: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }));
-      local = [...local, ...novos].sort((a, b) => a.nome.localeCompare(b.nome));
-      saveLocalFuncionarios(unidade, local);
-    }
-  }
+  local = ensureStaffList(local, unidade, franquiaId);
+  saveLocalFuncionarios(unidade, local);
 
   // Tenta sincronizar silenciosamente com o Supabase
   try {
@@ -1829,9 +1865,10 @@ export async function fetchFuncionariosInternos(
 
     const { data, error } = await query;
 
-    if (!error && data && data.length > 0) {
-      saveLocalFuncionarios(unidade, data);
-      return apenasAtivos ? data.filter((f: any) => f.ativo) : data;
+    if (!error && data) {
+      const mergedData = ensureStaffList(data, unidade, franquiaId);
+      saveLocalFuncionarios(unidade, mergedData);
+      return apenasAtivos ? mergedData.filter((f: any) => f.ativo) : mergedData;
     }
   } catch (err) {
     // Silencioso - utiliza o cache local
