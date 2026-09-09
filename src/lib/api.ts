@@ -1786,51 +1786,37 @@ const generateUUID = (): string => {
   });
 };
 
-/** Busca todos os funcionários internos da unidade / franquia */
+/** Busca todos os funcionários internos da unidade de forma estritamente isolada */
 export async function fetchFuncionariosInternos(
   unidade: string,
   apenasAtivos: boolean = false,
   franquiaId?: string | null
 ): Promise<FuncionarioInterno[]> {
-  // Carrega do LocalStorage primeiro para resposta instantânea
+  // Carrega do LocalStorage da unidade específica para resposta instantânea
   let local = getLocalFuncionarios(unidade);
-  if (local.length === 0 && franquiaId) {
-    const franqCache = localStorage.getItem(`filalab_funcionarios_franq_${franquiaId}`);
-    if (franqCache) {
-      try {
-        local = JSON.parse(franqCache);
-      } catch (e) {}
-    }
-  }
 
-  // Tenta sincronizar silenciosamente com o Supabase
+  // Sincroniza com o Supabase filtrando estritamente pela unidade (isolamento absoluto por loja)
   try {
     let query = (supabase.from('funcionarios_internos') as any)
       .select('*')
+      .eq('unidade', unidade)
       .order('nome', { ascending: true });
 
     if (franquiaId) {
-      query = query.or(`franquia_id.eq.${franquiaId},unidade.eq.${unidade}`);
-    } else {
-      query = query.eq('unidade', unidade);
+      query = query.eq('franquia_id', franquiaId);
     }
 
     const { data, error } = await query;
 
     if (!error && data) {
-      let merged = data;
+      let merged: FuncionarioInterno[] = data;
 
-      // Se a equipe estiver vazia ou faltando membros da lista padrão, complementa
-      const nomesExistentes = new Set(merged.map((f: any) => f.nome.toLowerCase().trim()));
-      const faltantes = INITIAL_ITAQUA_STAFF.filter(
-        (staff) => !nomesExistentes.has(staff.nome.toLowerCase().trim())
-      );
-
-      if (faltantes.length > 0) {
+      // Se a loja não tiver nenhum funcionário cadastrado no banco nem localmente, inicializa a equipe padrão para esta loja
+      if (merged.length === 0 && local.length === 0) {
         try {
           const { data: inserted, error: insErr } = await (supabase.from('funcionarios_internos') as any)
             .insert(
-              faltantes.map((f) => ({
+              INITIAL_ITAQUA_STAFF.map((f) => ({
                 nome: f.nome,
                 cargo: f.cargo,
                 unidade,
@@ -1841,24 +1827,23 @@ export async function fetchFuncionariosInternos(
             .select();
 
           if (!insErr && inserted) {
-            merged = [...merged, ...inserted].sort((a: any, b: any) => a.nome.localeCompare(b.nome));
+            merged = inserted.sort((a: any, b: any) => a.nome.localeCompare(b.nome));
           }
         } catch (e) {
-          console.warn('Erro ao complementar equipe padrão:', e);
+          console.warn('Erro ao inicializar equipe padrão:', e);
         }
       }
 
-      saveLocalFuncionarios(unidade, merged);
-      if (franquiaId) {
-        localStorage.setItem(`filalab_funcionarios_franq_${franquiaId}`, JSON.stringify(merged));
+      if (merged.length > 0) {
+        saveLocalFuncionarios(unidade, merged);
+        return apenasAtivos ? merged.filter((f: any) => f.ativo) : merged;
       }
-      return apenasAtivos ? merged.filter((f: any) => f.ativo) : merged;
     }
   } catch (err) {
-    console.warn('Silencioso - utilizando cache local:', err);
+    console.warn('Silencioso - utilizando cache local da loja:', err);
   }
 
-  // Fallback se não retornou do banco
+  // Fallback se não retornou do banco e local está vazio
   if (local.length === 0) {
     local = INITIAL_ITAQUA_STAFF.map((f) => ({
       id: generateUUID(),
@@ -1876,7 +1861,7 @@ export async function fetchFuncionariosInternos(
   return apenasAtivos ? local.filter((f) => f.ativo) : local;
 }
 
-/** Cadastra um novo funcionário interno (com isolamento estrito por loja e franquia) */
+/** Cadastra um novo funcionário interno (com isolamento estrito por loja) */
 export async function createFuncionarioInterno(params: {
   nome: string;
   cargo: string;
@@ -1911,7 +1896,7 @@ export async function createFuncionarioInterno(params: {
       novoFuncionario = data;
     }
   } catch (e) {
-    console.warn('Salvo localmente:', e);
+    console.warn('Salvo localmente na loja:', e);
   }
 
   const local = getLocalFuncionarios(params.unidade);
@@ -1921,9 +1906,6 @@ export async function createFuncionarioInterno(params: {
   ].sort((a, b) => a.nome.localeCompare(b.nome));
 
   saveLocalFuncionarios(params.unidade, atualizado);
-  if (params.franquia_id) {
-    localStorage.setItem(`filalab_funcionarios_franq_${params.franquia_id}`, JSON.stringify(atualizado));
-  }
 
   return novoFuncionario;
 }
@@ -2240,16 +2222,17 @@ export async function registrarCheckinPonto(params: {
       .maybeSingle();
 
     if (!dbFunc && params.funcionario_nome) {
-      // Tenta achar por nome
+      // Tenta achar por nome na mesma unidade
       const { data: dbFuncPorNome } = await (supabase.from('funcionarios_internos') as any)
         .select('id')
         .eq('nome', params.funcionario_nome)
+        .eq('unidade', params.unidade)
         .maybeSingle();
 
       if (dbFuncPorNome) {
         targetFuncionarioId = dbFuncPorNome.id;
       } else {
-        // Cria no banco para ter id válido
+        // Cria no banco para ter id válido na unidade
         const { data: createdFunc } = await (supabase.from('funcionarios_internos') as any)
           .insert([{
             nome: params.funcionario_nome,
@@ -2265,10 +2248,11 @@ export async function registrarCheckinPonto(params: {
       }
     }
 
-    // Agora salva o registro de ponto no Supabase
+    // Agora salva o registro de ponto no Supabase (estritamente isolado por loja e data)
     const { data: existente } = await (supabase.from('registros_ponto_intervalo') as any)
       .select('id')
       .eq('funcionario_id', targetFuncionarioId)
+      .eq('unidade', params.unidade)
       .eq('data_referencia', params.data_referencia)
       .maybeSingle();
 
