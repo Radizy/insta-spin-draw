@@ -1786,7 +1786,7 @@ const generateUUID = (): string => {
   });
 };
 
-/** Busca todos os funcionários internos da unidade de forma estritamente isolada */
+/** Busca todos os funcionários internos da unidade de forma estritamente isolada e sem duplicidades */
 export async function fetchFuncionariosInternos(
   unidade: string,
   apenasAtivos: boolean = false,
@@ -1813,10 +1813,20 @@ export async function fetchFuncionariosInternos(
         created_at: now,
         updated_at: now,
       }));
-      local = [...local, ...added].sort((a, b) => a.nome.localeCompare(b.nome));
-      saveLocalFuncionarios(unidade, local);
+      local = [...local, ...added];
     }
   }
+
+  // Deduplica cache local por nome
+  const dedupLocalMap = new Map<string, FuncionarioInterno>();
+  local.forEach((f) => {
+    const key = f.nome.toLowerCase().trim();
+    if (!dedupLocalMap.has(key)) {
+      dedupLocalMap.set(key, f);
+    }
+  });
+  local = Array.from(dedupLocalMap.values()).sort((a, b) => a.nome.localeCompare(b.nome));
+  saveLocalFuncionarios(unidade, local);
 
   // Sincroniza com o Supabase filtrando estritamente pela unidade (isolamento absoluto por loja)
   try {
@@ -1855,7 +1865,7 @@ export async function fetchFuncionariosInternos(
             .select();
 
           if (!insErr && inserted) {
-            merged = [...merged, ...inserted].sort((a: any, b: any) => a.nome.localeCompare(b.nome));
+            merged = [...merged, ...inserted];
           } else {
             // Em caso de restrição/erro do banco, mescla com o cache local para não faltar na interface
             const localMap = new Map(local.map((l) => [l.nome.toLowerCase().trim(), l]));
@@ -1863,7 +1873,6 @@ export async function fetchFuncionariosInternos(
               const fromLocal = localMap.get(fl.nome.toLowerCase().trim());
               if (fromLocal) merged.push(fromLocal);
             });
-            merged.sort((a, b) => a.nome.localeCompare(b.nome));
           }
         } catch (e) {
           console.warn('Erro ao sincronizar equipe padrão no Supabase:', e);
@@ -1872,13 +1881,22 @@ export async function fetchFuncionariosInternos(
             const fromLocal = localMap.get(fl.nome.toLowerCase().trim());
             if (fromLocal) merged.push(fromLocal);
           });
-          merged.sort((a, b) => a.nome.localeCompare(b.nome));
         }
       }
 
-      if (merged.length > 0) {
-        saveLocalFuncionarios(unidade, merged);
-        return apenasAtivos ? merged.filter((f: any) => f.ativo) : merged;
+      // Deduplicação estrita de funcionários no retorno e no cache
+      const dedupDbMap = new Map<string, FuncionarioInterno>();
+      merged.forEach((f) => {
+        const key = f.nome.toLowerCase().trim();
+        if (!dedupDbMap.has(key)) {
+          dedupDbMap.set(key, f);
+        }
+      });
+      const dedupedMerged = Array.from(dedupDbMap.values()).sort((a, b) => a.nome.localeCompare(b.nome));
+
+      if (dedupedMerged.length > 0) {
+        saveLocalFuncionarios(unidade, dedupedMerged);
+        return apenasAtivos ? dedupedMerged.filter((f: any) => f.ativo) : dedupedMerged;
       }
     }
   } catch (err) {
@@ -1992,7 +2010,7 @@ export async function deleteFuncionarioInterno(id: string, unidade?: string): Pr
   }
 }
 
-/** Busca os registros de ponto do dia atual para a unidade */
+/** Busca os registros de ponto do dia atual para a unidade e reconecta a funcionários por ID ou Nome */
 export async function fetchRegistrosPontoDia(unidade: string, dataReferencia: string): Promise<RegistroPontoIntervalo[]> {
   let dbRegistros: RegistroPontoIntervalo[] = [];
   try {
@@ -2008,32 +2026,66 @@ export async function fetchRegistrosPontoDia(unidade: string, dataReferencia: st
     console.warn('Erro ao buscar registros no Supabase:', e);
   }
 
-  // Mescla registros do Supabase com contingência local
+  // Funcionários da unidade para mapeamento e normalização por ID ou Nome
   const funcionarios = getLocalFuncionarios(unidade);
-  const funcMap = new Map(funcionarios.map((f) => [f.id, f]));
+  const funcById = new Map(funcionarios.map((f) => [f.id, f]));
+  const funcByName = new Map(funcionarios.map((f) => [f.nome.toLowerCase().trim(), f]));
+
   const localRegistros = getLocalRegistros(unidade).filter(
     (r) => r.unidade === unidade && r.data_referencia === dataReferencia
   );
 
+  const normalizeRegistro = (r: RegistroPontoIntervalo): RegistroPontoIntervalo => {
+    let f = funcById.get(r.funcionario_id);
+    if (!f && r.funcionario?.nome) {
+      f = funcByName.get(r.funcionario.nome.toLowerCase().trim());
+    }
+    if (!f && (r as any).funcionario_nome) {
+      f = funcByName.get(String((r as any).funcionario_nome).toLowerCase().trim());
+    }
+
+    if (f) {
+      return {
+        ...r,
+        funcionario_id: f.id,
+        funcionario: f,
+      };
+    }
+    return r;
+  };
+
   const mergedMap = new Map<string, RegistroPontoIntervalo>();
 
-  // 1. Registros do banco
+  // 1. Registros do banco normalizados
   dbRegistros.forEach((r) => {
-    mergedMap.set(r.funcionario_id, r);
+    const norm = normalizeRegistro(r);
+    mergedMap.set(norm.funcionario_id, norm);
+    if (norm.funcionario?.nome) {
+      mergedMap.set(`nome_${norm.funcionario.nome.toLowerCase().trim()}`, norm);
+    }
   });
 
   // 2. Se o local tiver check-in recente preserva para evitar que a UI pisque ou zere
   localRegistros.forEach((r) => {
-    const existing = mergedMap.get(r.funcionario_id);
-    if (!existing || (r.checkin_at && (!existing.checkin_at || (r.updated_at || '') > (existing.updated_at || '')))) {
-      mergedMap.set(r.funcionario_id, {
-        ...r,
-        funcionario: existing?.funcionario || funcMap.get(r.funcionario_id) || r.funcionario,
-      });
+    const norm = normalizeRegistro(r);
+    const existing = mergedMap.get(norm.funcionario_id) || (norm.funcionario?.nome ? mergedMap.get(`nome_${norm.funcionario.nome.toLowerCase().trim()}`) : undefined);
+    if (!existing || (norm.checkin_at && (!existing.checkin_at || (norm.updated_at || '') > (existing.updated_at || '')))) {
+      mergedMap.set(norm.funcionario_id, norm);
+      if (norm.funcionario?.nome) {
+        mergedMap.set(`nome_${norm.funcionario.nome.toLowerCase().trim()}`, norm);
+      }
     }
   });
 
-  return Array.from(mergedMap.values());
+  // Retorna apenas valores únicos por funcionario_id
+  const finalMap = new Map<string, RegistroPontoIntervalo>();
+  Array.from(mergedMap.values()).forEach((r) => {
+    if (r.funcionario_id) {
+      finalMap.set(r.funcionario_id, r);
+    }
+  });
+
+  return Array.from(finalMap.values());
 }
 
 /** Busca histórico completo para visualização na planilha/relatório */

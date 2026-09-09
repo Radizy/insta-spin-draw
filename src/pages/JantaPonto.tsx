@@ -141,14 +141,24 @@ export default function JantaPonto() {
     refetchInterval: 10000,
   });
 
-  // Mapeia registro por funcionário
+  // Mapeia registro por funcionário (suporta mapeamento por ID e Nome para reconectar check-ins anteriores)
   const registrosMap = useMemo(() => {
     const map = new Map<string, RegistroPontoIntervalo>();
     registrosHoje.forEach((reg) => {
-      map.set(reg.funcionario_id, reg);
+      if (reg.funcionario_id) {
+        map.set(reg.funcionario_id, reg);
+      }
+      const nome = reg.funcionario?.nome || (reg as any).funcionario_nome;
+      if (nome) {
+        map.set(`nome_${nome.toLowerCase().trim()}`, reg);
+      }
     });
     return map;
   }, [registrosHoje]);
+
+  const getRegistroParaFuncionario = (func: FuncionarioInterno): RegistroPontoIntervalo | undefined => {
+    return registrosMap.get(func.id) || registrosMap.get(`nome_${func.nome.toLowerCase().trim()}`);
+  };
 
   // KPIs
   const stats = useMemo(() => {
@@ -159,7 +169,7 @@ export default function JantaPonto() {
     let finalizados = 0;
 
     funcionarios.forEach((f) => {
-      const reg = registrosMap.get(f.id);
+      const reg = getRegistroParaFuncionario(f);
       const st = reg?.status || 'ausente';
       if (st === 'trabalhando') trabalhando++;
       else if (st === 'em_janta') emJanta++;
@@ -177,7 +187,7 @@ export default function JantaPonto() {
     // Filtro por status rápido
     if (filtroStatus !== 'todos') {
       lista = lista.filter((f) => {
-        const reg = registrosMap.get(f.id);
+        const reg = getRegistroParaFuncionario(f);
         const st = reg?.status || 'ausente';
         return st === filtroStatus;
       });
@@ -575,7 +585,7 @@ export default function JantaPonto() {
               <FuncionarioCard
                 key={func.id}
                 funcionario={func}
-                registro={registrosMap.get(func.id)}
+                registro={getRegistroParaFuncionario(func)}
                 onCheckin={(funcObj) => checkinMutation.mutate(funcObj)}
                 onSaidaJanta={(regId) => saidaJantaMutation.mutate(regId)}
                 onRetornoJanta={(regId, saida) =>
