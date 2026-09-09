@@ -12,29 +12,45 @@
 
 ### Gestão de Módulos (Toggles)
 O sistema conta com restrição de funcionalidades por pacote comercial baseada em módulos.
-Os 5 módulos principais são:
+Os módulos principais são:
 1. **WhatsApp Avançado (`whatsapp`)**: Controla abas de configuração da Evolution API e envio de disparo de mensagens diretas do sistema para o entregador.
 2. **TV Premium (`tv_avancada`)**: Destrava customizações exclusivas como upload de fundo e customização de toques e vozes de AI da tela de TV de espera. Inclui sistema de rediscagem automática de 10s e caminhos de áudio otimizados por franquia.
 3. **Integração Planilha (`planilha`)**: Habilita o webhook do Google Sheets no painel de Histórico permitindo exportação autônoma de dados.
 4. **Fila de Pagamento (`fila_pagamento`)**: Libera o uso da tela `/fila-pagamento` para o gerenciamento de senhas (cash-out financeiro dos motoqueiros).
 5. **Controle de Maquininhas (`controle_maquininhas`)**: Módulo definitivo para gestão de estoque e atribuição de máquinas de cartão para motoboys.
-6. **Integração SISFOOD (`sisfood_integration`)**: Habita o painel de tutorial na aba Integrações, disparando webhooks do caixa para alimentar a Fila do Roteirista sem falhas. 
+6. **Integração SISFOOD (`sisfood_integration`)**: Habilita o painel de tutorial na aba Integrações, disparando webhooks do caixa para alimentar a Fila do Roteirista sem falhas. 
 7. **Modo Treinamento (FilaLab Academy)**: Treinamento simulado em memória local, guiado passo a passo para novos operadores (`isTrainingMode`).
+8. **Janta & Ponto - Equipe Interna (`janta_ponto`)**: Controle de ponto, intervalos de refeição e jornada de trabalho dos colaboradores internos (atendimento, cozinha, corte, etc.) com sincronização unificada de planilhas Google Sheets por franquia.
 
 Esses módulos podem ser geridos livremente pelo painel Super Admin na visualização e edição de uma franquia.
 
 ### Versão do Sistema
-- **Versão Atual**: `2.9.6` (Junho 2026)
+- **Versão Atual**: `2.9.7` (Setembro 2026)
 - **Últimas Implementações**:
+    - **Módulo Janta & Ponto (Controle de Intervalo da Equipe Interna)**:
+        - Implementada tela dedicada [`/janta-ponto`](file:///src/pages/JantaPonto.tsx) para gestão ágil de ponto e intervalo de refeição/janta dos funcionários internos da loja (Atendimento, Cozinha, Pizza, Massa, Corte, Broto Doce, Gerência).
+        - Cards visuais interativos com 4 estados em tempo real: **Ausente**, **Trabalhando**, **Em Janta** (com contador progressivo e alerta visual para intervalos longos) e **Finalizado**.
+        - Suporte a Check-in rápido com 1 clique, início de intervalo com timestamp exato, retorno com cálculo automático de duração em minutos (`tempo_total_janta_minutos`) e finalização de expediente.
+        - Sistema híbrido resiliente com persistência prioritária no Supabase (`funcionarios_internos`, `registros_ponto_intervalo`) e contingência inteligente offline no `localStorage`.
+    - **Reset Geral de Expediente Integrado à Equipe Interna**:
+        - A ação de **"Reset de Expediente"** nas Configurações da Loja (`/config` via `resetDaily`) agora aciona automaticamente a limpeza e zeramento dos registros de ponto e intervalo do dia atual dos funcionários internos (`resetPontoEquipeInterna`), deixando a equipe pronta para o novo turno sem intervenção manual adicional.
+    - **Reset Individual por Funcionário e Reset em Lote da Equipe**:
+        - Adicionada opção de **"Resetar Dia"** no menu de opções individuais de cada card de funcionário ([`FuncionarioCard.tsx`](file:///src/components/janta-ponto/FuncionarioCard.tsx)), permitindo corrigir ou reiniciar o estado diário de um colaborador específico sem impactar o restante do time.
+        - Botão global no cabeçalho do módulo para resetar todos os registros de ponto da equipe interna no dia atual.
+    - **Integração Google Sheets Unificada por Franquia**:
+        - Configuração do webhook do Google Apps Script centralizada no nível da franquia (`franquias.config_pagamento.config_sheets_ponto_url`). Ao salvar a URL da planilha em qualquer loja (ex: Itaquá), a configuração é replicada e sincronizada instantaneamente para todas as outras lojas da mesma rede (Poá, Suzano, etc.).
+        - O webhook grava os dados automaticamente na aba dedicada de cada unidade (`({UNIDADE}) JANTA E PONTO`), atualizando na mesma linha do dia os horários de entrada, início de intervalo, retorno e total em minutos.
+    - **Reforço de Segurança e Isolamento Estrito Multi-Franquia**:
+        - Todas as consultas, criações e atualizações de funcionários internos e registros de ponto foram blindadas com o filtro obrigatório de `franquia_id` em conjunto com a `unidade`, impedindo cruzamento ou vazamento de colaboradores entre redes distintas.
     - **Gestão Automatizada de Transmissão (Inatividade de 5m & Injeção em Massa)**:
         - Implementada remoção automática do item `transmissao` da playlist (`tv_playlist`) de todas as unidades da franquia se o OBS Studio passar **5 minutos inativo** (AFK sem transmissão), evitando telas pretas nas TVs.
-        - Adicionado botão **"Adicionar a Todas as Lojas"** no painel administrativo [ScreenShareTransmitter.tsx](file:///c:/Users/Vinicius/Documents/GitHub/insta-spin-draw/src/components/tv/ScreenShareTransmitter.tsx). Com um clique, ele detecta todas as unidades da franquia e insere de forma automática a mídia `transmissao` ativa na playlist delas no Supabase.
-        - O tipo de mídia `transmissao` (nativo da playlist da TV) foi atualizado em [TV.tsx](file:///c:/Users/Vinicius/Documents/GitHub/insta-spin-draw/src/pages/TV.tsx) para buscar e reproduzir o link HLS dinâmico de forma 100% automatizada com base na franquia logada (`franquiaId`), eliminando a necessidade de cadastrar e copiar URLs manualmente.
+        - Adicionado botão **"Adicionar a Todas as Lojas"** no painel administrativo [ScreenShareTransmitter.tsx](file:///src/components/tv/ScreenShareTransmitter.tsx). Com um clique, ele detecta todas as unidades da franquia e insere de forma automática a mídia `transmissao` ativa na playlist delas no Supabase.
+        - O tipo de mídia `transmissao` (nativo da playlist da TV) foi atualizado em [TV.tsx](file:///src/pages/TV.tsx) para buscar e reproduzir o link HLS dinâmico de forma 100% automatizada com base na franquia logada (`franquiaId`), eliminando a necessidade de cadastrar e copiar URLs manualmente.
         - Removido o import e renderização do receptor WebRTC em segundo plano (`ScreenShareReceiver`), otimizando o consumo de rede e processamento do player da TV.
         - **Controle Inteligente de Armazenamento**: A pasta `/tmp/hls` é mantida em memória RAM no container Docker e o Nginx rotaciona os arquivos deletando automaticamente os pedaços de vídeo mais antigos com base na regra `hls_playlist_length 60s`. Ao encerrar a transmissão, os arquivos temporários são 100% apagados, garantindo 0% de acúmulo em disco na VPS.
     - **Precisão e Identificação na Transmissão de Tela (WebRTC)**:
-        - Resolvido o bug de oscilação do contador de conexões (onde subia para 2 e zerava) ao gerenciar o estado como um mapa de conexões ativas (`activeTVs`) indexado pelo `tvId` das RTCPeerConnections no estado real de `connected`.
-        - Adicionado HUD de alto contraste que exibe os nomes das lojas ativas que estão assistindo à transmissão em tempo real (ex: "Assistindo agora: Itaquá, Poá") usando o payload nominal de `tv-ready`.
+        - Resolvido o bug de oscilação do contador de conexões ao gerenciar o estado como um mapa de conexões ativas (`activeTVs`) indexado pelo `tvId` das RTCPeerConnections no estado real de `connected`.
+        - Adicionado HUD de alto contraste que exibe os nomes das lojas ativas que estão assistindo à transmissão em tempo real usando o payload nominal de `tv-ready`.
     - **Separação de Conceitos (Saídas vs Entregas) e Analytics**:
         - Introdução da migração SQL `20260615062200_add_quantidade_entregas.sql` para rastrear a `quantidade_entregas` por viagem em `historico_entregas`.
         - Interface do Histórico reestruturada para exibir cartões, estatísticas e listagens separando saídas físicas (viagens) de entregas totais, incluindo exportação Excel/CSV atualizada.
@@ -813,6 +829,64 @@ CREATE POLICY "unidade_bag_tipos_permissive_all" ON unidade_bag_tipos FOR ALL US
 
 ---
 
+### TABELA: funcionarios_internos
+Cadastro de colaboradores da equipe interna da loja (Atendimento, Cozinha, Pizza, Massa, Corte, Broto Doce, Gerência).
+
+**Estrutura:**
+```sql
+CREATE TABLE funcionarios_internos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  franquia_id UUID REFERENCES franquias(id) ON DELETE CASCADE,
+  unidade TEXT NOT NULL,
+  nome TEXT NOT NULL,
+  cargo TEXT NOT NULL,
+  ativo BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+```
+
+**Funcionalidades:**
+- Suporta isolamento estrito por `franquia_id` e `unidade`.
+- Seed automático dos colaboradores iniciais em novas implantações.
+- Fallback e sincronização bidirecional resiliente com cache local `localStorage` (`filalab_funcionarios_{unidade}`).
+
+---
+
+### TABELA: registros_ponto_intervalo
+Registro diário de ponto, entrada, intervalos de refeição/janta e jornada de trabalho dos funcionários internos.
+
+**Estrutura:**
+```sql
+CREATE TABLE registros_ponto_intervalo (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  funcionario_id UUID NOT NULL REFERENCES funcionarios_internos(id) ON DELETE CASCADE,
+  franquia_id UUID REFERENCES franquias(id) ON DELETE CASCADE,
+  unidade TEXT NOT NULL,
+  data_referencia DATE NOT NULL DEFAULT CURRENT_DATE, -- Formato YYYY-MM-DD
+  checkin_at TIMESTAMP WITH TIME ZONE,
+  saida_janta_at TIMESTAMP WITH TIME ZONE,
+  retorno_janta_at TIMESTAMP WITH TIME ZONE,
+  tempo_total_janta_minutos INTEGER DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'trabalhando', -- ausente, trabalhando, em_janta, finalizado
+  observacao TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+```
+
+**Funcionalidades:**
+- **Status do Colaborador**:
+  - `ausente`: Sem check-in no dia.
+  - `trabalhando`: Check-in ativo, em jornada de trabalho.
+  - `em_janta`: Em intervalo de refeição com contador regressivo/progressivo ativo.
+  - `finalizado`: Turno encerrado pelo operador.
+- **Cálculo Automático**: Ao registrar o retorno da janta, calcula a diferença em minutos (`tempo_total_janta_minutos`) entre `saida_janta_at` e `retorno_janta_at`.
+- **Sincronização com Google Sheets**: Dispara webhook assíncrono para a aba correspondente da unidade `({UNIDADE}) JANTA E PONTO`, atualizando a mesma linha diária do colaborador.
+- **Resiliência Multi-Camada**: Sincronização e contingência integrada com `localStorage` (`filalab_registros_ponto_{unidade}`).
+
+---
+
 ### TABELAS AUXILIARES
 
 #### global_config
@@ -1032,11 +1106,12 @@ CREATE POLICY "only_admins_can_modify_franquias"
 
 ### 4. reset-daily (Reset de Expediente)
 **Rota:** `POST /reset-daily`  
-**Descrição:** Reseta status de motoboys. Funciona como botão "Reset de Expediente" da aba da loja.  
+**Descrição:** Reseta status de motoboys e da equipe interna. Funciona como botão "Reset de Expediente" na aba de configurações da loja.  
 **Ações:**
-- Define todos motoboys como `disponivel` e os desativa `ativo: false`
-- Limpa `hora_saida` de todos para garantir zeramento da fila
-- Prepara o sistema para o próximo dia sem excluir os dados em nuvem do Histórico (`historico_entregas`).
+- Define todos motoboys como `disponivel` e os desativa `ativo: false`.
+- Limpa `hora_saida` de todos para garantir zeramento da fila de entregadores.
+- **Equipe Interna Integrada**: Executa a limpeza e reset dos registros de ponto e intervalo do dia atual para a equipe de funcionários internos (`resetPontoEquipeInterna`), deixando os colaboradores em estado `ausente` para o novo turno.
+- Prepara o sistema para o próximo dia sem excluir os dados em nuvem do Histórico (`historico_entregas` e histórico consolidado do Sheets).
 
 ---
 
@@ -1130,6 +1205,44 @@ CREATE POLICY "only_admins_can_modify_franquias"
 3. Cria usuário admin em `system_users`
 4. Vincula usuário à unidade em `user_unidades`
 5. Associa plano em `unidade_planos` (se aplicável)
+
+---
+
+### 16. Webhook Google Sheets & Métodos da API (Janta & Ponto - Equipe Interna)
+**Função Cliente:** `sendPontoSheetsWebhook()` em [`api.ts`](file:///src/lib/api.ts)  
+**Descrição:** Envia dados de telemetria e jornada de trabalho dos funcionários internos para o Google Apps Script da planilha da franquia de forma assíncrona (`mode: 'no-cors'`).
+
+**Payload Estruturado:**
+```json
+{
+  "tipo": "ponto_intervalo_funcionario",
+  "acao": "checkin | saida_janta | retorno_janta",
+  "unidade": "Itaquaquecetuba",
+  "franquia_id": "6d1fd941-2756-4b04-8ac3-8dfd22ee83fe",
+  "funcionario_id": "uuid-do-funcionario",
+  "funcionario_nome": "Alessandra",
+  "cargo": "Atendimento",
+  "data": "2026-09-08",
+  "checkin": "2026-09-08T18:00:00.000Z",
+  "saida_janta": "2026-09-08T21:15:00.000Z",
+  "retorno_janta": "2026-09-08T21:45:00.000Z",
+  "tempo_total_minutos": 30,
+  "status": "trabalhando",
+  "id_registro": "uuid-do-registro"
+}
+```
+
+**Principais Métodos da API (`api.ts`):**
+- `fetchFuncionariosInternos(unidade, apenasAtivos?, franquiaId?)`: Carrega lista com cache local de contingência e isolamento estrito.
+- `createFuncionarioInterno(params)`: Cadastra colaborador vinculado à unidade e franquia.
+- `updateFuncionarioInterno(id, params, unidade?)`: Atualiza nome, cargo ou ativação do funcionário.
+- `deleteFuncionarioInterno(id, unidade?)`: Exclui funcionário e limpa registros associados.
+- `fetchRegistrosPontoDia(unidade, dataReferencia)`: Retorna os status de ponto do dia para a tela operacional.
+- `registrarCheckinPonto(params)`: Registra entrada com 1 toque e dispara webhook de check-in.
+- `registrarSaidaJanta(registroId, unidade?)`: Registra início do intervalo e atualiza status para `em_janta`.
+- `registrarRetornoJanta(registroId, saidaJantaAt, unidade?)`: Registra fim de intervalo, calcula duração e dispara atualização no Google Sheets.
+- `resetPontoEquipeInterna(unidade, dataReferencia?)`: Limpa os registros de ponto do dia da equipe da unidade.
+- `resetPontoFuncionario(funcionarioId, unidade, dataReferencia?)`: Reseta apenas o registro diário de um colaborador individual.
 
 ---
 
@@ -1365,6 +1478,37 @@ CREATE POLICY "only_admins_can_modify_franquias"
 
 ---
 
+### 9. Janta & Ponto - Equipe Interna (/janta-ponto)
+**Painel dedicado para gestão de ponto, pausas de refeição e jornada da equipe interna da loja.**
+
+**Funcionalidades:**
+- **Controle de Ponto em 1 Toque**: Check-in de chegada registrando a entrada imediata do colaborador no turno de trabalho.
+- **Gestão de Intervalo (Janta / Almoço)**:
+  - Registro de saída para refeição com cronômetro em tempo real no card.
+  - Alerta visual de destaque quando o intervalo ultrapassa o tempo limite recomendado.
+  - Registro de retorno com cálculo automático dos minutos corridos (`tempo_total_janta_minutos`).
+- **Estados Visuais dos Cards**:
+  - ⚪ **Ausente**: Colaborador aguardando início do turno (sem check-in no dia).
+  - 🟢 **Trabalhando**: Em operação ativa na cozinha, atendimento, balcão ou gerência.
+  - 🟠 **Em Janta**: Em pausa de refeição com timer decorrido visível.
+  - 🟣 **Finalizado**: Expediente do colaborador encerrado.
+- **Ações Rápidas por Card**:
+  - `Check-in`: Inicia o dia do colaborador.
+  - `Ir Jantar`: Inicia a contagem de tempo de intervalo.
+  - `Voltou da Janta`: Encerra o intervalo e consolida a duração em minutos.
+  - `Finalizar Turno`: Marca o término do expediente.
+  - `Resetar Dia (Individual)`: Botão no menu de 3 pontos do card para reiniciar apenas o colaborador selecionado sem impactar os colegas.
+- **Ações Globais no Cabeçalho**:
+  - `Cadastrar Funcionário`: Modal para inserção ágil de novos colaboradores internos por cargo.
+  - `Resetar Dia da Equipe`: Limpa os registros de ponto do dia da unidade atual (não afeta motoboys).
+  - `Planilha / Relatório`: Modal com histórico completo, filtro de datas/colaboradores e configuração da planilha do Google Sheets.
+- **Integração Google Sheets Centralizada por Franquia**:
+  - O franqueado define o webhook do Google Apps Script uma única vez nas configurações da franquia (`config_sheets_ponto_url`).
+  - Todas as lojas da rede compartilham a mesma planilha mestre e o webhook roteia as gravações para a aba respectiva de cada unidade: `({UNIDADE}) JANTA E PONTO` (ex: `(ITAQUA) JANTA E PONTO`, `(POA) JANTA E PONTO`, `(SUZANO) JANTA E PONTO`).
+  - O script atualiza a linha correspondente do dia sem duplicar registros.
+
+---
+
 ## 🔄 FLUXOS PRINCIPAIS
 
 ### Fluxo 1: Check-in de Motoboy
@@ -1484,6 +1628,58 @@ Desconto é exibido:
 Para remover:
   - Super Admin clica em "Remover desconto"
   - Sistema seta desconto_tipo = 'nenhum'
+```
+
+---
+
+### Fluxo 5: Controle de Ponto e Intervalo da Equipe Interna
+
+```
+Operador acessa /janta-ponto
+    ↓
+1. Entrada (Check-in):
+   - Clica em "Check-in" no card do funcionário
+   - Sistema salva checkin_at = NOW() e status = 'trabalhando'
+   - Dispara webhook para Google Sheets na aba ({UNIDADE}) JANTA E PONTO
+    ↓
+2. Saída para Janta/Intervalo:
+   - Clica em "Ir Jantar"
+   - Sistema salva saida_janta_at = NOW() e status = 'em_janta'
+   - Card ativa cronômetro decorrido em tempo real
+   - Dispara webhook para Google Sheets atualizando a mesma linha
+    ↓
+3. Retorno da Janta/Intervalo:
+   - Clica em "Voltou da Janta"
+   - Sistema calcula: tempo_total_janta_minutos = (retorno - saida) / 60000
+   - Salva retorno_janta_at = NOW() e status = 'trabalhando'
+   - Dispara webhook para Google Sheets com a duração final do intervalo
+    ↓
+4. Encerramento de Turno:
+   - Clica em "Finalizar Turno"
+   - Status passa para 'finalizado'
+```
+
+---
+
+### Fluxo 6: Reset de Expediente (Geral vs Equipe vs Individual)
+
+```
+Cenário A: Fechamento Geral de Turno (/config)
+  - Operador clica em "Reset de Expediente"
+  - Backend reseta todos os motoboys (ativo = false, status = 'disponivel')
+  - Backend chama resetPontoEquipeInterna(unidade)
+  - Todos os registros de ponto do dia da equipe interna são zerados
+  - Histórico do Sheets e historico_entregas permanecem preservados
+
+Cenário B: Reset Global da Equipe Interna (/janta-ponto)
+  - Operador clica em "Resetar Dia da Equipe"
+  - Executa resetPontoEquipeInterna(unidade)
+  - Apenas os funcionários internos voltam para 'ausente' (motoboys NÃO são afetados)
+
+Cenário C: Reset Individual por Colaborador (/janta-ponto)
+  - Operador abre opções do card (...) e clica em "Resetar Dia"
+  - Executa resetPontoFuncionario(funcionarioId, unidade)
+  - Apenas o registro daquele colaborador é deletado/zerado
 ```
 
 ---
@@ -1872,6 +2068,23 @@ ORDER BY valor_final DESC;
 
 ## 📝 CHANGELOG
 
+### v2.9.7 (2026-09-08)
+- ✅ **Módulo Janta & Ponto (Equipe Interna)**:
+    - Criação da página completa de gestão operacional [`/janta-ponto`](file:///src/pages/JantaPonto.tsx) com visualização em Grid Cards responsivos para acompanhamento em tempo real de funcionários da cozinha, atendimento, corte, massas e gerência.
+    - Suporte a 4 estados operacionais: `ausente`, `trabalhando`, `em_janta` e `finalizado`.
+    - Cronômetro em tempo real durante o intervalo com contagem de minutos corridos e aviso visual destacado para refeições longas.
+    - Cálculo automático de duração do intervalo (`tempo_total_janta_minutos`) com registro de entrada, saída e retorno.
+    - Sistema híbrido com persistência no Supabase (`funcionarios_internos`, `registros_ponto_intervalo`) e contingência inteligente offline no `localStorage`.
+- ✅ **Reset Geral de Expediente Integrado à Equipe Interna**:
+    - O botão de **"Reset de Expediente"** em [`Config.tsx`](file:///src/pages/Config.tsx) (via `resetDaily` em `api.ts`) agora reseta simultaneamente motoboys e executa `resetPontoEquipeInterna(unidade)`, preparando o turno completo da loja (externo + interno) de forma 100% automatizada.
+- ✅ **Reset Individual por Funcionário no Card**:
+    - Adicionado botão de ação rápida "Resetar Dia" no menu individual de cada colaborador ([`FuncionarioCard.tsx`](file:///src/components/janta-ponto/FuncionarioCard.tsx)), permitindo reiniciar o estado de um colaborador específico sem impactar a equipe.
+- ✅ **Integração Google Sheets Unificada por Franquia**:
+    - Configuração de URL do webhook do Google Apps Script centralizada no nível da franquia (`franquias.config_pagamento.config_sheets_ponto_url`).
+    - Gravação dinâmica e sem duplicação de abas na planilha mestre compartilhada, roteando por unidade no formato `({UNIDADE}) JANTA E PONTO`.
+- ✅ **Blindagem Multi-Tenant e Isolamento por Franquia**:
+    - Queries e inserções de funcionários internos e registros de ponto estritamente filtradas por `franquia_id` e `unidade`, impedindo colisão entre franquias parceiras.
+
 ### v2.9.5 (2026-06-19)
 - ✅ **Estabilização e Unificação da Transmissão (RTMP / HLS)**:
     - Correção do erro no botão "Adicionar a todas as Lojas" (removidos os campos não existentes `unidades.nome` e `tv_playlist.nome` que causavam erros de banco de dados).
@@ -1963,5 +2176,5 @@ ORDER BY valor_final DESC;
 
 **FIM DA DOCUMENTAÇÃO**
 
-*Este documento foi atualizado em 2026-06-18.*  
+*Este documento foi atualizado em 2026-09-08.*  
 *Todos os dados cadastrados, estruturas de tabelas, políticas RLS e funcionalidades foram extraídos diretamente do banco de dados e código-fonte.*
