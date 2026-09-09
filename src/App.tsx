@@ -19,6 +19,7 @@ import NotFound from "./pages/NotFound";
 import SuperAdmin from "./pages/SuperAdmin";
 import FilaPagamento from "./pages/FilaPagamento";
 import JantaPonto from "./pages/JantaPonto";
+import Etiquetas from "./pages/Etiquetas";
 
 import { ScreenShareProvider, useScreenShare } from "./contexts/ScreenShareContext";
 import { MonitorPlay, X } from "lucide-react";
@@ -70,6 +71,14 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
+                <Route
+                  path="/etiquetas"
+                  element={
+                    <ProtectedRoute>
+                      <Etiquetas />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route
                   path="/config"
                   element={

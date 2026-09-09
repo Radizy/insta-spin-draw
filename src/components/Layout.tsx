@@ -7,7 +7,7 @@ import { Unidade } from '@/lib/api';
 import { UnitSelector } from './UnitSelector';
 import {
   Settings, Users, Tv, UserCheck, Pizza, ArrowLeft, LogOut, Ticket, History,
-  CreditCard, X as XIcon, MessageSquare, Menu, X, UtensilsCrossed
+  CreditCard, X as XIcon, MessageSquare, Menu, X, UtensilsCrossed, Tag
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -29,7 +29,7 @@ interface LayoutProps {
 }
 
 const navItems = [
-  { path: '/config', label: 'Configuração', icon: Settings },
+  { path: '/etiquetas', label: 'Etiqueta', icon: Tag },
   { path: '/roteirista', label: 'Roteirista', icon: Users },
   { path: '/janta-ponto', label: 'Janta & Ponto', icon: UtensilsCrossed, highlight: true },
   { path: '/fila-pagamento', label: 'Pagamento', icon: Ticket },
@@ -216,12 +216,25 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
                 {/* Seletor de unidade multiloja */}
                 <UnitSwitcher />
 
+                {/* Botão de Configurações da Loja (Ícone ⚙ posicionado imediatamente antes de Sair) */}
+                <Link
+                  to="/config"
+                  title="Configurações da Loja"
+                  className={cn(
+                    'p-2.5 rounded-xl transition-all text-muted-foreground hover:text-foreground hover:bg-secondary flex items-center justify-center border border-transparent hover:border-border/60',
+                    location.pathname === '/config' ? 'bg-primary/15 text-primary border-primary/30 font-bold' : ''
+                  )}
+                >
+                  <Settings className="w-5 h-5" />
+                  <span className="sr-only">Configurações</span>
+                </Link>
+
                 {!hideLogout && (
                   <>
                     <span className="text-border">|</span>
                     <button
                       onClick={handleLogout}
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all text-muted-foreground hover:text-foreground hover:bg-secondary"
+                      className="flex items-center gap-2 px-3.5 py-2 rounded-lg transition-all text-muted-foreground hover:text-foreground hover:bg-secondary"
                     >
                       <LogOut className="w-4 h-4" />
                       <span className="font-medium">Sair</span>
@@ -278,7 +291,7 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
                 </button>
               )}
 
-              <div className="flex flex-col">
+              <div className="flex flex-col gap-1">
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-2">Navegação</span>
                 {navItems.map((item) => {
                   const Icon = item.icon;
@@ -305,6 +318,20 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
                     </Link>
                   );
                 })}
+
+                <Link
+                  to="/config"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={cn(
+                    'flex items-center gap-3 p-3 rounded-lg transition-all text-base font-medium mt-1 border-t border-border/40 pt-3',
+                    location.pathname === '/config'
+                      ? 'bg-primary/10 text-primary font-bold'
+                      : 'text-foreground hover:bg-secondary'
+                  )}
+                >
+                  <Settings className="w-5 h-5 text-muted-foreground" />
+                  Configurações da Loja
+                </Link>
               </div>
             </div>
 

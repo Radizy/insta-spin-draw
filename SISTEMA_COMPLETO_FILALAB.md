@@ -21,12 +21,27 @@ Os módulos principais são:
 6. **Integração SISFOOD (`sisfood_integration`)**: Habilita o painel de tutorial na aba Integrações, disparando webhooks do caixa para alimentar a Fila do Roteirista sem falhas. 
 7. **Modo Treinamento (FilaLab Academy)**: Treinamento simulado em memória local, guiado passo a passo para novos operadores (`isTrainingMode`).
 8. **Janta & Ponto - Equipe Interna (`janta_ponto`)**: Controle de ponto, intervalos de refeição e jornada de trabalho dos colaboradores internos (atendimento, cozinha, corte, etc.) com sincronização unificada de planilhas Google Sheets por franquia.
+9. **Controle de Etiquetas (`etiquetas`)**: Sistema de emissão e impressão de etiquetas térmicas de Produção e Descongelamento (padrão Elgin L42 Pro Full 80x30mm) com validades automáticas, gestão de produtos, impressoras de rede e histórico rotativo de 7 dias.
 
 Esses módulos podem ser geridos livremente pelo painel Super Admin na visualização e edição de uma franquia.
 
 ### Versão do Sistema
-- **Versão Atual**: `2.9.7` (Setembro 2026)
+- **Versão Atual**: `2.9.8` (Setembro 2026)
 - **Últimas Implementações**:
+    - **Novo Módulo: Etiquetas de Produção e Descongelamento ([`/etiquetas`](file:///src/pages/Etiquetas.tsx))**:
+        - Sistema completo de impressão de etiquetas térmicas adesivas nos padrões **80mm x 30mm** (calibrado para Elgin L42 Pro Full e impressoras de rede térmicas via RAW 9100 / ESC/POS / ZPL).
+        - Abas dedicadas: **Produção**, **Descongelamento**, **Produtos**, **Impressoras** e **Histórico (7 dias)**.
+        - Cálculo 100% automático da Data de Validade ao selecionar qualquer produto cadastrado, permitindo ajustes manuais pontuais.
+        - Campo de Peso livre (ex: `500g`, `1kg`, `250g`) com modal de confirmação obrigatória caso o operador opte por emitir sem peso.
+        - Modal de Pré-Visualização térmica com saída direta para impressão do navegador e estrutura preparada para envio RAW TCP.
+        - Rotina de auto-limpeza de registros de histórico com mais de 7 dias para otimização de banco de dados e armazenamento local.
+    - **Melhoria no Módulo Janta & Ponto (Filtros Rápidos & Auto-Reset de 30s)**:
+        - Adicionada barra de filtros rápidos no topo de [`/janta-ponto`](file:///src/pages/JantaPonto.tsx) com as opções: **Todos**, **Na Loja** (`trabalhando`), **Em Janta** (`em_janta`), **Ausentes** (`ausente`) e **Finalizados** (`finalizado`).
+        - Temporizador inteligente de **30 segundos**: ao selecionar qualquer filtro diferente de "Todos", um contador regressivo é iniciado e, após 30s, o filtro é automaticamente redefinido para "Todos", evitando que operadores esqueçam a visualização restrita.
+        - Badge de feedback visual com aviso dinâmico: *"Filtro ativo: Em Janta • Retorna ao normal em 27s [Limpar agora]"*.
+    - **Reestruturação e Ergonomia do Menu Superior ([`Layout.tsx`](file:///src/components/Layout.tsx))**:
+        - Nova ordem do menu: `Etiqueta` ➔ `Roteirista` ➔ `Janta & Ponto` ➔ `Pagamento` ➔ `TV` ➔ `Histórico` ➔ `⚙ (Configurações)` ➔ `Sair`.
+        - Substituição do texto longo "Configuração" pelo ícone minimalista `Settings` (`⚙`) posicionado estrategicamente à direita antes do botão de logout.
     - **Módulo Janta & Ponto (Controle de Intervalo da Equipe Interna)**:
         - Implementada tela dedicada [`/janta-ponto`](file:///src/pages/JantaPonto.tsx) para gestão ágil de ponto e intervalo de refeição/janta dos funcionários internos da loja (Atendimento, Cozinha, Pizza, Massa, Corte, Broto Doce, Gerência).
         - Cards visuais interativos com 4 estados em tempo real: **Ausente**, **Trabalhando**, **Em Janta** (com contador progressivo e alerta visual para intervalos longos) e **Finalizado**.
@@ -887,6 +902,77 @@ CREATE TABLE registros_ponto_intervalo (
 
 ---
 
+### TABELA: etiquetas_produtos
+Catálogo de produtos e regras de validade para emissão de etiquetas térmicas.
+
+**Estrutura:**
+```sql
+CREATE TABLE etiquetas_produtos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  franquia_id UUID REFERENCES franquias(id) ON DELETE CASCADE,
+  unidade_id UUID REFERENCES unidades(id) ON DELETE CASCADE,
+  unidade TEXT NOT NULL DEFAULT 'ITAQUA',
+  nome TEXT NOT NULL,
+  categoria TEXT NOT NULL DEFAULT 'Diversos',
+  validade_producao_dias INTEGER NOT NULL DEFAULT 5,
+  validade_descongelamento_dias INTEGER NOT NULL DEFAULT 3,
+  ativo BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+```
+
+---
+
+### TABELA: etiquetas_impressoras
+Cadastro de impressoras térmicas de rede (Elgin L42 Pro Full, Zebra ou Genéricas via RAW TCP 9100).
+
+**Estrutura:**
+```sql
+CREATE TABLE etiquetas_impressoras (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  franquia_id UUID REFERENCES franquias(id) ON DELETE CASCADE,
+  unidade_id UUID REFERENCES unidades(id) ON DELETE CASCADE,
+  unidade TEXT NOT NULL DEFAULT 'ITAQUA',
+  nome TEXT NOT NULL,
+  modelo TEXT NOT NULL DEFAULT 'Elgin L42 Pro Full',
+  ip TEXT NOT NULL DEFAULT '192.168.0.120',
+  porta INTEGER NOT NULL DEFAULT 9100,
+  ativa BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+```
+
+---
+
+### TABELA: etiquetas_historico
+Histórico de impressões com política de retenção rotativa de 7 dias.
+
+**Estrutura:**
+```sql
+CREATE TABLE etiquetas_historico (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  franquia_id UUID REFERENCES franquias(id) ON DELETE CASCADE,
+  unidade_id UUID REFERENCES unidades(id) ON DELETE CASCADE,
+  unidade TEXT NOT NULL DEFAULT 'ITAQUA',
+  tipo TEXT NOT NULL DEFAULT 'producao', -- producao ou descongelamento
+  produto_id UUID REFERENCES etiquetas_produtos(id) ON DELETE SET NULL,
+  produto_nome TEXT NOT NULL,
+  categoria TEXT,
+  peso TEXT,
+  data_operacao DATE NOT NULL DEFAULT CURRENT_DATE,
+  hora_operacao TEXT NOT NULL DEFAULT '12:00',
+  data_validade DATE NOT NULL DEFAULT CURRENT_DATE,
+  quantidade INTEGER NOT NULL DEFAULT 1,
+  usuario_nome TEXT NOT NULL DEFAULT 'Operador',
+  impressora_nome TEXT,
+  modelo_etiqueta TEXT NOT NULL DEFAULT '80x30',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+```
+
+---
+
 ### TABELAS AUXILIARES
 
 #### global_config
@@ -1509,6 +1595,20 @@ CREATE POLICY "only_admins_can_modify_franquias"
 
 ---
 
+### 10. Etiquetas de Produção e Descongelamento (/etiquetas)
+**Sistema de impressão térmica para controle de validades de insumos e preparação (Elgin L42 Pro Full 80x30mm).**
+
+**Funcionalidades:**
+- **Aba Produção**: Emissão de etiquetas para alimentos manipulados ou fracionados na loja com data/hora e validade calculada automaticamente pelo produto.
+- **Aba Descongelamento**: Emissão de etiquetas específicas com o cabeçalho `DESCONGELAMENTO` e validade reduzida de câmara fria/refrigeração.
+- **Confirmação Obrigatória de Peso Opcional**: Caso o operador avance sem preencher o peso, o sistema exibe o modal de confirmação antes de liberar a impressão.
+- **Pré-Visualização Fiel da Etiqueta Térmica**: Modal com renderização do layout 80mm x 30mm em alto contraste e acionamento direto do driver de impressão.
+- **Catálogo de Produtos com Validades Customizadas**: Cadastro de produtos com definição independente de dias de validade para produção e para descongelamento.
+- **Gestão de Impressoras Térmicas de Rede**: Configuração de IPs locais, portas (RAW 9100) e modelos suportados (Elgin L42 Pro Full, Zebra, etc.).
+- **Histórico Rotativo de 7 Dias com Reimpressão**: Armazenamento com rotina de limpeza automática de registros com mais de 7 dias e botão de reimpressão com 1 clique.
+
+---
+
 ## 🔄 FLUXOS PRINCIPAIS
 
 ### Fluxo 1: Check-in de Motoboy
@@ -2067,6 +2167,22 @@ ORDER BY valor_final DESC;
 ---
 
 ## 📝 CHANGELOG
+
+### v2.9.8 (2026-09-08)
+- ✅ **Módulo de Etiquetas de Produção e Descongelamento ([`/etiquetas`](file:///src/pages/Etiquetas.tsx))**:
+    - Criação de módulo completo de impressão térmica para controle de validades em alimentos manipulados e fracionados.
+    - Suporte nativo ao formato **80mm x 30mm** (calibrado para Elgin L42 Pro Full).
+    - Abas organizadas: `Produção`, `Descongelamento`, `Produtos`, `Impressoras` e `Histórico (7 dias)`.
+    - Cálculo automático de validade ao selecionar produtos, com suporte a edição manual.
+    - Verificação e confirmação com modal obrigatório caso o operador não informe o peso.
+    - Modal de pré-visualização térmica com impressão direta via navegador e geração de comandos RAW EPL/ZPL.
+    - Rotina de auto-limpeza de registros de histórico com mais de 7 dias (`cleanupEtiquetaHistorico7Dias`).
+- ✅ **Melhoria no Janta & Ponto (Filtros Rápidos & Temporizador de 30s)**:
+    - Adicionada barra de filtros rápidos: `Todos`, `Na Loja` (`trabalhando`), `Em Janta` (`em_janta`), `Ausentes` (`ausente`) e `Finalizados` (`finalizado`).
+    - Temporizador com contagem regressiva visual que reseta o filtro de volta para `Todos` após 30 segundos, prevenindo esquecimento de operadores.
+- ✅ **Reestruturação do Menu Superior ([`Layout.tsx`](file:///src/components/Layout.tsx))**:
+    - Menu reorganizado: `Etiqueta` ➔ `Roteirista` ➔ `Janta & Ponto` ➔ `Pagamento` ➔ `TV` ➔ `Histórico` ➔ `⚙` ➔ `Sair`.
+    - Ícone minimalista `Settings` (`⚙`) posicionado à direita antes do botão de logout.
 
 ### v2.9.7 (2026-09-08)
 - ✅ **Módulo Janta & Ponto (Equipe Interna)**:

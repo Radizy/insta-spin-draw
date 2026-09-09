@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUnit } from '@/contexts/UnitContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Layout, BackButton } from '@/components/Layout';
+import { cn } from '@/lib/utils';
 import {
   fetchFuncionariosInternos,
   fetchRegistrosPontoDia,
@@ -45,9 +46,12 @@ import {
   CheckCircle2,
   AlertCircle,
   Sparkles,
-  RotateCcw
+  RotateCcw,
+  CheckSquare
 } from 'lucide-react';
 import { toast } from 'sonner';
+
+type FiltroStatus = 'todos' | 'trabalhando' | 'em_janta' | 'ausente' | 'finalizado';
 
 export default function JantaPonto() {
   const { selectedUnit } = useUnit();
@@ -55,12 +59,49 @@ export default function JantaPonto() {
   const queryClient = useQueryClient();
 
   const [busca, setBusca] = useState('');
+  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('todos');
+  const [segundosRestantes, setSegundosRestantes] = useState<number | null>(null);
+
   const [modalCadastroOpen, setModalCadastroOpen] = useState(false);
   const [funcionarioEditando, setFuncionarioEditando] = useState<FuncionarioInterno | null>(null);
   const [modalPlanilhaOpen, setModalPlanilhaOpen] = useState(false);
   const [funcionarioParaExcluir, setFuncionarioParaExcluir] = useState<string | null>(null);
   const [funcionarioParaResetar, setFuncionarioParaResetar] = useState<FuncionarioInterno | null>(null);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
+
+  // Timer de Auto-Reset de 30 segundos quando o filtro não for 'todos'
+  useEffect(() => {
+    if (filtroStatus === 'todos') {
+      setSegundosRestantes(null);
+      return;
+    }
+
+    setSegundosRestantes(30);
+
+    const interval = setInterval(() => {
+      setSegundosRestantes((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(interval);
+          setFiltroStatus('todos');
+          toast.info('Filtro automático redefinido para "Todos".', { duration: 2500 });
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [filtroStatus]);
+
+  const getNomeFiltro = (f: FiltroStatus): string => {
+    switch (f) {
+      case 'trabalhando': return 'Na Loja';
+      case 'em_janta': return 'Em Janta';
+      case 'ausente': return 'Ausentes';
+      case 'finalizado': return 'Finalizados';
+      default: return 'Todos';
+    }
+  };
 
   const dataHojeFormatada = useMemo(() => {
     return getHojeLocalYMD();
@@ -114,26 +155,43 @@ export default function JantaPonto() {
     let trabalhando = 0;
     let emJanta = 0;
     let ausentes = 0;
+    let finalizados = 0;
 
     funcionarios.forEach((f) => {
       const reg = registrosMap.get(f.id);
       const st = reg?.status || 'ausente';
       if (st === 'trabalhando') trabalhando++;
       else if (st === 'em_janta') emJanta++;
+      else if (st === 'finalizado') finalizados++;
       else ausentes++;
     });
 
-    return { total, trabalhando, emJanta, ausentes };
+    return { total, trabalhando, emJanta, ausentes, finalizados };
   }, [funcionarios, registrosMap]);
 
-  // Filtro de busca
+  // Filtro composto (Status rápido + Busca textual)
   const funcionariosFiltrados = useMemo(() => {
-    if (!busca.trim()) return funcionarios;
-    const t = busca.toLowerCase();
-    return funcionarios.filter(
-      (f) => f.nome.toLowerCase().includes(t) || f.cargo.toLowerCase().includes(t)
-    );
-  }, [funcionarios, busca]);
+    let lista = funcionarios;
+
+    // Filtro por status rápido
+    if (filtroStatus !== 'todos') {
+      lista = lista.filter((f) => {
+        const reg = registrosMap.get(f.id);
+        const st = reg?.status || 'ausente';
+        return st === filtroStatus;
+      });
+    }
+
+    // Filtro por busca textual
+    if (busca.trim()) {
+      const t = busca.toLowerCase();
+      lista = lista.filter(
+        (f) => f.nome.toLowerCase().includes(t) || f.cargo.toLowerCase().includes(t)
+      );
+    }
+
+    return lista;
+  }, [funcionarios, busca, filtroStatus, registrosMap]);
 
   // Mutations
   const checkinMutation = useMutation({
@@ -369,6 +427,102 @@ export default function JantaPonto() {
               </span>
             </div>
           </div>
+        </div>
+
+        {/* Barra de Filtros Rápidos com Auto-Reset de 30 segundos */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card/40 p-2 rounded-2xl border border-border/70">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setFiltroStatus('todos')}
+              className={cn(
+                'h-9 px-3.5 rounded-xl text-xs font-semibold transition-all',
+                filtroStatus === 'todos'
+                  ? 'bg-primary text-primary-foreground shadow-sm font-bold'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/70'
+              )}
+            >
+              Todos <span className="ml-1.5 opacity-70 text-[11px]">({stats.total})</span>
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setFiltroStatus('trabalhando')}
+              className={cn(
+                'h-9 px-3.5 rounded-xl text-xs font-semibold transition-all',
+                filtroStatus === 'trabalhando'
+                  ? 'bg-emerald-500 text-slate-950 font-bold shadow-md shadow-emerald-500/20'
+                  : 'text-emerald-400 hover:bg-emerald-500/10'
+              )}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5 inline-block" />
+              Na Loja <span className="ml-1 text-[11px] opacity-90">({stats.trabalhando})</span>
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setFiltroStatus('em_janta')}
+              className={cn(
+                'h-9 px-3.5 rounded-xl text-xs font-semibold transition-all',
+                filtroStatus === 'em_janta'
+                  ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
+                  : 'text-amber-400 hover:bg-amber-500/10'
+              )}
+            >
+              <span className="w-2 h-2 rounded-full bg-amber-500 mr-1.5 inline-block animate-pulse" />
+              Em Janta <span className="ml-1 text-[11px] opacity-90">({stats.emJanta})</span>
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setFiltroStatus('ausente')}
+              className={cn(
+                'h-9 px-3.5 rounded-xl text-xs font-semibold transition-all',
+                filtroStatus === 'ausente'
+                  ? 'bg-slate-700 text-white font-bold shadow-sm'
+                  : 'text-muted-foreground hover:bg-secondary/70'
+              )}
+            >
+              <span className="w-2 h-2 rounded-full bg-slate-500 mr-1.5 inline-block" />
+              Ausentes <span className="ml-1 text-[11px] opacity-90">({stats.ausentes})</span>
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setFiltroStatus('finalizado')}
+              className={cn(
+                'h-9 px-3.5 rounded-xl text-xs font-semibold transition-all',
+                filtroStatus === 'finalizado'
+                  ? 'bg-purple-600 text-white font-bold shadow-sm'
+                  : 'text-purple-400 hover:bg-purple-500/10'
+              )}
+            >
+              <span className="w-2 h-2 rounded-full bg-purple-500 mr-1.5 inline-block" />
+              Finalizados <span className="ml-1 text-[11px] opacity-90">({stats.finalizados})</span>
+            </Button>
+          </div>
+
+          {/* Badge Temporária com Regressiva de 30s */}
+          {filtroStatus !== 'todos' && segundosRestantes !== null && (
+            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-medium animate-fade-in shadow-sm">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0" />
+              <span>
+                Filtro ativo: <strong className="font-bold text-amber-200">{getNomeFiltro(filtroStatus)}</strong>
+              </span>
+              <span className="text-muted-foreground">• Retorna ao normal em <strong className="text-amber-300 font-mono font-bold">{segundosRestantes}s</strong></span>
+              <button
+                onClick={() => setFiltroStatus('todos')}
+                className="ml-1 underline hover:text-amber-100 text-amber-400 text-[11px] font-semibold"
+              >
+                Limpar agora
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Barra de Busca */}
