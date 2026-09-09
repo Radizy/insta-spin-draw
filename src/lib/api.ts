@@ -1795,6 +1795,29 @@ export async function fetchFuncionariosInternos(
   // Carrega do LocalStorage da unidade específica para resposta instantânea
   let local = getLocalFuncionarios(unidade);
 
+  // Se for ITAQUA ou loja sem membros, garante que toda a equipe padrão exista no cache local
+  if (unidade === 'ITAQUA' || local.length === 0) {
+    const localNames = new Set(local.map((f) => f.nome.toLowerCase().trim()));
+    const missingInLocal = INITIAL_ITAQUA_STAFF.filter(
+      (s) => !localNames.has(s.nome.toLowerCase().trim())
+    );
+    if (missingInLocal.length > 0) {
+      const now = new Date().toISOString();
+      const added = missingInLocal.map((f) => ({
+        id: generateUUID(),
+        nome: f.nome,
+        cargo: f.cargo,
+        unidade,
+        franquia_id: franquiaId || null,
+        ativo: true,
+        created_at: now,
+        updated_at: now,
+      }));
+      local = [...local, ...added].sort((a, b) => a.nome.localeCompare(b.nome));
+      saveLocalFuncionarios(unidade, local);
+    }
+  }
+
   // Sincroniza com o Supabase filtrando estritamente pela unidade (isolamento absoluto por loja)
   try {
     let query = (supabase.from('funcionarios_internos') as any)
@@ -1811,12 +1834,17 @@ export async function fetchFuncionariosInternos(
     if (!error && data) {
       let merged: FuncionarioInterno[] = data;
 
-      // Se a loja não tiver nenhum funcionário cadastrado no banco nem localmente, inicializa a equipe padrão para esta loja
-      if (merged.length === 0 && local.length === 0) {
+      // Se a equipe estiver incompleta (ex: faltam membros da equipe padrão para a loja), complementa no Supabase
+      const nomesExistentes = new Set(merged.map((f: any) => f.nome.toLowerCase().trim()));
+      const faltantes = INITIAL_ITAQUA_STAFF.filter(
+        (staff) => !nomesExistentes.has(staff.nome.toLowerCase().trim())
+      );
+
+      if (faltantes.length > 0 && (unidade === 'ITAQUA' || merged.length === 0)) {
         try {
           const { data: inserted, error: insErr } = await (supabase.from('funcionarios_internos') as any)
             .insert(
-              INITIAL_ITAQUA_STAFF.map((f) => ({
+              faltantes.map((f) => ({
                 nome: f.nome,
                 cargo: f.cargo,
                 unidade,
@@ -1827,10 +1855,24 @@ export async function fetchFuncionariosInternos(
             .select();
 
           if (!insErr && inserted) {
-            merged = inserted.sort((a: any, b: any) => a.nome.localeCompare(b.nome));
+            merged = [...merged, ...inserted].sort((a: any, b: any) => a.nome.localeCompare(b.nome));
+          } else {
+            // Em caso de restrição/erro do banco, mescla com o cache local para não faltar na interface
+            const localMap = new Map(local.map((l) => [l.nome.toLowerCase().trim(), l]));
+            faltantes.forEach((fl) => {
+              const fromLocal = localMap.get(fl.nome.toLowerCase().trim());
+              if (fromLocal) merged.push(fromLocal);
+            });
+            merged.sort((a, b) => a.nome.localeCompare(b.nome));
           }
         } catch (e) {
-          console.warn('Erro ao inicializar equipe padrão:', e);
+          console.warn('Erro ao sincronizar equipe padrão no Supabase:', e);
+          const localMap = new Map(local.map((l) => [l.nome.toLowerCase().trim(), l]));
+          faltantes.forEach((fl) => {
+            const fromLocal = localMap.get(fl.nome.toLowerCase().trim());
+            if (fromLocal) merged.push(fromLocal);
+          });
+          merged.sort((a, b) => a.nome.localeCompare(b.nome));
         }
       }
 
@@ -1841,21 +1883,6 @@ export async function fetchFuncionariosInternos(
     }
   } catch (err) {
     console.warn('Silencioso - utilizando cache local da loja:', err);
-  }
-
-  // Fallback se não retornou do banco e local está vazio
-  if (local.length === 0) {
-    local = INITIAL_ITAQUA_STAFF.map((f) => ({
-      id: generateUUID(),
-      nome: f.nome,
-      cargo: f.cargo,
-      unidade,
-      franquia_id: franquiaId || null,
-      ativo: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }));
-    saveLocalFuncionarios(unidade, local);
   }
 
   return apenasAtivos ? local.filter((f) => f.ativo) : local;
