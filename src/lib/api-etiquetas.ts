@@ -76,18 +76,18 @@ export const CATEGORIAS_PADRAO = [
 ];
 
 export const PRODUTOS_SEED_INICIAIS: Omit<EtiquetaProduto, 'id'>[] = [
-  { nome: 'MUSSARELA FATIADA', categoria: 'Queijos e Laticínios', validade_producao_dias: 7, validade_descongelamento_dias: 4, ativo: true },
-  { nome: 'MUSSARELA RALADA', categoria: 'Queijos e Laticínios', validade_producao_dias: 5, validade_descongelamento_dias: 3, ativo: true },
-  { nome: 'CALABRESA FATIADA', categoria: 'Carnes e Embutidos', validade_producao_dias: 6, validade_descongelamento_dias: 3, ativo: true },
-  { nome: 'FRANGO DESFIADO TEMPERADO', categoria: 'Carnes e Embutidos', validade_producao_dias: 3, validade_descongelamento_dias: 3, ativo: true },
-  { nome: 'BACON EM CUBOS', categoria: 'Carnes e Embutidos', validade_producao_dias: 7, validade_descongelamento_dias: 5, ativo: true },
-  { nome: 'PRESUNTO FATIADO', categoria: 'Carnes e Embutidos', validade_producao_dias: 5, validade_descongelamento_dias: 3, ativo: true },
-  { nome: 'CATUPIRY / REQUEIJÃO', categoria: 'Queijos e Laticínios', validade_producao_dias: 5, validade_descongelamento_dias: 3, ativo: true },
-  { nome: 'MOLHO DE TOMATE ARTESANAL', categoria: 'Molhos e Temperos', validade_producao_dias: 4, validade_descongelamento_dias: 3, ativo: true },
-  { nome: 'MASSA DE PIZZA ABERTA', categoria: 'Massas', validade_producao_dias: 3, validade_descongelamento_dias: 2, ativo: true },
+  { nome: 'MUSSARELA FATIADA', categoria: 'Queijos e Laticínios', validade_producao_dias: 7, validade_descongelamento_dias: 1, ativo: true },
+  { nome: 'MUSSARELA RALADA', categoria: 'Queijos e Laticínios', validade_producao_dias: 5, validade_descongelamento_dias: 1, ativo: true },
+  { nome: 'CALABRESA FATIADA', categoria: 'Carnes e Embutidos', validade_producao_dias: 6, validade_descongelamento_dias: 1, ativo: true },
+  { nome: 'FRANGO DESFIADO TEMPERADO', categoria: 'Carnes e Embutidos', validade_producao_dias: 3, validade_descongelamento_dias: 1, ativo: true },
+  { nome: 'BACON EM CUBOS', categoria: 'Carnes e Embutidos', validade_producao_dias: 7, validade_descongelamento_dias: 1, ativo: true },
+  { nome: 'PRESUNTO FATIADO', categoria: 'Carnes e Embutidos', validade_producao_dias: 5, validade_descongelamento_dias: 1, ativo: true },
+  { nome: 'CATUPIRY / REQUEIJÃO', categoria: 'Queijos e Laticínios', validade_producao_dias: 5, validade_descongelamento_dias: 1, ativo: true },
+  { nome: 'MOLHO DE TOMATE ARTESANAL', categoria: 'Molhos e Temperos', validade_producao_dias: 4, validade_descongelamento_dias: 1, ativo: true },
+  { nome: 'MASSA DE PIZZA ABERTA', categoria: 'Massas', validade_producao_dias: 3, validade_descongelamento_dias: 1, ativo: true },
   { nome: 'CEBOLA FATIADA', categoria: 'Vegetais e Hortifruti', validade_producao_dias: 2, validade_descongelamento_dias: 1, ativo: true },
   { nome: 'TOMATE PICADO', categoria: 'Vegetais e Hortifruti', validade_producao_dias: 2, validade_descongelamento_dias: 1, ativo: true },
-  { nome: 'CHOCOLATE FORNEÁVEL', categoria: 'Doces e Sobremesas', validade_producao_dias: 15, validade_descongelamento_dias: 7, ativo: true },
+  { nome: 'CHOCOLATE FORNEÁVEL', categoria: 'Doces e Sobremesas', validade_producao_dias: 15, validade_descongelamento_dias: 1, ativo: true },
 ];
 
 export const IMPRESSORAS_SEED_INICIAIS: Omit<EtiquetaImpressora, 'id'>[] = [

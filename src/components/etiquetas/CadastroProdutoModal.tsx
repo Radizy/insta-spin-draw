@@ -56,13 +56,13 @@ export function CadastroProdutoModal({
       setNome(produtoEditando.nome);
       setCategoria(produtoEditando.categoria || CATEGORIAS_PADRAO[0]);
       setValidadeProducao(String(produtoEditando.validade_producao_dias || 5));
-      setValidadeDescongelamento(String(produtoEditando.validade_descongelamento_dias || 3));
+      setValidadeDescongelamento(String(produtoEditando.validade_descongelamento_dias ?? 1));
       setAtivo(produtoEditando.ativo);
     } else {
       setNome('');
       setCategoria(CATEGORIAS_PADRAO[0]);
       setValidadeProducao('5');
-      setValidadeDescongelamento('3');
+      setValidadeDescongelamento('1');
       setAtivo(true);
     }
   }, [produtoEditando, open]);

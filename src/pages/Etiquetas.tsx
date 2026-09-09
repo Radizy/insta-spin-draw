@@ -46,7 +46,12 @@ import {
   Sparkles,
   Wifi,
   SlidersHorizontal,
-  ChevronRight
+  ChevronRight,
+  Lock,
+  Check,
+  Zap,
+  X,
+  Layers
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -78,6 +83,41 @@ import {
 import { CadastroProdutoModal } from '@/components/etiquetas/CadastroProdutoModal';
 import { CadastroImpressoraModal } from '@/components/etiquetas/CadastroImpressoraModal';
 
+/** Formata e ajusta automaticamente o peso digitado em gramas (g) ou quilos (kg) */
+function autoFormatarPeso(valorBruto: string): string {
+  if (!valorBruto) return '';
+  const limpo = valorBruto.trim();
+
+  // Se já termina explicitamente com unidade
+  if (/g$/i.test(limpo) || /kg$/i.test(limpo)) {
+    return limpo;
+  }
+
+  const normalizado = limpo.replace(',', '.');
+  const num = parseFloat(normalizado);
+
+  if (isNaN(num) || num <= 0) {
+    return limpo;
+  }
+
+  // Se possui ponto decimal (ex: 1.5, 0.5, 2.25) -> formata em kg
+  if (normalizado.includes('.')) {
+    return `${num}kg`;
+  }
+
+  // Se é número inteiro
+  if (num >= 1000) {
+    const emKg = num / 1000;
+    return `${emKg}kg`;
+  } else if (num >= 20) {
+    // 20 a 999 -> gramas (ex: 250 -> 250g, 500 -> 500g)
+    return `${num}g`;
+  } else {
+    // 1 a 19 -> quilos (ex: 1 -> 1kg, 2 -> 2kg, 5 -> 5kg)
+    return `${num}kg`;
+  }
+}
+
 export default function Etiquetas() {
   const { selectedUnit } = useUnit();
   const { user } = useAuth();
@@ -86,21 +126,32 @@ export default function Etiquetas() {
   // Estados de Abas
   const [activeTab, setActiveTab] = useState<'producao' | 'descongelamento' | 'produtos' | 'impressoras' | 'historico'>('producao');
 
+  // Relógio em tempo real para data/hora fixa
+  const [horaAtual, setHoraAtual] = useState<string>(getHoraAtualHHMM());
+  const dataHoje = useMemo(() => getHojeLocalYMD(), []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setHoraAtual(getHoraAtualHHMM());
+    }, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Busca e Filtros nos Catálogos de Seleção Rápida
+  const [buscaCatalogoProd, setBuscaCatalogoProd] = useState('');
+  const [catCatalogoProd, setCatCatalogoProd] = useState('todas');
+  const [buscaCatalogoDesc, setBuscaCatalogoDesc] = useState('');
+  const [catCatalogoDesc, setCatCatalogoDesc] = useState('todas');
+
   // Formulário Aba Produção
   const [prodProdutoId, setProdProdutoId] = useState<string>('');
   const [prodPeso, setProdPeso] = useState<string>('');
-  const [prodData, setProdData] = useState<string>(getHojeLocalYMD());
-  const [prodHora, setProdHora] = useState<string>(getHoraAtualHHMM());
-  const [prodValidade, setProdValidade] = useState<string>('');
   const [prodQuantidade, setProdQuantidade] = useState<number>(1);
   const [prodImpressoraId, setProdImpressoraId] = useState<string>('');
 
   // Formulário Aba Descongelamento
   const [descProdutoId, setDescProdutoId] = useState<string>('');
   const [descPeso, setDescPeso] = useState<string>('');
-  const [descData, setDescData] = useState<string>(getHojeLocalYMD());
-  const [descHora, setDescHora] = useState<string>(getHoraAtualHHMM());
-  const [descValidade, setDescValidade] = useState<string>('');
   const [descQuantidade, setDescQuantidade] = useState<number>(1);
   const [descImpressoraId, setDescImpressoraId] = useState<string>('');
 
@@ -119,7 +170,7 @@ export default function Etiquetas() {
   const [impressoraEditando, setImpressoraEditando] = useState<EtiquetaImpressora | null>(null);
   const [impressoraParaExcluir, setImpressoraParaExcluir] = useState<string | null>(null);
 
-  // Filtros nas listagens
+  // Filtros nas listagens de gestão
   const [buscaProduto, setBuscaProduto] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('todas');
   const [buscaHistorico, setBuscaHistorico] = useState('');
@@ -168,24 +219,20 @@ export default function Etiquetas() {
     refetchInterval: 15000,
   });
 
-  // Produtos ativos para os selects
+  // Produtos ativos para os selects e grid
   const produtosAtivos = useMemo(() => produtos.filter((p) => p.ativo), [produtos]);
 
   // Define produto padrão inicial quando carregar
   useEffect(() => {
     if (produtosAtivos.length > 0) {
       if (!prodProdutoId) {
-        const p = produtosAtivos[0];
-        setProdProdutoId(p.id);
-        setProdValidade(calcularDataValidade(prodData, p.validade_producao_dias));
+        setProdProdutoId(produtosAtivos[0].id);
       }
       if (!descProdutoId) {
-        const p = produtosAtivos[0];
-        setDescProdutoId(p.id);
-        setDescValidade(calcularDataValidade(descData, p.validade_descongelamento_dias));
+        setDescProdutoId(produtosAtivos[0].id);
       }
     }
-  }, [produtosAtivos, prodProdutoId, descProdutoId, prodData, descData]);
+  }, [produtosAtivos, prodProdutoId, descProdutoId]);
 
   // Define impressora padrão inicial quando carregar
   useEffect(() => {
@@ -196,39 +243,52 @@ export default function Etiquetas() {
     }
   }, [impressoras, prodImpressoraId, descImpressoraId]);
 
-  // Atualiza data de validade automática na aba Produção quando altera produto ou data
-  const handleSelectProdutoProducao = (prodId: string) => {
-    setProdProdutoId(prodId);
-    const prod = produtos.find((p) => p.id === prodId);
-    if (prod) {
-      setProdValidade(calcularDataValidade(prodData, prod.validade_producao_dias));
-    }
-  };
+  // Produtos filtrados no catálogo da Produção
+  const produtosCatalogoProducao = useMemo(() => {
+    return produtosAtivos.filter((p) => {
+      const matchBusca =
+        !buscaCatalogoProd.trim() ||
+        p.nome.toLowerCase().includes(buscaCatalogoProd.toLowerCase()) ||
+        p.categoria.toLowerCase().includes(buscaCatalogoProd.toLowerCase());
+      const matchCat = catCatalogoProd === 'todas' || p.categoria === catCatalogoProd;
+      return matchBusca && matchCat;
+    });
+  }, [produtosAtivos, buscaCatalogoProd, catCatalogoProd]);
 
-  const handleDataProducaoChange = (novaData: string) => {
-    setProdData(novaData);
-    const prod = produtos.find((p) => p.id === prodProdutoId);
-    if (prod) {
-      setProdValidade(calcularDataValidade(novaData, prod.validade_producao_dias));
-    }
-  };
+  // Produtos filtrados no catálogo do Descongelamento
+  const produtosCatalogoDescongelamento = useMemo(() => {
+    return produtosAtivos.filter((p) => {
+      const matchBusca =
+        !buscaCatalogoDesc.trim() ||
+        p.nome.toLowerCase().includes(buscaCatalogoDesc.toLowerCase()) ||
+        p.categoria.toLowerCase().includes(buscaCatalogoDesc.toLowerCase());
+      const matchCat = catCatalogoDesc === 'todas' || p.categoria === catCatalogoDesc;
+      return matchBusca && matchCat;
+    });
+  }, [produtosAtivos, buscaCatalogoDesc, catCatalogoDesc]);
 
-  // Atualiza data de validade automática na aba Descongelamento quando altera produto ou data
-  const handleSelectProdutoDescongelamento = (prodId: string) => {
-    setDescProdutoId(prodId);
-    const prod = produtos.find((p) => p.id === prodId);
-    if (prod) {
-      setDescValidade(calcularDataValidade(descData, prod.validade_descongelamento_dias));
-    }
-  };
+  // Objeto do produto selecionado
+  const produtoSelecionadoProducao = useMemo(() => {
+    return produtosAtivos.find((p) => p.id === prodProdutoId) || produtosAtivos[0];
+  }, [produtosAtivos, prodProdutoId]);
 
-  const handleDataDescongelamentoChange = (novaData: string) => {
-    setDescData(novaData);
-    const prod = produtos.find((p) => p.id === descProdutoId);
-    if (prod) {
-      setDescValidade(calcularDataValidade(novaData, prod.validade_descongelamento_dias));
-    }
-  };
+  const produtoSelecionadoDesc = useMemo(() => {
+    return produtosAtivos.find((p) => p.id === descProdutoId) || produtosAtivos[0];
+  }, [produtosAtivos, descProdutoId]);
+
+  // Validade calculada para produção (dias do cadastro)
+  const validadeCalculadaProducao = useMemo(() => {
+    if (!produtoSelecionadoProducao) return dataHoje;
+    return calcularDataValidade(dataHoje, produtoSelecionadoProducao.validade_producao_dias || 1);
+  }, [produtoSelecionadoProducao, dataHoje]);
+
+  // Validade calculada para descongelamento (padrão dia seguinte / 1 dia)
+  const validadeCalculadaDescongelamento = useMemo(() => {
+    if (!produtoSelecionadoDesc) return dataHoje;
+    // Padrão obrigatório: dia seguinte (1 dia) conforme norma operacional
+    const dias = produtoSelecionadoDesc.validade_descongelamento_dias || 1;
+    return calcularDataValidade(dataHoje, dias);
+  }, [produtoSelecionadoDesc, dataHoje]);
 
   // KPIs / Relatórios
   const stats = useMemo(() => {
@@ -361,30 +421,30 @@ export default function Etiquetas() {
   // Ação de Pré-Visualização da Produção com Verificação de Peso Vazio
   const handlePrevisualizarProducao = (e: React.FormEvent) => {
     e.preventDefault();
-    const prod = produtos.find((p) => p.id === prodProdutoId);
-    if (!prod) {
+    if (!produtoSelecionadoProducao) {
       toast.error('Selecione um produto para continuar.');
       return;
     }
 
     const imp = impressoras.find((i) => i.id === prodImpressoraId);
+    const pesoFormatado = prodPeso.trim() ? autoFormatarPeso(prodPeso) : null;
 
     const dadosMontados: DadosImpressaoEtiqueta = {
       tipo: 'PRODUÇÃO',
-      produtoNome: prod.nome,
-      categoria: prod.categoria,
-      peso: prodPeso.trim() || null,
-      dataOperacao: prodData,
-      horaOperacao: prodHora || getHoraAtualHHMM(),
-      dataValidade: prodValidade || calcularDataValidade(prodData, prod.validade_producao_dias),
+      produtoNome: produtoSelecionadoProducao.nome,
+      categoria: produtoSelecionadoProducao.categoria,
+      peso: pesoFormatado,
+      dataOperacao: dataHoje,
+      horaOperacao: getHoraAtualHHMM(),
+      dataValidade: validadeCalculadaProducao,
       quantidade: Math.max(1, prodQuantidade || 1),
       unidade: selectedUnit!,
       usuarioNome: user?.username || 'Operador',
       impressoraNome: imp?.nome || 'Elgin L42 Pro Full',
     };
 
-    // Confirmação obrigatória se peso estiver vazio
-    if (!prodPeso.trim()) {
+    // Confirmação se peso estiver vazio
+    if (!pesoFormatado) {
       setPendenteDadosSemPeso(dadosMontados);
       setSemPesoModalOpen(true);
       return;
@@ -397,36 +457,66 @@ export default function Etiquetas() {
   // Ação de Pré-Visualização do Descongelamento com Verificação de Peso Vazio
   const handlePrevisualizarDescongelamento = (e: React.FormEvent) => {
     e.preventDefault();
-    const prod = produtos.find((p) => p.id === descProdutoId);
-    if (!prod) {
+    if (!produtoSelecionadoDesc) {
       toast.error('Selecione um produto para continuar.');
       return;
     }
 
     const imp = impressoras.find((i) => i.id === descImpressoraId);
+    const pesoFormatado = descPeso.trim() ? autoFormatarPeso(descPeso) : null;
 
     const dadosMontados: DadosImpressaoEtiqueta = {
       tipo: 'DESCONGELAMENTO',
-      produtoNome: prod.nome,
-      categoria: prod.categoria,
-      peso: descPeso.trim() || null,
-      dataOperacao: descData,
-      horaOperacao: descHora || getHoraAtualHHMM(),
-      dataValidade: descValidade || calcularDataValidade(descData, prod.validade_descongelamento_dias),
+      produtoNome: produtoSelecionadoDesc.nome,
+      categoria: produtoSelecionadoDesc.categoria,
+      peso: pesoFormatado,
+      dataOperacao: dataHoje,
+      horaOperacao: getHoraAtualHHMM(),
+      dataValidade: validadeCalculadaDescongelamento,
       quantidade: Math.max(1, descQuantidade || 1),
       unidade: selectedUnit!,
       usuarioNome: user?.username || 'Operador',
       impressoraNome: imp?.nome || 'Elgin L42 Pro Full',
     };
 
-    // Confirmação obrigatória se peso estiver vazio
-    if (!descPeso.trim()) {
+    // Confirmação se peso estiver vazio
+    if (!pesoFormatado) {
       setPendenteDadosSemPeso(dadosMontados);
       setSemPesoModalOpen(true);
       return;
     }
 
     setDadosParaPreview(dadosMontados);
+    setPreviewModalOpen(true);
+  };
+
+  // Impressão direta sem peso (1 toque rápido)
+  const handleImprimirSemPesoDireto = (tipo: 'PRODUÇÃO' | 'DESCONGELAMENTO') => {
+    const prod = tipo === 'PRODUÇÃO' ? produtoSelecionadoProducao : produtoSelecionadoDesc;
+    if (!prod) {
+      toast.error('Selecione um produto.');
+      return;
+    }
+    const impId = tipo === 'PRODUÇÃO' ? prodImpressoraId : descImpressoraId;
+    const imp = impressoras.find((i) => i.id === impId);
+    const qtd = tipo === 'PRODUÇÃO' ? prodQuantidade : descQuantidade;
+    const val = tipo === 'PRODUÇÃO' ? validadeCalculadaProducao : validadeCalculadaDescongelamento;
+
+    const dados: DadosImpressaoEtiqueta = {
+      tipo,
+      produtoNome: prod.nome,
+      categoria: prod.categoria,
+      peso: null,
+      dataOperacao: dataHoje,
+      horaOperacao: getHoraAtualHHMM(),
+      dataValidade: val,
+      quantidade: Math.max(1, qtd || 1),
+      unidade: selectedUnit!,
+      usuarioNome: user?.username || 'Operador',
+      impressoraNome: imp?.nome || 'Elgin L42 Pro Full',
+    };
+
+    setDadosParaPreview(dados);
     setPreviewModalOpen(true);
   };
 
@@ -628,179 +718,387 @@ export default function Etiquetas() {
           {/* ========================================================= */}
           {/* ABA 1: PRODUÇÃO                                           */}
           {/* ========================================================= */}
-          <TabsContent value="producao">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Formulário */}
-              <div className="lg:col-span-2 bg-card/70 border border-border/80 rounded-3xl p-6 shadow-sm">
-                <div className="flex items-center gap-2 mb-4 border-b border-border/60 pb-3">
-                  <Flame className="w-5 h-5 text-amber-500" />
-                  <h2 className="text-lg font-bold text-foreground font-mono">Emissão de Etiqueta de Produção</h2>
-                </div>
-
-                <form onSubmit={handlePrevisualizarProducao} className="space-y-4">
-                  {/* Produto */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs font-bold text-foreground">Produto *</Label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProdutoEditando(null);
-                          setProdutoModalOpen(true);
-                        }}
-                        className="text-[11px] text-amber-400 hover:underline flex items-center gap-1"
-                      >
-                        <Plus className="w-3 h-3" /> Cadastrar outro produto
-                      </button>
+          <TabsContent value="producao" className="space-y-6">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+              {/* Coluna 1: Catálogo Visual de Produtos (Busca Instantânea & Filtros) */}
+              <div className="xl:col-span-7 space-y-4">
+                <div className="bg-card/70 border border-border/80 rounded-3xl p-5 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <Flame className="w-5 h-5 text-amber-500" />
+                      <h2 className="text-base font-bold text-foreground font-mono">
+                        Selecione o Produto para Produção
+                      </h2>
                     </div>
-                    <Select value={prodProdutoId} onValueChange={handleSelectProdutoProducao}>
-                      <SelectTrigger className="h-12 rounded-xl bg-card border-border font-bold text-sm">
-                        <SelectValue placeholder="Selecione o produto..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {produtosAtivos.map((p) => (
-                          <SelectItem key={p.id} value={p.id} className="text-xs font-semibold py-2">
-                            {p.nome} <span className="text-muted-foreground ml-2">({p.categoria} • {p.validade_producao_dias}d)</span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Peso (Opcional com confirmação) */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                      <Scale className="w-3.5 h-3.5 text-muted-foreground" />
-                      Peso (Opcional)
-                    </Label>
-                    <Input
-                      placeholder="Ex: 500g, 1kg, 250g, 1.2kg..."
-                      value={prodPeso}
-                      onChange={(e) => setProdPeso(e.target.value)}
-                      className="h-11 rounded-xl bg-card border-border font-semibold text-sm"
-                    />
-                    <span className="text-[11px] text-muted-foreground block">
-                      Deixe vazio caso a etiqueta não precise conter especificação de peso.
-                    </span>
-                  </div>
-
-                  {/* Datas e Horas */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-bold text-foreground">Data Produção</Label>
-                      <Input
-                        type="date"
-                        value={prodData}
-                        onChange={(e) => handleDataProducaoChange(e.target.value)}
-                        className="h-11 rounded-xl bg-card border-border font-mono font-semibold text-xs"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-bold text-foreground">Hora Produção</Label>
-                      <Input
-                        type="time"
-                        value={prodHora}
-                        onChange={(e) => setProdHora(e.target.value)}
-                        className="h-11 rounded-xl bg-card border-border font-mono font-semibold text-xs"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-bold text-foreground flex items-center justify-between">
-                        Validade
-                        <span className="text-[10px] text-amber-400 font-normal">Auto-calculada</span>
-                      </Label>
-                      <Input
-                        type="date"
-                        value={prodValidade}
-                        onChange={(e) => setProdValidade(e.target.value)}
-                        className="h-11 rounded-xl bg-card border-amber-500/40 font-mono font-bold text-xs text-amber-300"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  {/* Quantidade e Impressora */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-bold text-foreground">Quantidade de Etiquetas</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        max="100"
-                        value={prodQuantidade}
-                        onChange={(e) => setProdQuantidade(Number(e.target.value))}
-                        className="h-11 rounded-xl bg-card border-border font-mono font-bold text-center text-sm"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-bold text-foreground">Impressora Térmica</Label>
-                      <Select value={prodImpressoraId} onValueChange={setProdImpressoraId}>
-                        <SelectTrigger className="h-11 rounded-xl bg-card border-border text-xs font-semibold">
-                          <SelectValue placeholder="Selecione a impressora..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {impressoras.map((imp) => (
-                            <SelectItem key={imp.id} value={imp.id} className="text-xs">
-                              {imp.nome} <span className="text-muted-foreground ml-1">({imp.modelo})</span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Botão Principal */}
-                  <div className="pt-4">
                     <Button
-                      type="submit"
-                      className="w-full h-12 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 gap-2"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setProdutoEditando(null);
+                        setProdutoModalOpen(true);
+                      }}
+                      className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10 text-xs h-8 px-3 rounded-xl gap-1.5"
                     >
-                      <Printer className="w-5 h-5" />
-                      Pré-visualizar e Imprimir
+                      <Plus className="w-3.5 h-3.5" /> Novo Item
                     </Button>
                   </div>
-                </form>
-              </div>
 
-              {/* Card Lateral de Atalhos e Dicas */}
-              <div className="space-y-4">
-                <div className="bg-card/70 border border-border/80 rounded-3xl p-6 shadow-sm">
-                  <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-amber-400" />
-                    Padrão de Impressão (80x30mm)
-                  </h3>
-                  <div className="text-xs text-muted-foreground space-y-2">
-                    <p>• O cálculo de validade é executado automaticamente com base no cadastro do produto.</p>
-                    <p>• A impressão é calibrada para etiquetas térmicas adesivas de <strong>80mm x 30mm</strong> (Elgin L42 Pro Full).</p>
-                    <p>• O peso é opcional e você pode continuar mesmo sem preencher.</p>
+                  {/* Barra de Busca Proeminente */}
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="🔍 Digite para buscar produto por nome ou categoria (ex: mussarela, calabresa, molho)..."
+                      value={buscaCatalogoProd}
+                      onChange={(e) => setBuscaCatalogoProd(e.target.value)}
+                      className="pl-10 pr-10 h-11 rounded-2xl bg-card border-border font-medium text-sm"
+                    />
+                    {buscaCatalogoProd && (
+                      <button
+                        type="button"
+                        onClick={() => setBuscaCatalogoProd('')}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Filtro por Categorias (Chips) */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                    <button
+                      type="button"
+                      onClick={() => setCatCatalogoProd('todas')}
+                      className={`text-xs px-3 py-1.5 rounded-xl border font-semibold whitespace-nowrap transition-all ${
+                        catCatalogoProd === 'todas'
+                          ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-sm'
+                          : 'bg-secondary/60 text-muted-foreground border-border/60 hover:text-foreground hover:bg-secondary'
+                      }`}
+                    >
+                      Todas ({produtosAtivos.length})
+                    </button>
+                    {CATEGORIAS_PADRAO.map((cat) => {
+                      const count = produtosAtivos.filter((p) => p.categoria === cat).length;
+                      if (count === 0) return null;
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setCatCatalogoProd(cat)}
+                          className={`text-xs px-3 py-1.5 rounded-xl border font-semibold whitespace-nowrap transition-all ${
+                            catCatalogoProd === cat
+                              ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-sm'
+                              : 'bg-secondary/60 text-muted-foreground border-border/60 hover:text-foreground hover:bg-secondary'
+                          }`}
+                        >
+                          {cat} ({count})
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
-                {/* Seleção Rápida de Produtos Populares */}
-                <div className="bg-card/70 border border-border/80 rounded-3xl p-6 shadow-sm">
-                  <h3 className="text-sm font-bold text-foreground mb-3">Atalhos Rápidos</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {produtosAtivos.slice(0, 6).map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => handleSelectProdutoProducao(p.id)}
-                        className={`text-xs px-3 py-1.5 rounded-xl border transition-all font-semibold ${
-                          prodProdutoId === p.id
-                            ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-sm'
-                            : 'bg-secondary/60 text-muted-foreground border-border/60 hover:text-foreground hover:bg-secondary'
-                        }`}
-                      >
-                        {p.nome}
-                      </button>
-                    ))}
+                {/* Grid Visual de Cards de Produtos */}
+                {loadingProdutos ? (
+                  <div className="py-16 text-center text-muted-foreground flex flex-col items-center justify-center gap-2">
+                    <RefreshCw className="w-6 h-6 animate-spin text-amber-500" />
+                    <span className="text-xs">Carregando catálogo de produtos...</span>
                   </div>
+                ) : produtosCatalogoProducao.length === 0 ? (
+                  <div className="py-12 text-center border border-dashed border-border rounded-3xl p-6 bg-card/40">
+                    <Package className="w-8 h-8 mx-auto text-muted-foreground mb-2 opacity-60" />
+                    <h3 className="text-sm font-bold text-foreground">Nenhum produto encontrado</h3>
+                    <p className="text-xs text-muted-foreground mt-1 mb-4">
+                      Tente buscar com outro termo ou cadastre um novo produto.
+                    </p>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setProdutoEditando(null);
+                        setProdutoModalOpen(true);
+                      }}
+                      className="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl"
+                    >
+                      <Plus className="w-4 h-4 mr-1.5" /> Cadastrar Produto
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-[580px] overflow-y-auto pr-1">
+                    {produtosCatalogoProducao.map((p) => {
+                      const isSelected = prodProdutoId === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setProdProdutoId(p.id)}
+                          className={`text-left p-4 rounded-2xl border transition-all flex flex-col justify-between gap-2.5 cursor-pointer select-none group relative ${
+                            isSelected
+                              ? 'bg-amber-950/30 border-amber-500 shadow-md shadow-amber-500/10 ring-2 ring-amber-500/50 scale-[1.01]'
+                              : 'bg-card/70 border-border/70 hover:border-amber-500/40 hover:bg-card/90 shadow-sm'
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">
+                                {p.categoria}
+                              </span>
+                              {isSelected && (
+                                <span className="w-5 h-5 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center shrink-0">
+                                  <Check className="w-3 h-3 stroke-[3]" />
+                                </span>
+                              )}
+                            </div>
+                            <h4 className="text-sm font-extrabold uppercase text-foreground leading-snug group-hover:text-amber-400 transition-colors">
+                              {p.nome}
+                            </h4>
+                          </div>
+
+                          <div className="pt-2 border-t border-border/50 flex items-center justify-between text-xs">
+                            <span className="text-[11px] text-muted-foreground flex items-center gap-1 font-medium">
+                              <Clock className="w-3 h-3 text-amber-400" />
+                              Validade:
+                            </span>
+                            <span className="font-mono font-bold text-amber-400 text-xs">
+                              {p.validade_producao_dias} {p.validade_producao_dias === 1 ? 'dia' : 'dias'}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Coluna 2: Painel de Emissão / Configuração da Etiqueta */}
+              <div className="xl:col-span-5 space-y-4">
+                <div className="bg-card/80 border border-border/80 rounded-3xl p-6 shadow-sm space-y-5">
+                  <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                    <h3 className="text-base font-bold text-foreground font-mono flex items-center gap-2">
+                      <Printer className="w-5 h-5 text-amber-400" />
+                      Painel de Emissão
+                    </h3>
+                    <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px] font-semibold">
+                      Produção
+                    </Badge>
+                  </div>
+
+                  {/* Card do Produto Selecionado */}
+                  {produtoSelecionadoProducao ? (
+                    <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
+                        <Flame className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[10px] uppercase font-bold text-amber-400/80 tracking-wider block">
+                          {produtoSelecionadoProducao.categoria}
+                        </span>
+                        <h4 className="text-base font-black text-foreground uppercase truncate">
+                          {produtoSelecionadoProducao.nome}
+                        </h4>
+                        <span className="text-xs text-muted-foreground mt-0.5 block">
+                          Validade cadastrada: <strong className="text-amber-300 font-mono">{produtoSelecionadoProducao.validade_producao_dias} dias</strong>
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-2xl bg-secondary/40 border border-border text-center text-xs text-muted-foreground">
+                      Selecione um produto no catálogo à esquerda para emitir
+                    </div>
+                  )}
+
+                  <form onSubmit={handlePrevisualizarProducao} className="space-y-4">
+                    {/* Campo de Peso Inteligente (Auto-Ajustável com g / kg) */}
+                    <div className="space-y-2 p-4 rounded-2xl bg-secondary/30 border border-border/70">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                          <Scale className="w-4 h-4 text-amber-400" />
+                          Peso do Produto (Opcional)
+                        </Label>
+                        {prodPeso && (
+                          <span className="text-[11px] font-mono font-bold text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded-lg border border-amber-500/30">
+                            Formatado: {autoFormatarPeso(prodPeso)}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="relative">
+                        <Input
+                          placeholder="Digite o peso (ex: 500 -> 500g | 1.5 -> 1.5kg | 1200 -> 1.2kg)..."
+                          value={prodPeso}
+                          onChange={(e) => setProdPeso(e.target.value)}
+                          onBlur={(e) => setProdPeso(autoFormatarPeso(e.target.value))}
+                          className="h-11 rounded-xl bg-card border-border font-mono font-bold text-sm"
+                        />
+                        {prodPeso && (
+                          <button
+                            type="button"
+                            onClick={() => setProdPeso('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Botões Rápidos de Preset de Peso */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        {['250g', '500g', '750g', '1kg', '1.5kg', '2kg', '3kg', '5kg'].map((pesoPreset) => (
+                          <button
+                            key={pesoPreset}
+                            type="button"
+                            onClick={() => setProdPeso(pesoPreset)}
+                            className={`text-[11px] font-mono px-2.5 py-1 rounded-lg border font-semibold transition-all ${
+                              prodPeso === pesoPreset
+                                ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold'
+                                : 'bg-secondary/70 text-muted-foreground border-border hover:text-foreground hover:bg-secondary'
+                            }`}
+                          >
+                            {pesoPreset}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Datas e Horas: Data/Hora de Produção (FIXAS/BLOQUEADAS) + Validade Calculada */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Data & Hora de Produção (Bloqueadas em Tempo Real) */}
+                      <div className="p-3.5 rounded-2xl bg-secondary/40 border border-border/70 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                            Data & Hora Produção
+                          </span>
+                          <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1 bg-emerald-950/30 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                            <Lock className="w-3 h-3" /> Atual
+                          </span>
+                        </div>
+                        <div className="pt-1">
+                          <span className="text-sm font-mono font-bold text-foreground block">
+                            {formatarDataBR(dataHoje)}
+                          </span>
+                          <span className="text-xs font-mono font-semibold text-muted-foreground block">
+                            às {horaAtual} (Horário Real)
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Validade Calculada */}
+                      <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase font-bold text-amber-400 tracking-wider flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" />
+                            Validade do Produto
+                          </span>
+                          <span className="text-[10px] text-amber-300 font-bold bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">
+                            +{produtoSelecionadoProducao?.validade_producao_dias || 1}d
+                          </span>
+                        </div>
+                        <div className="pt-1">
+                          <span className="text-sm font-mono font-bold text-amber-300 block">
+                            {formatarDataBR(validadeCalculadaProducao)}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground block">
+                            Cálculo automático
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quantidade e Impressora */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Quantidade */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-bold text-foreground">Quantidade de Etiquetas</Label>
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setProdQuantidade((q) => Math.max(1, q - 1))}
+                            className="h-10 w-10 p-0 rounded-xl font-bold text-base"
+                          >
+                            -
+                          </Button>
+                          <Input
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={prodQuantidade}
+                            onChange={(e) => setProdQuantidade(Math.max(1, Number(e.target.value) || 1))}
+                            className="h-10 rounded-xl bg-card border-border font-mono font-bold text-center text-sm flex-1"
+                            required
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setProdQuantidade((q) => Math.min(100, q + 1))}
+                            className="h-10 w-10 p-0 rounded-xl font-bold text-base"
+                          >
+                            +
+                          </Button>
+                        </div>
+                        <div className="flex items-center justify-between gap-1 pt-0.5">
+                          {[1, 2, 5, 10].map((q) => (
+                            <button
+                              key={q}
+                              type="button"
+                              onClick={() => setProdQuantidade(q)}
+                              className={`text-[10px] font-mono px-2 py-0.5 rounded-md border ${
+                                prodQuantidade === q
+                                  ? 'bg-amber-500 text-slate-950 font-bold border-amber-400'
+                                  : 'bg-secondary text-muted-foreground border-border hover:text-foreground'
+                              }`}
+                            >
+                              {q}x
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Impressora */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-bold text-foreground">Impressora Térmica</Label>
+                        <Select value={prodImpressoraId} onValueChange={setProdImpressoraId}>
+                          <SelectTrigger className="h-10 rounded-xl bg-card border-border text-xs font-semibold">
+                            <SelectValue placeholder="Selecione..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {impressoras.map((imp) => (
+                              <SelectItem key={imp.id} value={imp.id} className="text-xs">
+                                {imp.nome} <span className="text-muted-foreground ml-1">({imp.modelo})</span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <span className="text-[10px] text-muted-foreground block truncate">
+                          Padrão 80x30mm Elgin L42 Pro
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Botões de Ação */}
+                    <div className="pt-3 space-y-2">
+                      <Button
+                        type="submit"
+                        disabled={!produtoSelecionadoProducao}
+                        className="w-full h-12 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 gap-2"
+                      >
+                        <Printer className="w-5 h-5" />
+                        Pré-visualizar e Imprimir
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={!produtoSelecionadoProducao}
+                        onClick={() => handleImprimirSemPesoDireto('PRODUÇÃO')}
+                        className="w-full h-10 rounded-xl border-border/80 text-muted-foreground hover:text-foreground hover:bg-secondary/80 text-xs font-semibold gap-1.5"
+                      >
+                        <Zap className="w-3.5 h-3.5 text-amber-400" />
+                        Imprimir Direto Sem Peso (1 Toque)
+                      </Button>
+                    </div>
+                  </form>
                 </div>
               </div>
             </div>
@@ -809,178 +1107,377 @@ export default function Etiquetas() {
           {/* ========================================================= */}
           {/* ABA 2: DESCONGELAMENTO                                    */}
           {/* ========================================================= */}
-          <TabsContent value="descongelamento">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Formulário */}
-              <div className="lg:col-span-2 bg-card/70 border border-border/80 rounded-3xl p-6 shadow-sm">
-                <div className="flex items-center gap-2 mb-4 border-b border-border/60 pb-3">
-                  <Snowflake className="w-5 h-5 text-blue-400" />
-                  <h2 className="text-lg font-bold text-foreground font-mono">Emissão de Etiqueta de Descongelamento</h2>
-                </div>
-
-                <form onSubmit={handlePrevisualizarDescongelamento} className="space-y-4">
-                  {/* Produto */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs font-bold text-foreground">Produto *</Label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProdutoEditando(null);
-                          setProdutoModalOpen(true);
-                        }}
-                        className="text-[11px] text-blue-400 hover:underline flex items-center gap-1"
-                      >
-                        <Plus className="w-3 h-3" /> Cadastrar outro produto
-                      </button>
+          <TabsContent value="descongelamento" className="space-y-6">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+              {/* Coluna 1: Catálogo Visual de Produtos para Descongelar */}
+              <div className="xl:col-span-7 space-y-4">
+                <div className="bg-card/70 border border-border/80 rounded-3xl p-5 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <Snowflake className="w-5 h-5 text-blue-400" />
+                      <h2 className="text-base font-bold text-foreground font-mono">
+                        Selecione o Produto para Descongelar
+                      </h2>
                     </div>
-                    <Select value={descProdutoId} onValueChange={handleSelectProdutoDescongelamento}>
-                      <SelectTrigger className="h-12 rounded-xl bg-card border-border font-bold text-sm">
-                        <SelectValue placeholder="Selecione o produto..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {produtosAtivos.map((p) => (
-                          <SelectItem key={p.id} value={p.id} className="text-xs font-semibold py-2">
-                            {p.nome} <span className="text-muted-foreground ml-2">({p.categoria} • {p.validade_descongelamento_dias}d desc.)</span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Peso (Opcional com confirmação) */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                      <Scale className="w-3.5 h-3.5 text-muted-foreground" />
-                      Peso (Opcional)
-                    </Label>
-                    <Input
-                      placeholder="Ex: 1kg, 2kg, 500g..."
-                      value={descPeso}
-                      onChange={(e) => setDescPeso(e.target.value)}
-                      className="h-11 rounded-xl bg-card border-border font-semibold text-sm"
-                    />
-                    <span className="text-[11px] text-muted-foreground block">
-                      Deixe vazio caso a etiqueta não precise conter especificação de peso.
-                    </span>
-                  </div>
-
-                  {/* Datas e Horas */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-bold text-foreground">Data Descongelamento</Label>
-                      <Input
-                        type="date"
-                        value={descData}
-                        onChange={(e) => handleDataDescongelamentoChange(e.target.value)}
-                        className="h-11 rounded-xl bg-card border-border font-mono font-semibold text-xs"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-bold text-foreground">Hora Descongelamento</Label>
-                      <Input
-                        type="time"
-                        value={descHora}
-                        onChange={(e) => setDescHora(e.target.value)}
-                        className="h-11 rounded-xl bg-card border-border font-mono font-semibold text-xs"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-bold text-foreground flex items-center justify-between">
-                        Validade
-                        <span className="text-[10px] text-blue-400 font-normal">Auto-calculada</span>
-                      </Label>
-                      <Input
-                        type="date"
-                        value={descValidade}
-                        onChange={(e) => setDescValidade(e.target.value)}
-                        className="h-11 rounded-xl bg-card border-blue-500/40 font-mono font-bold text-xs text-blue-300"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  {/* Quantidade e Impressora */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-bold text-foreground">Quantidade de Etiquetas</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        max="100"
-                        value={descQuantidade}
-                        onChange={(e) => setDescQuantidade(Number(e.target.value))}
-                        className="h-11 rounded-xl bg-card border-border font-mono font-bold text-center text-sm"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-bold text-foreground">Impressora Térmica</Label>
-                      <Select value={descImpressoraId} onValueChange={setDescImpressoraId}>
-                        <SelectTrigger className="h-11 rounded-xl bg-card border-border text-xs font-semibold">
-                          <SelectValue placeholder="Selecione a impressora..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {impressoras.map((imp) => (
-                            <SelectItem key={imp.id} value={imp.id} className="text-xs">
-                              {imp.nome} <span className="text-muted-foreground ml-1">({imp.modelo})</span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Botão Principal */}
-                  <div className="pt-4">
                     <Button
-                      type="submit"
-                      className="w-full h-12 rounded-2xl bg-blue-500 hover:bg-blue-400 text-slate-950 font-bold text-sm shadow-lg shadow-blue-500/20 gap-2"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setProdutoEditando(null);
+                        setProdutoModalOpen(true);
+                      }}
+                      className="border-blue-500/40 text-blue-400 hover:bg-blue-500/10 text-xs h-8 px-3 rounded-xl gap-1.5"
                     >
-                      <Printer className="w-5 h-5" />
-                      Pré-visualizar e Imprimir
+                      <Plus className="w-3.5 h-3.5" /> Novo Item
                     </Button>
                   </div>
-                </form>
-              </div>
 
-              {/* Card Lateral de Atalhos */}
-              <div className="space-y-4">
-                <div className="bg-card/70 border border-border/80 rounded-3xl p-6 shadow-sm">
-                  <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
-                    <Snowflake className="w-4 h-4 text-blue-400" />
-                    Regra de Descongelamento
-                  </h3>
-                  <div className="text-xs text-muted-foreground space-y-2">
-                    <p>• A validade após o descongelamento é calculada a partir dos dias configurados para o produto.</p>
-                    <p>• A etiqueta recebe o cabeçalho <strong>DESCONGELAMENTO</strong> para fácil identificação pela equipe de corte e montagem.</p>
+                  {/* Barra de Busca Proeminente */}
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="🔍 Digite para buscar produto por nome ou categoria..."
+                      value={buscaCatalogoDesc}
+                      onChange={(e) => setBuscaCatalogoDesc(e.target.value)}
+                      className="pl-10 pr-10 h-11 rounded-2xl bg-card border-border font-medium text-sm"
+                    />
+                    {buscaCatalogoDesc && (
+                      <button
+                        type="button"
+                        onClick={() => setBuscaCatalogoDesc('')}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Filtro por Categorias (Chips) */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                    <button
+                      type="button"
+                      onClick={() => setCatCatalogoDesc('todas')}
+                      className={`text-xs px-3 py-1.5 rounded-xl border font-semibold whitespace-nowrap transition-all ${
+                        catCatalogoDesc === 'todas'
+                          ? 'bg-blue-500 text-slate-950 border-blue-400 font-bold shadow-sm'
+                          : 'bg-secondary/60 text-muted-foreground border-border/60 hover:text-foreground hover:bg-secondary'
+                      }`}
+                    >
+                      Todas ({produtosAtivos.length})
+                    </button>
+                    {CATEGORIAS_PADRAO.map((cat) => {
+                      const count = produtosAtivos.filter((p) => p.categoria === cat).length;
+                      if (count === 0) return null;
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setCatCatalogoDesc(cat)}
+                          className={`text-xs px-3 py-1.5 rounded-xl border font-semibold whitespace-nowrap transition-all ${
+                            catCatalogoDesc === cat
+                              ? 'bg-blue-500 text-slate-950 border-blue-400 font-bold shadow-sm'
+                              : 'bg-secondary/60 text-muted-foreground border-border/60 hover:text-foreground hover:bg-secondary'
+                          }`}
+                        >
+                          {cat} ({count})
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
-                {/* Seleção Rápida de Produtos */}
-                <div className="bg-card/70 border border-border/80 rounded-3xl p-6 shadow-sm">
-                  <h3 className="text-sm font-bold text-foreground mb-3">Atalhos Rápidos</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {produtosAtivos.slice(0, 6).map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => handleSelectProdutoDescongelamento(p.id)}
-                        className={`text-xs px-3 py-1.5 rounded-xl border transition-all font-semibold ${
-                          descProdutoId === p.id
-                            ? 'bg-blue-500 text-slate-950 border-blue-400 font-bold shadow-sm'
-                            : 'bg-secondary/60 text-muted-foreground border-border/60 hover:text-foreground hover:bg-secondary'
-                        }`}
-                      >
-                        {p.nome}
-                      </button>
-                    ))}
+                {/* Grid Visual de Cards de Descongelamento */}
+                {loadingProdutos ? (
+                  <div className="py-16 text-center text-muted-foreground flex flex-col items-center justify-center gap-2">
+                    <RefreshCw className="w-6 h-6 animate-spin text-blue-400" />
+                    <span className="text-xs">Carregando catálogo de produtos...</span>
                   </div>
+                ) : produtosCatalogoDescongelamento.length === 0 ? (
+                  <div className="py-12 text-center border border-dashed border-border rounded-3xl p-6 bg-card/40">
+                    <Package className="w-8 h-8 mx-auto text-muted-foreground mb-2 opacity-60" />
+                    <h3 className="text-sm font-bold text-foreground">Nenhum produto encontrado</h3>
+                    <p className="text-xs text-muted-foreground mt-1 mb-4">
+                      Tente buscar com outro termo ou cadastre um novo produto.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-[580px] overflow-y-auto pr-1">
+                    {produtosCatalogoDescongelamento.map((p) => {
+                      const isSelected = descProdutoId === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setDescProdutoId(p.id)}
+                          className={`text-left p-4 rounded-2xl border transition-all flex flex-col justify-between gap-2.5 cursor-pointer select-none group relative ${
+                            isSelected
+                              ? 'bg-blue-950/30 border-blue-500 shadow-md shadow-blue-500/10 ring-2 ring-blue-500/50 scale-[1.01]'
+                              : 'bg-card/70 border-border/70 hover:border-blue-500/40 hover:bg-card/90 shadow-sm'
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">
+                                {p.categoria}
+                              </span>
+                              {isSelected && (
+                                <span className="w-5 h-5 rounded-full bg-blue-500 text-slate-950 flex items-center justify-center shrink-0">
+                                  <Check className="w-3 h-3 stroke-[3]" />
+                                </span>
+                              )}
+                            </div>
+                            <h4 className="text-sm font-extrabold uppercase text-foreground leading-snug group-hover:text-blue-400 transition-colors">
+                              {p.nome}
+                            </h4>
+                          </div>
+
+                          <div className="pt-2 border-t border-border/50 flex items-center justify-between text-xs">
+                            <span className="text-[11px] text-muted-foreground flex items-center gap-1 font-medium">
+                              <Snowflake className="w-3 h-3 text-blue-400" />
+                              Descongela:
+                            </span>
+                            <span className="font-mono font-bold text-blue-400 text-xs">
+                              {p.validade_descongelamento_dias || 1} {(p.validade_descongelamento_dias || 1) === 1 ? 'dia (Amanhã)' : 'dias'}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Coluna 2: Painel de Emissão de Descongelamento */}
+              <div className="xl:col-span-5 space-y-4">
+                <div className="bg-card/80 border border-border/80 rounded-3xl p-6 shadow-sm space-y-5">
+                  <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                    <h3 className="text-base font-bold text-foreground font-mono flex items-center gap-2">
+                      <Printer className="w-5 h-5 text-blue-400" />
+                      Painel de Descongelamento
+                    </h3>
+                    <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/40 text-[11px] font-semibold">
+                      Descongelamento
+                    </Badge>
+                  </div>
+
+                  {/* Card do Produto Selecionado */}
+                  {produtoSelecionadoDesc ? (
+                    <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/30 flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center shrink-0">
+                        <Snowflake className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[10px] uppercase font-bold text-blue-400/80 tracking-wider block">
+                          {produtoSelecionadoDesc.categoria}
+                        </span>
+                        <h4 className="text-base font-black text-foreground uppercase truncate">
+                          {produtoSelecionadoDesc.nome}
+                        </h4>
+                        <span className="text-xs text-muted-foreground mt-0.5 block">
+                          Validade descongelado: <strong className="text-blue-300 font-mono">Padrão Dia Seguinte (1 dia)</strong>
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-2xl bg-secondary/40 border border-border text-center text-xs text-muted-foreground">
+                      Selecione um produto no catálogo à esquerda para emitir
+                    </div>
+                  )}
+
+                  <form onSubmit={handlePrevisualizarDescongelamento} className="space-y-4">
+                    {/* Campo de Peso Inteligente */}
+                    <div className="space-y-2 p-4 rounded-2xl bg-secondary/30 border border-border/70">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                          <Scale className="w-4 h-4 text-blue-400" />
+                          Peso do Produto (Opcional)
+                        </Label>
+                        {descPeso && (
+                          <span className="text-[11px] font-mono font-bold text-blue-300 bg-blue-500/15 px-2 py-0.5 rounded-lg border border-blue-500/30">
+                            Formatado: {autoFormatarPeso(descPeso)}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="relative">
+                        <Input
+                          placeholder="Digite o peso (ex: 500 -> 500g | 1.5 -> 1.5kg)..."
+                          value={descPeso}
+                          onChange={(e) => setDescPeso(e.target.value)}
+                          onBlur={(e) => setDescPeso(autoFormatarPeso(e.target.value))}
+                          className="h-11 rounded-xl bg-card border-border font-mono font-bold text-sm"
+                        />
+                        {descPeso && (
+                          <button
+                            type="button"
+                            onClick={() => setDescPeso('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Botões Rápidos de Preset de Peso */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        {['250g', '500g', '750g', '1kg', '1.5kg', '2kg', '3kg', '5kg'].map((pesoPreset) => (
+                          <button
+                            key={pesoPreset}
+                            type="button"
+                            onClick={() => setDescPeso(pesoPreset)}
+                            className={`text-[11px] font-mono px-2.5 py-1 rounded-lg border font-semibold transition-all ${
+                              descPeso === pesoPreset
+                                ? 'bg-blue-500 text-slate-950 border-blue-400 font-bold'
+                                : 'bg-secondary/70 text-muted-foreground border-border hover:text-foreground hover:bg-secondary'
+                            }`}
+                          >
+                            {pesoPreset}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Datas e Horas: Data/Hora de Descongelamento (FIXAS) + Validade Calculada (D+1 Dia Seguinte) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Data & Hora Descongelamento (Bloqueadas em Tempo Real) */}
+                      <div className="p-3.5 rounded-2xl bg-secondary/40 border border-border/70 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                            Data Descongelar
+                          </span>
+                          <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1 bg-emerald-950/30 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                            <Lock className="w-3 h-3" /> Atual
+                          </span>
+                        </div>
+                        <div className="pt-1">
+                          <span className="text-sm font-mono font-bold text-foreground block">
+                            {formatarDataBR(dataHoje)}
+                          </span>
+                          <span className="text-xs font-mono font-semibold text-muted-foreground block">
+                            às {horaAtual} (Horário Real)
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Validade Descongelado (Padrão: Dia Seguinte / Amanhã) */}
+                      <div className="p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/30 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase font-bold text-blue-400 tracking-wider flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" />
+                            Validade Descongelado
+                          </span>
+                          <span className="text-[10px] text-blue-300 font-bold bg-blue-500/20 px-1.5 py-0.5 rounded border border-blue-500/30">
+                            Amanhã (+1d)
+                          </span>
+                        </div>
+                        <div className="pt-1">
+                          <span className="text-sm font-mono font-bold text-blue-300 block">
+                            {formatarDataBR(validadeCalculadaDescongelamento)}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground block">
+                            Padrão Dia Seguinte
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quantidade e Impressora */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Quantidade */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-bold text-foreground">Quantidade de Etiquetas</Label>
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDescQuantidade((q) => Math.max(1, q - 1))}
+                            className="h-10 w-10 p-0 rounded-xl font-bold text-base"
+                          >
+                            -
+                          </Button>
+                          <Input
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={descQuantidade}
+                            onChange={(e) => setDescQuantidade(Math.max(1, Number(e.target.value) || 1))}
+                            className="h-10 rounded-xl bg-card border-border font-mono font-bold text-center text-sm flex-1"
+                            required
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDescQuantidade((q) => Math.min(100, q + 1))}
+                            className="h-10 w-10 p-0 rounded-xl font-bold text-base"
+                          >
+                            +
+                          </Button>
+                        </div>
+                        <div className="flex items-center justify-between gap-1 pt-0.5">
+                          {[1, 2, 5, 10].map((q) => (
+                            <button
+                              key={q}
+                              type="button"
+                              onClick={() => setDescQuantidade(q)}
+                              className={`text-[10px] font-mono px-2 py-0.5 rounded-md border ${
+                                descQuantidade === q
+                                  ? 'bg-blue-500 text-slate-950 font-bold border-blue-400'
+                                  : 'bg-secondary text-muted-foreground border-border hover:text-foreground'
+                              }`}
+                            >
+                              {q}x
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Impressora */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-bold text-foreground">Impressora Térmica</Label>
+                        <Select value={descImpressoraId} onValueChange={setDescImpressoraId}>
+                          <SelectTrigger className="h-10 rounded-xl bg-card border-border text-xs font-semibold">
+                            <SelectValue placeholder="Selecione..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {impressoras.map((imp) => (
+                              <SelectItem key={imp.id} value={imp.id} className="text-xs">
+                                {imp.nome} <span className="text-muted-foreground ml-1">({imp.modelo})</span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <span className="text-[10px] text-muted-foreground block truncate">
+                          Padrão 80x30mm Elgin L42 Pro
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Botões de Ação */}
+                    <div className="pt-3 space-y-2">
+                      <Button
+                        type="submit"
+                        disabled={!produtoSelecionadoDesc}
+                        className="w-full h-12 rounded-2xl bg-blue-500 hover:bg-blue-400 text-slate-950 font-bold text-sm shadow-lg shadow-blue-500/20 gap-2"
+                      >
+                        <Printer className="w-5 h-5" />
+                        Pré-visualizar e Imprimir
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={!produtoSelecionadoDesc}
+                        onClick={() => handleImprimirSemPesoDireto('DESCONGELAMENTO')}
+                        className="w-full h-10 rounded-xl border-border/80 text-muted-foreground hover:text-foreground hover:bg-secondary/80 text-xs font-semibold gap-1.5"
+                      >
+                        <Zap className="w-3.5 h-3.5 text-blue-400" />
+                        Imprimir Direto Sem Peso (1 Toque)
+                      </Button>
+                    </div>
+                  </form>
                 </div>
               </div>
             </div>
