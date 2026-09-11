@@ -26,7 +26,7 @@ Os módulos principais são:
 Esses módulos podem ser geridos livremente pelo painel Super Admin na visualização e edição de uma franquia.
 
 ### Versão do Sistema
-- **Versão Atual**: `2.9.8` (Setembro 2026)
+- **Versão Atual**: `2.9.9` (Setembro 2026)
 - **Últimas Implementações**:
     - **Novo Módulo: Etiquetas de Produção e Descongelamento ([`/etiquetas`](file:///src/pages/Etiquetas.tsx))**:
         - Sistema completo de impressão de etiquetas térmicas adesivas nos padrões **80mm x 30mm** (calibrado para Elgin L42 Pro Full e impressoras de rede térmicas via RAW 9100 / ESC/POS / ZPL).
@@ -55,8 +55,11 @@ Esses módulos podem ser geridos livremente pelo painel Super Admin na visualiza
     - **Integração Google Sheets Unificada por Franquia**:
         - Configuração do webhook do Google Apps Script centralizada no nível da franquia (`franquias.config_pagamento.config_sheets_ponto_url`). Ao salvar a URL da planilha em qualquer loja (ex: Itaquá), a configuração é replicada e sincronizada instantaneamente para todas as outras lojas da mesma rede (Poá, Suzano, etc.).
         - O webhook grava os dados automaticamente na aba dedicada de cada unidade (`({UNIDADE}) JANTA E PONTO`), atualizando na mesma linha do dia os horários de entrada, início de intervalo, retorno e total em minutos.
-    - **Reforço de Segurança e Isolamento Estrito Multi-Franquia**:
-        - Todas as consultas, criações e atualizações de funcionários internos e registros de ponto foram blindadas com o filtro obrigatório de `franquia_id` em conjunto com a `unidade`, impedindo cruzamento ou vazamento de colaboradores entre redes distintas.
+    - **Reforço de Segurança e Isolamento Estrito por Loja (v2.9.9)**:
+        - **Isolamento estrito por `unidade`**: A consulta de funcionários internos e registros de ponto agora filtra exclusivamente pela `unidade` atual, eliminando o cruzamento de dados entre lojas da mesma franquia (ex: Itaquá e Poá não compartilham mais listas de colaboradores). Cada loja mantém seu cadastro independente.
+        - **Deduplicação automática**: Implementada rotina de deduplicação case-insensitive por nome, tanto no cache local quanto no retorno do Supabase, prevenindo colaboradores duplicados gerados por recriações durante migrações ou trocas de loja.
+        - **Reconexão automática de Check-ins por ID ou Nome**: O mapeamento de registros de ponto passou a ser híbrido: primeiro por `funcionario_id` exato, e em seguida por `nome` normalizado. Isso garante que check-ins realizados antes de uma sincronização de banco (quando o colaborador ainda tinha ID temporário local) continuem aparecendo visualmente, sem necessidade de refazer o check-in.
+        - **Inicialização inteligente por loja**: Se a loja ITAQUA não possuir nenhum colaborador no banco, os 28 membros da equipe padrão são inseridos automaticamente apenas para ela. Outras lojas da mesma franquia (POA, SUZANO) não recebem essa inicialização a não ser que também estejam vazias.
     - **Gestão Automatizada de Transmissão (Inatividade de 5m & Injeção em Massa)**:
         - Implementada remoção automática do item `transmissao` da playlist (`tv_playlist`) de todas as unidades da franquia se o OBS Studio passar **5 minutos inativo** (AFK sem transmissão), evitando telas pretas nas TVs.
         - Adicionado botão **"Adicionar a Todas as Lojas"** no painel administrativo [ScreenShareTransmitter.tsx](file:///src/components/tv/ScreenShareTransmitter.tsx). Com um clique, ele detecta todas as unidades da franquia e insere de forma automática a mídia `transmissao` ativa na playlist delas no Supabase.
@@ -2292,5 +2295,5 @@ ORDER BY valor_final DESC;
 
 **FIM DA DOCUMENTAÇÃO**
 
-*Este documento foi atualizado em 2026-09-08.*  
+*Este documento foi atualizado em 2026-09-11.*  
 *Todos os dados cadastrados, estruturas de tabelas, políticas RLS e funcionalidades foram extraídos diretamente do banco de dados e código-fonte.*
