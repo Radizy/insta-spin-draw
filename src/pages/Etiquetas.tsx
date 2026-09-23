@@ -75,6 +75,7 @@ import {
   CATEGORIAS_PADRAO,
   MODELOS_ETIQUETAS,
   ModeloEtiquetaId,
+  TipoLayoutEtiqueta,
 } from '@/lib/api-etiquetas';
 import { getHojeLocalYMD } from '@/lib/api';
 import { SemPesoConfirmModal } from '@/components/etiquetas/SemPesoConfirmModal';
@@ -152,6 +153,7 @@ export default function Etiquetas() {
   const [prodImpressoraId, setProdImpressoraId] = useState<string>('');
   const [prodModeloEtiqueta, setProdModeloEtiqueta] = useState<ModeloEtiquetaId>('80x30');
   const [prodColunas, setProdColunas] = useState<number>(1);
+  const [prodLayoutEtiqueta, setProdLayoutEtiqueta] = useState<TipoLayoutEtiqueta>('completa');
 
   // Formulário Aba Descongelamento
   const [descProdutoId, setDescProdutoId] = useState<string>('');
@@ -160,6 +162,7 @@ export default function Etiquetas() {
   const [descImpressoraId, setDescImpressoraId] = useState<string>('');
   const [descModeloEtiqueta, setDescModeloEtiqueta] = useState<ModeloEtiquetaId>('80x30');
   const [descColunas, setDescColunas] = useState<number>(1);
+  const [descLayoutEtiqueta, setDescLayoutEtiqueta] = useState<TipoLayoutEtiqueta>('completa');
 
   // Modais
   const [semPesoModalOpen, setSemPesoModalOpen] = useState(false);
@@ -340,6 +343,8 @@ export default function Etiquetas() {
         usuarioNome: dados.usuarioNome,
         impressora_nome: dados.impressoraNome,
         modelo_etiqueta: dados.modeloEtiqueta || '80x30',
+        colunas: dados.colunas || 1,
+        layout_etiqueta: dados.layout || 'completa',
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['etiquetas-historico'] });
@@ -449,6 +454,7 @@ export default function Etiquetas() {
       impressoraNome: imp?.nome || 'Elgin L42 Pro Full',
       modeloEtiqueta: prodModeloEtiqueta,
       colunas: prodColunas,
+      layout: prodLayoutEtiqueta,
     };
 
     // Confirmação se peso estiver vazio
@@ -487,6 +493,7 @@ export default function Etiquetas() {
       impressoraNome: imp?.nome || 'Elgin L42 Pro Full',
       modeloEtiqueta: descModeloEtiqueta,
       colunas: descColunas,
+      layout: descLayoutEtiqueta,
     };
 
     // Confirmação se peso estiver vazio
@@ -513,6 +520,7 @@ export default function Etiquetas() {
     const val = tipo === 'PRODUÇÃO' ? validadeCalculadaProducao : validadeCalculadaDescongelamento;
     const modelo = tipo === 'PRODUÇÃO' ? prodModeloEtiqueta : descModeloEtiqueta;
     const col = tipo === 'PRODUÇÃO' ? prodColunas : descColunas;
+    const layout = tipo === 'PRODUÇÃO' ? prodLayoutEtiqueta : descLayoutEtiqueta;
 
     const dados: DadosImpressaoEtiqueta = {
       tipo,
@@ -528,6 +536,7 @@ export default function Etiquetas() {
       impressoraNome: imp?.nome || 'Elgin L42 Pro Full',
       modeloEtiqueta: modelo,
       colunas: col,
+      layout,
     };
 
     setDadosParaPreview(dados);
@@ -1137,6 +1146,37 @@ export default function Etiquetas() {
                           ))}
                         </div>
                       </div>
+
+                      {/* Tipo de Etiqueta (Completa vs Simples) */}
+                      <div className="space-y-1.5 pt-0.5">
+                        <Label className="text-xs font-bold text-foreground">Tipo de Layout</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setProdLayoutEtiqueta('completa')}
+                            className={`h-9 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${
+                              prodLayoutEtiqueta === 'completa'
+                                ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-sm font-black'
+                                : 'bg-card text-muted-foreground border-border hover:text-foreground hover:bg-secondary'
+                            }`}
+                          >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            Completa
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setProdLayoutEtiqueta('simples')}
+                            className={`h-9 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${
+                              prodLayoutEtiqueta === 'simples'
+                                ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-sm font-black'
+                                : 'bg-card text-muted-foreground border-border hover:text-foreground hover:bg-secondary'
+                            }`}
+                          >
+                            <Tag className="w-3.5 h-3.5" />
+                            Simples (Limpa)
+                          </button>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Botões de Ação */}
@@ -1563,6 +1603,37 @@ export default function Etiquetas() {
                               {num}x {num > 1 ? 'Col.' : 'Col.'}
                             </button>
                           ))}
+                        </div>
+                      </div>
+
+                      {/* Tipo de Etiqueta (Completa vs Simples) */}
+                      <div className="space-y-1.5 pt-0.5">
+                        <Label className="text-xs font-bold text-foreground">Tipo de Layout</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setDescLayoutEtiqueta('completa')}
+                            className={`h-9 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${
+                              descLayoutEtiqueta === 'completa'
+                                ? 'bg-blue-500 text-slate-950 border-blue-500 shadow-sm font-black'
+                                : 'bg-card text-muted-foreground border-border hover:text-foreground hover:bg-secondary'
+                            }`}
+                          >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            Completa
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDescLayoutEtiqueta('simples')}
+                            className={`h-9 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${
+                              descLayoutEtiqueta === 'simples'
+                                ? 'bg-blue-500 text-slate-950 border-blue-500 shadow-sm font-black'
+                                : 'bg-card text-muted-foreground border-border hover:text-foreground hover:bg-secondary'
+                            }`}
+                          >
+                            <Tag className="w-3.5 h-3.5" />
+                            Simples (Limpa)
+                          </button>
                         </div>
                       </div>
                     </div>

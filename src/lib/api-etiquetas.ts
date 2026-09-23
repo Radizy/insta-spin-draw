@@ -45,8 +45,11 @@ export interface EtiquetaHistorico {
   impressora_nome?: string;
   modelo_etiqueta?: string; // "80x30", "33x21", "100x50", etc.
   colunas?: number; // 1, 2, 3, 4 colunas por carreira
+  layout_etiqueta?: 'completa' | 'simples';
   created_at: string;
 }
+
+export type TipoLayoutEtiqueta = 'completa' | 'simples';
 
 export type ModeloEtiquetaId = '80x30' | '33x21' | '100x50' | '60x40' | '50x30' | 'personalizado';
 
