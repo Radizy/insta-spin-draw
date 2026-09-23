@@ -47,7 +47,7 @@ export interface EtiquetaHistorico {
   created_at: string;
 }
 
-export type ModeloEtiquetaId = '80x30' | '100x50' | '60x40' | '50x30' | 'personalizado';
+export type ModeloEtiquetaId = '80x30' | '33x21' | '100x50' | '60x40' | '50x30' | 'personalizado';
 
 export interface ModeloEtiquetaConfig {
   id: ModeloEtiquetaId;
@@ -59,6 +59,7 @@ export interface ModeloEtiquetaConfig {
 
 export const MODELOS_ETIQUETAS: ModeloEtiquetaConfig[] = [
   { id: '80x30', nome: '80mm x 30mm (Padrão)', larguraMm: 80, alturaMm: 30, descricao: 'Padrão Elgin L42 Pro Full / Cozinha' },
+  { id: '33x21', nome: '33mm x 21mm (Mini)', larguraMm: 33, alturaMm: 21, descricao: 'Compacta 33x21mm para potes, sachês e gôndolas' },
   { id: '100x50', nome: '100mm x 50mm', larguraMm: 100, alturaMm: 50, descricao: 'Formato grande com espaço expandido' },
   { id: '60x40', nome: '60mm x 40mm', larguraMm: 60, alturaMm: 40, descricao: 'Formato intermediário retangular' },
   { id: '50x30', nome: '50mm x 30mm', larguraMm: 50, alturaMm: 30, descricao: 'Compacta para potes e sachês' },

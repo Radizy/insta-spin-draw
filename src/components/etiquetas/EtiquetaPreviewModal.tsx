@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -63,15 +63,22 @@ export function EtiquetaPreviewModal({
   const [isPrinting, setIsPrinting] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    if (dados?.modeloEtiqueta) {
+      setModeloSelecionado(dados.modeloEtiqueta);
+    }
+  }, [dados?.modeloEtiqueta, open]);
+
   if (!dados) return null;
 
   const modeloInfo = MODELOS_ETIQUETAS.find((m) => m.id === modeloSelecionado) || MODELOS_ETIQUETAS[0];
+  const isMini = modeloInfo.larguraMm <= 40;
 
   const handleImprimir = () => {
     setIsPrinting(true);
 
     try {
-      // Cria janela de impressão dedicada ou iframe para saída térmica exata
+      // Cria janela de impressão dedicada para saída térmica exata
       const printWindow = window.open('', '_blank', 'width=500,height=400');
       if (!printWindow) {
         toast.error('O navegador bloqueou a janela de impressão. Permita popups para imprimir.');
@@ -85,6 +92,7 @@ export function EtiquetaPreviewModal({
             <div class="etiqueta-box">
               <div class="header-tipo">
                 <span class="tipo-titulo">${dados.tipo}</span>
+                <span class="marca-titulo">FILALAB</span>
               </div>
               <div class="produto-nome">${dados.produtoNome}</div>
               ${dados.peso ? `<div class="peso-badge">PESO: ${dados.peso}</div>` : ''}
@@ -138,7 +146,7 @@ export function EtiquetaPreviewModal({
                 height: ${modeloInfo.alturaMm}mm;
                 max-width: ${modeloInfo.larguraMm}mm;
                 max-height: ${modeloInfo.alturaMm}mm;
-                padding: 1.5mm 2.5mm;
+                padding: ${isMini ? '0.4mm 0.6mm' : '1.5mm 2.5mm'};
                 page-break-after: always;
                 display: flex;
                 flex-direction: column;
@@ -148,90 +156,98 @@ export function EtiquetaPreviewModal({
               .etiqueta-box {
                 width: 100%;
                 height: 100%;
-                border: 1.5px solid #000;
-                border-radius: 2px;
-                padding: 1.5mm;
+                border: ${isMini ? '1px solid #000' : '1.5px solid #000'};
+                border-radius: ${isMini ? '1px' : '2px'};
+                padding: ${isMini ? '0.6mm 0.8mm' : '1.5mm'};
                 display: flex;
                 flex-direction: column;
                 justify-content: space-between;
+                overflow: hidden;
               }
               .header-tipo {
-                border-bottom: 1.5px solid #000;
-                padding-bottom: 0.5mm;
-                margin-bottom: 0.5mm;
+                border-bottom: ${isMini ? '0.8px solid #000' : '1.5px solid #000'};
+                padding-bottom: ${isMini ? '0.2mm' : '0.5mm'};
+                margin-bottom: ${isMini ? '0.2mm' : '0.5mm'};
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
               }
               .tipo-titulo {
-                font-size: 8pt;
+                font-size: ${isMini ? '5.2pt' : '8pt'};
                 font-weight: 900;
-                letter-spacing: 0.8px;
+                letter-spacing: ${isMini ? '0.2px' : '0.8px'};
+              }
+              .marca-titulo {
+                font-size: ${isMini ? '4.8pt' : '7.5pt'};
+                font-weight: 800;
               }
               .produto-nome {
-                font-size: 10.5pt;
+                font-size: ${isMini ? '6.5pt' : '10.5pt'};
                 font-weight: 900;
-                line-height: 1.1;
+                line-height: ${isMini ? '1.05' : '1.1'};
                 text-transform: uppercase;
                 word-break: break-word;
-                margin: 0.5mm 0;
+                margin: ${isMini ? '0.2mm 0' : '0.5mm 0'};
+                max-height: ${isMini ? '2.4em' : 'none'};
+                overflow: hidden;
               }
               .peso-badge {
-                font-size: 8.5pt;
+                font-size: ${isMini ? '5pt' : '8.5pt'};
                 font-weight: 800;
                 background: #000;
                 color: #fff;
                 display: inline-block;
-                padding: 0.2mm 1.5mm;
+                padding: ${isMini ? '0.1mm 0.8mm' : '0.2mm 1.5mm'};
                 border-radius: 1px;
-                margin-bottom: 0.5mm;
+                margin-bottom: ${isMini ? '0.2mm' : '0.5mm'};
                 align-self: flex-start;
               }
               .datas-grid {
                 display: flex;
                 justify-content: space-between;
-                border-top: 1px dashed #000;
-                border-bottom: 1px dashed #000;
-                padding: 1mm 0;
-                margin: 0.5mm 0;
+                border-top: ${isMini ? '0.6px dashed #000' : '1px dashed #000'};
+                border-bottom: ${isMini ? '0.6px dashed #000' : '1px dashed #000'};
+                padding: ${isMini ? '0.3mm 0' : '1mm 0'};
+                margin: ${isMini ? '0.2mm 0' : '0.5mm 0'};
               }
               .col-data, .col-validade {
                 display: flex;
                 flex-direction: column;
               }
               .label-data, .label-validade {
-                font-size: 5.5pt;
+                font-size: ${isMini ? '4pt' : '5.5pt'};
                 font-weight: 800;
                 color: #333;
                 text-transform: uppercase;
               }
-              .val-data, .val-validade {
-                font-size: 8.5pt;
+              .val-data {
+                font-size: ${isMini ? '5.5pt' : '8.5pt'};
                 font-weight: 900;
                 letter-spacing: -0.2px;
               }
               .val-hora {
-                font-size: 6.5pt;
+                font-size: ${isMini ? '4.5pt' : '6.5pt'};
                 font-weight: 700;
               }
               .col-validade .val-validade {
-                font-size: 9.5pt;
+                font-size: ${isMini ? '6.5pt' : '9.5pt'};
+                font-weight: 900;
               }
               .footer-info {
                 display: flex;
                 justify-content: space-between;
-                font-size: 6pt;
+                font-size: ${isMini ? '4.5pt' : '6pt'};
                 font-weight: 800;
-                padding-top: 0.5mm;
+                padding-top: ${isMini ? '0.2mm' : '0.5mm'};
               }
               .unidade-tag {
-                letter-spacing: 0.5px;
+                letter-spacing: 0.3px;
               }
               .resp-tag {
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
-                max-width: 60%;
+                max-width: 65%;
               }
             </style>
           </head>
@@ -291,13 +307,13 @@ export function EtiquetaPreviewModal({
         <div className="flex items-center justify-between p-3 rounded-2xl bg-secondary/50 border border-border/60 text-xs">
           <div className="flex items-center gap-2 text-muted-foreground font-medium">
             <Maximize2 className="w-4 h-4 text-amber-400" />
-            <span>Formato:</span>
+            <span>Formato da Etiqueta:</span>
           </div>
           <Select
             value={modeloSelecionado}
             onValueChange={(v) => setModeloSelecionado(v as ModeloEtiquetaId)}
           >
-            <SelectTrigger className="w-[190px] h-8 text-xs bg-card border-border font-semibold">
+            <SelectTrigger className="w-[210px] h-8 text-xs bg-card border-border font-semibold">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -310,66 +326,67 @@ export function EtiquetaPreviewModal({
           </Select>
         </div>
 
-        {/* Simulador Fiel da Etiqueta Térmica (80mm x 30mm) */}
-        <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 flex flex-col items-center justify-center shadow-inner">
+        {/* Simulador Fiel da Etiqueta Térmica */}
+        <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 flex flex-col items-center justify-center shadow-inner min-h-[220px]">
           <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mb-2">
             Simulação de Impressão Térmica • {modeloInfo.larguraMm}mm x {modeloInfo.alturaMm}mm
           </span>
 
           <div
             ref={printRef}
-            className="w-full max-w-[340px] bg-white text-black p-3 rounded-md border-2 border-black font-sans select-none shadow-2xl flex flex-col justify-between"
-            style={{ minHeight: '145px' }}
+            className={`bg-white text-black rounded-md border-2 border-black font-sans select-none shadow-2xl flex flex-col justify-between transition-all ${
+              isMini ? 'w-[230px] min-h-[146px] p-2.5' : 'w-full max-w-[340px] min-h-[145px] p-3'
+            }`}
           >
             {/* Header: Tipo */}
-            <div className="flex items-center justify-between border-b-2 border-black pb-1 mb-1">
-              <span className="text-[10px] font-black tracking-wider uppercase">
+            <div className={`flex items-center justify-between border-b-2 border-black ${isMini ? 'pb-0.5 mb-0.5' : 'pb-1 mb-1'}`}>
+              <span className={`${isMini ? 'text-[9px]' : 'text-[10px]'} font-black tracking-wider uppercase`}>
                 {dados.tipo}
               </span>
-              <span className="text-[9px] font-bold text-zinc-700">
+              <span className={`${isMini ? 'text-[8px]' : 'text-[9px]'} font-bold text-zinc-700`}>
                 FILALAB
               </span>
             </div>
 
             {/* Produto */}
-            <div className="my-1">
-              <h3 className="text-sm font-black uppercase leading-tight tracking-tight text-black line-clamp-2">
+            <div className={isMini ? 'my-0.5' : 'my-1'}>
+              <h3 className={`${isMini ? 'text-xs' : 'text-sm'} font-black uppercase leading-tight tracking-tight text-black line-clamp-2`}>
                 {dados.produtoNome}
               </h3>
               {dados.peso && (
-                <div className="inline-block bg-black text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-sm mt-1">
+                <div className={`inline-block bg-black text-white ${isMini ? 'text-[8px] px-1 py-0.5' : 'text-[10px] px-1.5 py-0.5'} font-extrabold rounded-sm mt-0.5`}>
                   PESO: {dados.peso}
                 </div>
               )}
             </div>
 
             {/* Datas */}
-            <div className="grid grid-cols-2 gap-2 border-y border-dashed border-black py-1.5 my-1 text-black">
+            <div className={`grid grid-cols-2 gap-2 border-y border-dashed border-black ${isMini ? 'py-1 my-0.5' : 'py-1.5 my-1'} text-black`}>
               <div>
-                <span className="text-[7px] font-extrabold uppercase text-zinc-600 block leading-none">
+                <span className={`${isMini ? 'text-[6px]' : 'text-[7px]'} font-extrabold uppercase text-zinc-600 block leading-none`}>
                   {dados.tipo === 'PRODUÇÃO' ? 'PRODUÇÃO' : 'DESCONGELADO'}
                 </span>
-                <span className="text-[11px] font-black font-mono block leading-tight">
+                <span className={`${isMini ? 'text-[9px]' : 'text-[11px]'} font-black font-mono block leading-tight`}>
                   {formatarDataBR(dados.dataOperacao)}
                 </span>
-                <span className="text-[9px] font-bold font-mono text-zinc-700 block leading-none mt-0.5">
+                <span className={`${isMini ? 'text-[8px]' : 'text-[9px]'} font-bold font-mono text-zinc-700 block leading-none mt-0.5`}>
                   Hora: {dados.horaOperacao}
                 </span>
               </div>
               <div className="text-right">
-                <span className="text-[7px] font-extrabold uppercase text-zinc-600 block leading-none">
+                <span className={`${isMini ? 'text-[6px]' : 'text-[7px]'} font-extrabold uppercase text-zinc-600 block leading-none`}>
                   VALIDADE
                 </span>
-                <span className="text-[12px] font-black font-mono text-black block leading-tight">
+                <span className={`${isMini ? 'text-[10px]' : 'text-[12px]'} font-black font-mono text-black block leading-tight`}>
                   {formatarDataBR(dados.dataValidade)}
                 </span>
               </div>
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between text-[8px] font-extrabold text-black pt-0.5">
+            <div className={`flex items-center justify-between ${isMini ? 'text-[7px]' : 'text-[8px]'} font-extrabold text-black pt-0.5`}>
               <span className="uppercase tracking-wide">{dados.unidade}</span>
-              <span className="uppercase truncate max-w-[170px]">
+              <span className={`uppercase truncate ${isMini ? 'max-w-[110px]' : 'max-w-[170px]'}`}>
                 RESP: {dados.usuarioNome}
               </span>
             </div>

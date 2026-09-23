@@ -73,6 +73,8 @@ import {
   formatarDataBR,
   getHoraAtualHHMM,
   CATEGORIAS_PADRAO,
+  MODELOS_ETIQUETAS,
+  ModeloEtiquetaId,
 } from '@/lib/api-etiquetas';
 import { getHojeLocalYMD } from '@/lib/api';
 import { SemPesoConfirmModal } from '@/components/etiquetas/SemPesoConfirmModal';
@@ -148,12 +150,14 @@ export default function Etiquetas() {
   const [prodPeso, setProdPeso] = useState<string>('');
   const [prodQuantidade, setProdQuantidade] = useState<number>(1);
   const [prodImpressoraId, setProdImpressoraId] = useState<string>('');
+  const [prodModeloEtiqueta, setProdModeloEtiqueta] = useState<ModeloEtiquetaId>('80x30');
 
   // Formulário Aba Descongelamento
   const [descProdutoId, setDescProdutoId] = useState<string>('');
   const [descPeso, setDescPeso] = useState<string>('');
   const [descQuantidade, setDescQuantidade] = useState<number>(1);
   const [descImpressoraId, setDescImpressoraId] = useState<string>('');
+  const [descModeloEtiqueta, setDescModeloEtiqueta] = useState<ModeloEtiquetaId>('80x30');
 
   // Modais
   const [semPesoModalOpen, setSemPesoModalOpen] = useState(false);
@@ -441,6 +445,7 @@ export default function Etiquetas() {
       unidade: selectedUnit!,
       usuarioNome: user?.username || 'Operador',
       impressoraNome: imp?.nome || 'Elgin L42 Pro Full',
+      modeloEtiqueta: prodModeloEtiqueta,
     };
 
     // Confirmação se peso estiver vazio
@@ -477,6 +482,7 @@ export default function Etiquetas() {
       unidade: selectedUnit!,
       usuarioNome: user?.username || 'Operador',
       impressoraNome: imp?.nome || 'Elgin L42 Pro Full',
+      modeloEtiqueta: descModeloEtiqueta,
     };
 
     // Confirmação se peso estiver vazio
@@ -501,6 +507,7 @@ export default function Etiquetas() {
     const imp = impressoras.find((i) => i.id === impId);
     const qtd = tipo === 'PRODUÇÃO' ? prodQuantidade : descQuantidade;
     const val = tipo === 'PRODUÇÃO' ? validadeCalculadaProducao : validadeCalculadaDescongelamento;
+    const modelo = tipo === 'PRODUÇÃO' ? prodModeloEtiqueta : descModeloEtiqueta;
 
     const dados: DadosImpressaoEtiqueta = {
       tipo,
@@ -514,6 +521,7 @@ export default function Etiquetas() {
       unidade: selectedUnit!,
       usuarioNome: user?.username || 'Operador',
       impressoraNome: imp?.nome || 'Elgin L42 Pro Full',
+      modeloEtiqueta: modelo,
     };
 
     setDadosParaPreview(dados);
@@ -1055,24 +1063,39 @@ export default function Etiquetas() {
                         </div>
                       </div>
 
-                      {/* Impressora */}
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-bold text-foreground">Impressora Térmica</Label>
-                        <Select value={prodImpressoraId} onValueChange={setProdImpressoraId}>
-                          <SelectTrigger className="h-10 rounded-xl bg-card border-border text-xs font-semibold">
-                            <SelectValue placeholder="Selecione..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {impressoras.map((imp) => (
-                              <SelectItem key={imp.id} value={imp.id} className="text-xs">
-                                {imp.nome} <span className="text-muted-foreground ml-1">({imp.modelo})</span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <span className="text-[10px] text-muted-foreground block truncate">
-                          Padrão 80x30mm Elgin L42 Pro
-                        </span>
+                      {/* Impressora e Formato */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-bold text-foreground">Impressora Térmica</Label>
+                          <Select value={prodImpressoraId} onValueChange={setProdImpressoraId}>
+                            <SelectTrigger className="h-10 rounded-xl bg-card border-border text-xs font-semibold">
+                              <SelectValue placeholder="Selecione..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {impressoras.map((imp) => (
+                                <SelectItem key={imp.id} value={imp.id} className="text-xs">
+                                  {imp.nome} <span className="text-muted-foreground ml-1">({imp.modelo})</span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-bold text-foreground">Tamanho da Etiqueta</Label>
+                          <Select value={prodModeloEtiqueta} onValueChange={(v) => setProdModeloEtiqueta(v as ModeloEtiquetaId)}>
+                            <SelectTrigger className="h-10 rounded-xl bg-card border-border text-xs font-semibold">
+                              <SelectValue placeholder="Selecione formato..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {MODELOS_ETIQUETAS.map((m) => (
+                                <SelectItem key={m.id} value={m.id} className="text-xs">
+                                  {m.nome}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                     </div>
 
@@ -1434,24 +1457,39 @@ export default function Etiquetas() {
                         </div>
                       </div>
 
-                      {/* Impressora */}
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-bold text-foreground">Impressora Térmica</Label>
-                        <Select value={descImpressoraId} onValueChange={setDescImpressoraId}>
-                          <SelectTrigger className="h-10 rounded-xl bg-card border-border text-xs font-semibold">
-                            <SelectValue placeholder="Selecione..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {impressoras.map((imp) => (
-                              <SelectItem key={imp.id} value={imp.id} className="text-xs">
-                                {imp.nome} <span className="text-muted-foreground ml-1">({imp.modelo})</span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <span className="text-[10px] text-muted-foreground block truncate">
-                          Padrão 80x30mm Elgin L42 Pro
-                        </span>
+                      {/* Impressora e Formato */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-bold text-foreground">Impressora Térmica</Label>
+                          <Select value={descImpressoraId} onValueChange={setDescImpressoraId}>
+                            <SelectTrigger className="h-10 rounded-xl bg-card border-border text-xs font-semibold">
+                              <SelectValue placeholder="Selecione..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {impressoras.map((imp) => (
+                                <SelectItem key={imp.id} value={imp.id} className="text-xs">
+                                  {imp.nome} <span className="text-muted-foreground ml-1">({imp.modelo})</span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-bold text-foreground">Tamanho da Etiqueta</Label>
+                          <Select value={descModeloEtiqueta} onValueChange={(v) => setDescModeloEtiqueta(v as ModeloEtiquetaId)}>
+                            <SelectTrigger className="h-10 rounded-xl bg-card border-border text-xs font-semibold">
+                              <SelectValue placeholder="Selecione formato..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {MODELOS_ETIQUETAS.map((m) => (
+                                <SelectItem key={m.id} value={m.id} className="text-xs">
+                                  {m.nome}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                     </div>
 
