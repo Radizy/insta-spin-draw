@@ -43,7 +43,8 @@ export interface EtiquetaHistorico {
   quantidade: number;
   usuario_nome: string;
   impressora_nome?: string;
-  modelo_etiqueta?: string; // "80x30", "100x50", etc.
+  modelo_etiqueta?: string; // "80x30", "33x21", "100x50", etc.
+  colunas?: number; // 1, 2, 3, 4 colunas por carreira
   created_at: string;
 }
 

@@ -151,6 +151,7 @@ export default function Etiquetas() {
   const [prodQuantidade, setProdQuantidade] = useState<number>(1);
   const [prodImpressoraId, setProdImpressoraId] = useState<string>('');
   const [prodModeloEtiqueta, setProdModeloEtiqueta] = useState<ModeloEtiquetaId>('80x30');
+  const [prodColunas, setProdColunas] = useState<number>(1);
 
   // Formulário Aba Descongelamento
   const [descProdutoId, setDescProdutoId] = useState<string>('');
@@ -158,6 +159,7 @@ export default function Etiquetas() {
   const [descQuantidade, setDescQuantidade] = useState<number>(1);
   const [descImpressoraId, setDescImpressoraId] = useState<string>('');
   const [descModeloEtiqueta, setDescModeloEtiqueta] = useState<ModeloEtiquetaId>('80x30');
+  const [descColunas, setDescColunas] = useState<number>(1);
 
   // Modais
   const [semPesoModalOpen, setSemPesoModalOpen] = useState(false);
@@ -446,6 +448,7 @@ export default function Etiquetas() {
       usuarioNome: user?.username || 'Operador',
       impressoraNome: imp?.nome || 'Elgin L42 Pro Full',
       modeloEtiqueta: prodModeloEtiqueta,
+      colunas: prodColunas,
     };
 
     // Confirmação se peso estiver vazio
@@ -483,6 +486,7 @@ export default function Etiquetas() {
       usuarioNome: user?.username || 'Operador',
       impressoraNome: imp?.nome || 'Elgin L42 Pro Full',
       modeloEtiqueta: descModeloEtiqueta,
+      colunas: descColunas,
     };
 
     // Confirmação se peso estiver vazio
@@ -508,6 +512,7 @@ export default function Etiquetas() {
     const qtd = tipo === 'PRODUÇÃO' ? prodQuantidade : descQuantidade;
     const val = tipo === 'PRODUÇÃO' ? validadeCalculadaProducao : validadeCalculadaDescongelamento;
     const modelo = tipo === 'PRODUÇÃO' ? prodModeloEtiqueta : descModeloEtiqueta;
+    const col = tipo === 'PRODUÇÃO' ? prodColunas : descColunas;
 
     const dados: DadosImpressaoEtiqueta = {
       tipo,
@@ -522,6 +527,7 @@ export default function Etiquetas() {
       usuarioNome: user?.username || 'Operador',
       impressoraNome: imp?.nome || 'Elgin L42 Pro Full',
       modeloEtiqueta: modelo,
+      colunas: col,
     };
 
     setDadosParaPreview(dados);
@@ -1083,7 +1089,15 @@ export default function Etiquetas() {
 
                         <div className="space-y-1.5">
                           <Label className="text-xs font-bold text-foreground">Tamanho da Etiqueta</Label>
-                          <Select value={prodModeloEtiqueta} onValueChange={(v) => setProdModeloEtiqueta(v as ModeloEtiquetaId)}>
+                          <Select
+                            value={prodModeloEtiqueta}
+                            onValueChange={(v) => {
+                              const mod = v as ModeloEtiquetaId;
+                              setProdModeloEtiqueta(mod);
+                              if (mod === '33x21') setProdColunas(3);
+                              else setProdColunas(1);
+                            }}
+                          >
                             <SelectTrigger className="h-10 rounded-xl bg-card border-border text-xs font-semibold">
                               <SelectValue placeholder="Selecione formato..." />
                             </SelectTrigger>
@@ -1095,6 +1109,32 @@ export default function Etiquetas() {
                               ))}
                             </SelectContent>
                           </Select>
+                        </div>
+                      </div>
+
+                      {/* Colunas por Carreira */}
+                      <div className="space-y-1.5 pt-0.5">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-bold text-foreground">Colunas por Linha (Carreira)</Label>
+                          <span className="text-[10px] text-muted-foreground">
+                            {prodColunas} {prodColunas === 1 ? 'etiqueta por linha' : 'etiquetas lado a lado'}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {[1, 2, 3, 4].map((num) => (
+                            <button
+                              key={num}
+                              type="button"
+                              onClick={() => setProdColunas(num)}
+                              className={`h-9 rounded-xl text-xs font-bold transition-all border ${
+                                prodColunas === num
+                                  ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-sm font-black'
+                                  : 'bg-card text-muted-foreground border-border hover:text-foreground hover:bg-secondary'
+                              }`}
+                            >
+                              {num}x {num > 1 ? 'Col.' : 'Col.'}
+                            </button>
+                          ))}
                         </div>
                       </div>
                     </div>
@@ -1477,7 +1517,15 @@ export default function Etiquetas() {
 
                         <div className="space-y-1.5">
                           <Label className="text-xs font-bold text-foreground">Tamanho da Etiqueta</Label>
-                          <Select value={descModeloEtiqueta} onValueChange={(v) => setDescModeloEtiqueta(v as ModeloEtiquetaId)}>
+                          <Select
+                            value={descModeloEtiqueta}
+                            onValueChange={(v) => {
+                              const mod = v as ModeloEtiquetaId;
+                              setDescModeloEtiqueta(mod);
+                              if (mod === '33x21') setDescColunas(3);
+                              else setDescColunas(1);
+                            }}
+                          >
                             <SelectTrigger className="h-10 rounded-xl bg-card border-border text-xs font-semibold">
                               <SelectValue placeholder="Selecione formato..." />
                             </SelectTrigger>
@@ -1489,6 +1537,32 @@ export default function Etiquetas() {
                               ))}
                             </SelectContent>
                           </Select>
+                        </div>
+                      </div>
+
+                      {/* Colunas por Carreira */}
+                      <div className="space-y-1.5 pt-0.5">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-bold text-foreground">Colunas por Linha (Carreira)</Label>
+                          <span className="text-[10px] text-muted-foreground">
+                            {descColunas} {descColunas === 1 ? 'etiqueta por linha' : 'etiquetas lado a lado'}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {[1, 2, 3, 4].map((num) => (
+                            <button
+                              key={num}
+                              type="button"
+                              onClick={() => setDescColunas(num)}
+                              className={`h-9 rounded-xl text-xs font-bold transition-all border ${
+                                descColunas === num
+                                  ? 'bg-blue-500 text-slate-950 border-blue-500 shadow-sm font-black'
+                                  : 'bg-card text-muted-foreground border-border hover:text-foreground hover:bg-secondary'
+                              }`}
+                            >
+                              {num}x {num > 1 ? 'Col.' : 'Col.'}
+                            </button>
+                          ))}
                         </div>
                       </div>
                     </div>
@@ -1928,10 +2002,17 @@ export default function Etiquetas() {
       {/* 2. Pré-Visualização da Etiqueta Térmica */}
       <EtiquetaPreviewModal
         open={previewModalOpen}
-        onOpenChange={setPreviewModalOpen}
+        onOpenChange={(isOpen) => {
+          setPreviewModalOpen(isOpen);
+          if (!isOpen) {
+            setDadosParaPreview(null);
+          }
+        }}
         dados={dadosParaPreview}
         onConfirmPrint={(dadosCompletos) => {
           salvarHistoricoMutation.mutate(dadosCompletos);
+          setPreviewModalOpen(false);
+          setDadosParaPreview(null);
         }}
       />
 
