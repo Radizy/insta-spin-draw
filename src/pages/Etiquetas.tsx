@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUnit } from '@/contexts/UnitContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -69,6 +70,7 @@ import {
   fetchEtiquetaHistorico,
   saveEtiquetaHistorico,
   cleanupEtiquetaHistorico7Dias,
+  fetchEtiquetaConfigLoja,
   calcularDataValidade,
   formatarDataBR,
   getHoraAtualHHMM,
@@ -124,6 +126,7 @@ function autoFormatarPeso(valorBruto: string): string {
 export default function Etiquetas() {
   const { selectedUnit } = useUnit();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   // Estados de Abas
@@ -228,6 +231,16 @@ export default function Etiquetas() {
     refetchInterval: 15000,
   });
 
+  // 4. Query Configurações da Loja
+  const {
+    data: configLoja,
+    refetch: refetchConfigLoja,
+  } = useQuery({
+    queryKey: ['etiquetas-config-loja', selectedUnit, user?.franquiaId],
+    queryFn: () => (selectedUnit ? fetchEtiquetaConfigLoja(selectedUnit, user?.franquiaId) : null),
+    enabled: !!selectedUnit,
+  });
+
   // Produtos ativos para os selects e grid
   const produtosAtivos = useMemo(() => produtos.filter((p) => p.ativo), [produtos]);
 
@@ -243,14 +256,33 @@ export default function Etiquetas() {
     }
   }, [produtosAtivos, prodProdutoId, descProdutoId]);
 
-  // Define impressora padrão inicial quando carregar
+  // Atualiza estados com os padrões configurados para a loja ou impressora ativa
   useEffect(() => {
-    const impressoraAtiva = impressoras.find((i) => i.ativa);
-    if (impressoraAtiva) {
-      if (!prodImpressoraId) setProdImpressoraId(impressoraAtiva.id);
-      if (!descImpressoraId) setDescImpressoraId(impressoraAtiva.id);
+    if (configLoja) {
+      if (configLoja.modelo_padrao) {
+        setProdModeloEtiqueta(configLoja.modelo_padrao);
+        setDescModeloEtiqueta(configLoja.modelo_padrao);
+      }
+      if (configLoja.colunas_padrao) {
+        setProdColunas(configLoja.colunas_padrao);
+        setDescColunas(configLoja.colunas_padrao);
+      }
+      if (configLoja.layout_padrao) {
+        setProdLayoutEtiqueta(configLoja.layout_padrao);
+        setDescLayoutEtiqueta(configLoja.layout_padrao);
+      }
+      if (configLoja.impressora_padrao_id) {
+        setProdImpressoraId(configLoja.impressora_padrao_id);
+        setDescImpressoraId(configLoja.impressora_padrao_id);
+      }
+    } else {
+      const impressoraAtiva = impressoras.find((i) => i.ativa);
+      if (impressoraAtiva) {
+        if (!prodImpressoraId) setProdImpressoraId(impressoraAtiva.id);
+        if (!descImpressoraId) setDescImpressoraId(impressoraAtiva.id);
+      }
     }
-  }, [impressoras, prodImpressoraId, descImpressoraId]);
+  }, [configLoja, impressoras]);
 
   // Produtos filtrados no catálogo da Produção
   const produtosCatalogoProducao = useMemo(() => {
@@ -620,12 +652,23 @@ export default function Etiquetas() {
                 refetchProdutos();
                 refetchImpressoras();
                 refetchHistorico();
+                refetchConfigLoja();
                 toast.success('Dados de etiquetas atualizados!');
               }}
               className="border-border text-xs gap-1.5 h-10 px-3 rounded-xl"
             >
               <RefreshCw className="w-4 h-4" />
               Atualizar
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/config?tab=etiquetas')}
+              className="border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 text-xs font-bold gap-2 h-10 px-3.5 rounded-xl shadow-sm"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              Padrões da Loja
             </Button>
 
             <Button

@@ -21,6 +21,7 @@ import { ModulosConfig } from '@/components/ModulosConfig';
 import { DadosDaLoja } from '@/components/DadosDaLoja';
 import { FranquiaPlanoManager } from '@/components/FranquiaPlanoManager';
 import { FranquiaFinanceiroPanel } from '@/components/FranquiaFinanceiroPanel';
+import { EtiquetasConfigPanel } from '@/components/etiquetas/EtiquetasConfigPanel';
 import { isModuloAtivo } from '@/lib/api';
 import {
   Select,
@@ -57,7 +58,7 @@ import {
   DiasTrabalho,
   TURNO_PADRAO,
 } from '@/lib/api';
-import { Trash2, AlertCircle, Volume2, Plus, Clock, Save, Edit, RefreshCw, LogOut, Download, Mic, Upload, Users, Loader2, Filter, RotateCcw, Smartphone, Settings2, Globe, CreditCard, Store } from 'lucide-react';
+import { Trash2, AlertCircle, Volume2, Plus, Clock, Save, Edit, RefreshCw, LogOut, Download, Mic, Upload, Users, Loader2, Filter, RotateCcw, Smartphone, Settings2, Globe, CreditCard, Store, Tag } from 'lucide-react';
 import { toast } from 'sonner';
 import { Navigate, useSearchParams, useNavigate } from 'react-router-dom';
 import { useTraining } from '@/contexts/TrainingContext';
@@ -93,7 +94,8 @@ export default function Config() {
   const [searchParams] = useSearchParams();
   const isPaymentBlocked = searchParams.get('bloqueio') === '1';
   const isFranquiaAdmin = user?.role === 'admin_franquia';
-  const initialTab = isPaymentBlocked && isFranquiaAdmin ? 'financeiro' : 'motoboys';
+  const tabParam = searchParams.get('tab');
+  const initialTab = isPaymentBlocked && isFranquiaAdmin ? 'financeiro' : (tabParam || 'motoboys');
   const [paymentBlockedOpen, setPaymentBlockedOpen] = useState(isPaymentBlocked && isFranquiaAdmin);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -883,6 +885,15 @@ export default function Config() {
             )}
 
             <TabsTrigger
+              value="etiquetas"
+              className="flex-1 sm:flex-none gap-2 px-6 py-2.5 rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-300 border border-transparent data-[state=active]:border-primary/20 hover:bg-muted/50"
+            >
+              <Tag className="w-4 h-4" />
+              <span className="hidden sm:inline font-semibold">Etiquetas</span>
+              <span className="sm:hidden font-semibold">Etiq</span>
+            </TabsTrigger>
+
+            <TabsTrigger
               value="webhook"
               className="flex-1 sm:flex-none gap-2 px-6 py-2.5 rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-300 border border-transparent data-[state=active]:border-primary/20 hover:bg-muted/50"
             >
@@ -1240,6 +1251,10 @@ export default function Config() {
 
         <TabsContent value="maquininhas" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
           <MaquininhaManagement />
+        </TabsContent>
+
+        <TabsContent value="etiquetas" className="space-y-6">
+          <EtiquetasConfigPanel />
         </TabsContent>
 
         <TabsContent value="webhook">

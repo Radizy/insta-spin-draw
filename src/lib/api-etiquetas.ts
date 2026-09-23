@@ -666,3 +666,67 @@ export function generateEPL2Commands(params: {
     .filter(Boolean)
     .join('\n');
 }
+
+// -------------------------------------------------------------
+// CONFIGURAÇÕES GLOBAIS DE ETIQUETA POR LOJA/UNIDADE
+// -------------------------------------------------------------
+
+export interface EtiquetaConfigLoja {
+  unidade: string;
+  franquia_id?: string | null;
+  impressora_padrao_id?: string;
+  modelo_padrao: ModeloEtiquetaId;
+  colunas_padrao: number;
+  layout_padrao: TipoLayoutEtiqueta;
+  largura_mm?: number;
+  altura_mm?: number;
+  updated_at?: string;
+}
+
+export const DEFAULT_ETIQUETA_CONFIG_LOJA = (unidade: string, franquiaId?: string | null): EtiquetaConfigLoja => ({
+  unidade,
+  franquia_id: franquiaId,
+  modelo_padrao: '80x30',
+  colunas_padrao: 1,
+  layout_padrao: 'completa',
+  largura_mm: 80,
+  altura_mm: 30,
+});
+
+export async function fetchEtiquetaConfigLoja(
+  unidade: string,
+  franquiaId?: string | null
+): Promise<EtiquetaConfigLoja> {
+  const key = `filalab_etiquetas_config_${unidade}`;
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        ...DEFAULT_ETIQUETA_CONFIG_LOJA(unidade, franquiaId),
+        ...parsed,
+        unidade,
+      };
+    }
+  } catch (e) {
+    console.error('Erro ao ler config de etiquetas local:', e);
+  }
+  return DEFAULT_ETIQUETA_CONFIG_LOJA(unidade, franquiaId);
+}
+
+export async function saveEtiquetaConfigLoja(
+  config: EtiquetaConfigLoja
+): Promise<EtiquetaConfigLoja> {
+  const key = `filalab_etiquetas_config_${config.unidade}`;
+  const payload: EtiquetaConfigLoja = {
+    ...config,
+    updated_at: new Date().toISOString(),
+  };
+  try {
+    localStorage.setItem(key, JSON.stringify(payload));
+  } catch (e) {
+    console.error('Erro ao salvar config de etiquetas local:', e);
+  }
+  return payload;
+}
+
