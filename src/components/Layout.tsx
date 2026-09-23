@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useUnit } from '@/contexts/UnitContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Unidade } from '@/lib/api';
+import { Unidade, isModuloAtivo } from '@/lib/api';
 import { UnitSelector } from './UnitSelector';
 import {
   Settings, Users, Tv, UserCheck, Pizza, ArrowLeft, LogOut, Ticket, History,
@@ -45,6 +45,25 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [maquinhaOpen, setMaquinhaOpen] = useState(false);
+
+  // Checa se o módulo Etiquetas está ativado para a unidade selecionada
+  const { data: isEtiquetasAtivo = true } = useQuery({
+    queryKey: ['modulo-ativo-unidade', selectedUnit, 'etiquetas'],
+    queryFn: async () => {
+      if (!selectedUnit) return true;
+      return isModuloAtivo(selectedUnit, 'etiquetas');
+    },
+    enabled: !!selectedUnit,
+  });
+
+  const visibleNavItems = useMemo(() => {
+    return navItems.filter((item) => {
+      if (item.path === '/etiquetas' && !isEtiquetasAtivo) {
+        return false;
+      }
+      return true;
+    });
+  }, [isEtiquetasAtivo]);
 
   const { data: franquiaConfig } = useQuery<any>({
     queryKey: ['franquia-config', user?.franquiaId],
@@ -171,7 +190,7 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
                   </button>
                 )}
                 <nav className="flex items-center gap-1.5">
-                  {navItems.map((item) => {
+                  {visibleNavItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = location.pathname === item.path || (item.path === '/janta-ponto' && location.pathname === '/intervalo');
                     const isHighlight = (item as any).highlight;
@@ -293,7 +312,7 @@ export function Layout({ children, showHeader = true }: LayoutProps) {
 
               <div className="flex flex-col gap-1">
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-2">Navegação</span>
-                {navItems.map((item) => {
+                {visibleNavItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = location.pathname === item.path || (item.path === '/janta-ponto' && location.pathname === '/intervalo');
                   const isHighlight = (item as any).highlight;

@@ -258,9 +258,10 @@ export function EtiquetaPreviewModal({
                 overflow: hidden;
               }
               .produto-nome-simples {
-                font-size: ${isMini ? '7.5pt' : '12pt'};
+                font-size: ${isMini ? '9pt' : '15pt'};
+                font-weight: 900;
                 line-height: 1.1;
-                margin: ${isMini ? '0.3mm 0' : '0.8mm 0'};
+                margin: ${isMini ? '0.4mm 0' : '1mm 0'};
               }
               .peso-badge {
                 font-size: ${isMini ? '5pt' : '8.5pt'};
@@ -274,8 +275,10 @@ export function EtiquetaPreviewModal({
                 align-self: flex-start;
               }
               .peso-badge-simples {
-                font-size: ${isMini ? '5.5pt' : '9pt'};
-                margin: ${isMini ? '0.2mm 0' : '0.5mm 0'};
+                font-size: ${isMini ? '7pt' : '11.5pt'};
+                font-weight: 900;
+                padding: ${isMini ? '0.2mm 1mm' : '0.4mm 2.5mm'};
+                margin: ${isMini ? '0.3mm 0' : '0.8mm 0'};
               }
               .datas-grid {
                 display: flex;
@@ -286,10 +289,10 @@ export function EtiquetaPreviewModal({
                 margin: ${isMini ? '0.2mm 0' : '0.5mm 0'};
               }
               .datas-grid-simples {
-                border-top: ${isMini ? '0.8px dashed #000' : '1.2px dashed #000'};
+                border-top: ${isMini ? '0.8px dashed #000' : '1.5px dashed #000'};
                 border-bottom: none;
-                padding: ${isMini ? '0.4mm 0 0 0' : '1mm 0 0 0'};
-                margin-top: ${isMini ? '0.3mm' : '0.8mm'};
+                padding: ${isMini ? '0.5mm 0 0 0' : '1.2mm 0 0 0'};
+                margin-top: ${isMini ? '0.4mm' : '1mm'};
                 margin-bottom: 0;
               }
               .col-data, .col-validade {
@@ -312,7 +315,7 @@ export function EtiquetaPreviewModal({
                 font-weight: 700;
               }
               .col-validade .val-validade {
-                font-size: ${isMini ? (isSimples ? '7pt' : '6.5pt') : '9.5pt'};
+                font-size: ${isMini ? (isSimples ? '9.5pt' : '6.5pt') : (isSimples ? '15pt' : '9.5pt')};
                 font-weight: 900;
               }
               .footer-info {
@@ -534,34 +537,36 @@ export function EtiquetaPreviewModal({
 
                   {/* Produto */}
                   <div className={isMini ? 'my-0.5' : (isSimples ? 'my-1.5' : 'my-1')}>
-                    <h3 className={`${isMini ? (colunas > 2 ? 'text-[9.5px]' : 'text-xs') : (isSimples ? 'text-base font-black' : 'text-sm font-black')} uppercase leading-tight tracking-tight text-black line-clamp-2`}>
+                    <h3 className={`${isMini ? (colunas > 2 ? (isSimples ? 'text-[10px] font-black' : 'text-[9.5px]') : (isSimples ? 'text-sm font-black' : 'text-xs')) : (isSimples ? 'text-base font-black' : 'text-sm font-black')} uppercase leading-tight tracking-tight text-black line-clamp-2`}>
                       {dados.produtoNome}
                     </h3>
                     {dados.peso && (
-                      <div className={`inline-block bg-black text-white ${isMini ? (colunas > 2 ? 'text-[6.5px] px-0.5 py-0' : 'text-[8px] px-1 py-0.5') : 'text-[10px] px-1.5 py-0.5'} font-extrabold rounded-sm mt-0.5`}>
+                      <div className={`inline-block bg-black text-white ${isMini ? (colunas > 2 ? 'text-[7px] px-1 py-0' : 'text-[8.5px] px-1.5 py-0.5') : (isSimples ? 'text-[11px] px-2 py-0.5' : 'text-[10px] px-1.5 py-0.5')} font-extrabold rounded-sm mt-1`}>
                         PESO: {dados.peso}
                       </div>
                     )}
                   </div>
 
                   {/* Datas */}
-                  <div className={`grid grid-cols-2 gap-1 ${isSimples ? 'border-t-2 border-dashed border-black pt-1 mt-1' : 'border-y border-dashed border-black py-1 my-1'} text-black`}>
+                  <div className={`grid grid-cols-2 gap-1 ${isSimples ? 'border-t-2 border-dashed border-black pt-1.5 mt-1.5' : 'border-y border-dashed border-black py-1 my-1'} text-black`}>
                     <div>
                       <span className={`${isMini ? 'text-[5.5px]' : 'text-[7px]'} font-extrabold uppercase text-zinc-600 block leading-none`}>
-                        {isSimples ? 'DATA' : (dados.tipo === 'PRODUÇÃO' ? 'PRODUÇÃO' : 'DESCONGELADO')}
+                        {isSimples ? 'FABRICAÇÃO' : (dados.tipo === 'PRODUÇÃO' ? 'PRODUÇÃO' : 'DESCONGELADO')}
                       </span>
-                      <span className={`${isMini ? (colunas > 2 ? 'text-[7.5px]' : 'text-[9px]') : 'text-[11px]'} font-black font-mono block leading-tight`}>
+                      <span className={`${isMini ? (colunas > 2 ? 'text-[7.5px]' : 'text-[9px]') : (isSimples ? 'text-[11px]' : 'text-[11px]')} font-black font-mono block leading-tight`}>
                         {formatarDataBR(dados.dataOperacao)}
                       </span>
-                      <span className={`${isMini ? (colunas > 2 ? 'text-[6.5px]' : 'text-[8px]') : 'text-[9px]'} font-bold font-mono text-zinc-700 block leading-none mt-0.5`}>
-                        Hora: {dados.horaOperacao}
-                      </span>
+                      {!isSimples && (
+                        <span className={`${isMini ? (colunas > 2 ? 'text-[6.5px]' : 'text-[8px]') : 'text-[9px]'} font-bold font-mono text-zinc-700 block leading-none mt-0.5`}>
+                          Hora: {dados.horaOperacao}
+                        </span>
+                      )}
                     </div>
                     <div className="text-right">
-                      <span className={`${isMini ? 'text-[5.5px]' : 'text-[7px]'} font-extrabold uppercase text-zinc-600 block leading-none`}>
+                      <span className={`${isMini ? 'text-[6px]' : 'text-[7.5px]'} font-extrabold uppercase text-zinc-600 block leading-none`}>
                         VALIDADE
                       </span>
-                      <span className={`${isMini ? (colunas > 2 ? 'text-[8.5px]' : 'text-[10px]') : 'text-[12px]'} font-black font-mono text-black block leading-tight`}>
+                      <span className={`${isMini ? (colunas > 2 ? 'text-[9px]' : 'text-[11px]') : (isSimples ? 'text-sm font-black' : 'text-[12px]')} font-black font-mono text-black block leading-tight`}>
                         {formatarDataBR(dados.dataValidade)}
                       </span>
                     </div>

@@ -112,7 +112,7 @@ export function EtiquetasConfigPanel() {
       return saveEtiquetaConfigLoja(payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['etiquetas-config-loja', selectedUnit] });
+      queryClient.invalidateQueries({ queryKey: ['etiquetas-config-loja'] });
       toast.success(`Configurações de etiqueta salvas para a loja ${selectedUnit}!`);
     },
     onError: () => {
@@ -353,32 +353,34 @@ export function EtiquetasConfigPanel() {
                       </div>
                     )}
 
-                    <div className={isMini ? 'my-0.5' : (isSimples ? 'my-1' : 'my-1')}>
-                      <h3 className={`${isMini ? (colunasPadrao > 2 ? 'text-[9px]' : 'text-xs') : (isSimples ? 'text-sm font-black' : 'text-xs font-black')} uppercase leading-tight tracking-tight text-black line-clamp-2`}>
+                    <div className={isMini ? 'my-0.5' : (isSimples ? 'my-1.5' : 'my-1')}>
+                      <h3 className={`${isMini ? (colunasPadrao > 2 ? (isSimples ? 'text-[10px] font-black' : 'text-[9px]') : (isSimples ? 'text-sm font-black' : 'text-xs')) : (isSimples ? 'text-base font-black' : 'text-xs font-black')} uppercase leading-tight tracking-tight text-black line-clamp-2`}>
                         MUSSARELA FATIADA
                       </h3>
-                      <div className={`inline-block bg-black text-white ${isMini ? (colunasPadrao > 2 ? 'text-[6px] px-0.5 py-0' : 'text-[7.5px] px-1 py-0.5') : 'text-[9px] px-1.5 py-0.5'} font-extrabold rounded-sm mt-0.5`}>
+                      <div className={`inline-block bg-black text-white ${isMini ? (colunasPadrao > 2 ? 'text-[7px] px-1 py-0' : 'text-[8.5px] px-1.5 py-0.5') : (isSimples ? 'text-[11px] px-2 py-0.5' : 'text-[9px] px-1.5 py-0.5')} font-extrabold rounded-sm mt-1`}>
                         PESO: 500g
                       </div>
                     </div>
 
-                    <div className={`grid grid-cols-2 gap-1 ${isSimples ? 'border-t-2 border-dashed border-black pt-1 mt-1' : 'border-y border-dashed border-black py-1 my-1'} text-black`}>
+                    <div className={`grid grid-cols-2 gap-1 ${isSimples ? 'border-t-2 border-dashed border-black pt-1.5 mt-1.5' : 'border-y border-dashed border-black py-1 my-1'} text-black`}>
                       <div>
-                        <span className={`${isMini ? 'text-[5px]' : 'text-[6.5px]'} font-extrabold uppercase text-zinc-600 block leading-none`}>
-                          {isSimples ? 'DATA' : 'PRODUÇÃO'}
+                        <span className={`${isMini ? 'text-[5.5px]' : 'text-[7px]'} font-extrabold uppercase text-zinc-600 block leading-none`}>
+                          {isSimples ? 'FABRICAÇÃO' : 'PRODUÇÃO'}
                         </span>
-                        <span className={`${isMini ? (colunasPadrao > 2 ? 'text-[7px]' : 'text-[8.5px]') : 'text-[10px]'} font-black font-mono block leading-tight`}>
+                        <span className={`${isMini ? (colunasPadrao > 2 ? 'text-[7.5px]' : 'text-[9px]') : (isSimples ? 'text-[11px]' : 'text-[10px]')} font-black font-mono block leading-tight`}>
                           {formatarDataBR(new Date().toISOString().split('T')[0])}
                         </span>
-                        <span className={`${isMini ? (colunasPadrao > 2 ? 'text-[6px]' : 'text-[7.5px]') : 'text-[8px]'} font-bold font-mono text-zinc-700 block leading-none mt-0.5`}>
-                          {getHoraAtualHHMM()}
-                        </span>
+                        {!isSimples && (
+                          <span className={`${isMini ? (colunasPadrao > 2 ? 'text-[6px]' : 'text-[7.5px]') : 'text-[8px]'} font-bold font-mono text-zinc-700 block leading-none mt-0.5`}>
+                            {getHoraAtualHHMM()}
+                          </span>
+                        )}
                       </div>
                       <div className="text-right">
-                        <span className={`${isMini ? 'text-[5px]' : 'text-[6.5px]'} font-extrabold uppercase text-zinc-600 block leading-none`}>
+                        <span className={`${isMini ? 'text-[6px]' : 'text-[7.5px]'} font-extrabold uppercase text-zinc-600 block leading-none`}>
                           VALIDADE
                         </span>
-                        <span className={`${isMini ? (colunasPadrao > 2 ? 'text-[8px]' : 'text-[9.5px]') : 'text-[11px]'} font-black font-mono text-black block leading-tight`}>
+                        <span className={`${isMini ? (colunasPadrao > 2 ? 'text-[9px]' : 'text-[11px]') : (isSimples ? 'text-sm font-black' : 'text-[11px]')} font-black font-mono text-black block leading-tight`}>
                           {formatarDataBR(new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0])}
                         </span>
                       </div>

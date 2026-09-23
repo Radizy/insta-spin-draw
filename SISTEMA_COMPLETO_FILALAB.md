@@ -29,8 +29,11 @@ Esses módulos podem ser geridos livremente pelo painel Super Admin na visualiza
 - **Versão Atual**: `2.9.9` (Setembro 2026)
 - **Últimas Implementações**:
     - **Novo Módulo: Etiquetas de Produção e Descongelamento ([`/etiquetas`](file:///src/pages/Etiquetas.tsx))**:
-        - Sistema completo de impressão de etiquetas térmicas adesivas nos padrões **80mm x 30mm** (calibrado para Elgin L42 Pro Full e impressoras de rede térmicas via RAW 9100 / ESC/POS / ZPL).
+        - Sistema completo de impressão de etiquetas térmicas adesivas nos padrões **80mm x 30mm**, **100mm x 50mm** e **33mm x 21mm (carreira de 3 colunas)** (calibrado para Elgin L42 Pro Full e impressoras de rede térmicas via RAW 9100 / ESC/POS / ZPL).
         - Abas dedicadas: **Produção**, **Descongelamento**, **Produtos**, **Impressoras** e **Histórico (7 dias)**.
+        - **Redesign do Layout Simples**: Modo "Simples (Gôndola/Limpa)" focado 100% em **Nome do Produto** (fonte massiva), **Peso/Quantidade** e **Data de Validade** (grande destaque), ocultando cabeçalhos da marca FILALAB, tipo de operação e rodapés de responsável/loja.
+        - **Painel de Padrões por Loja em Config (`/config?tab=etiquetas`)**: Aba dedicada nas configurações da unidade que centraliza formato, impressora térmica padrão, número de colunas por carreira (1x a 4x) e tipo de layout (Completa vs Simples), com atualização em tempo real na página de Etiquetas via invalidação de cache.
+        - **Isolamento de Módulos por Loja no SuperAdmin ([`SuperAdmin.tsx`](file:///src/pages/SuperAdmin.tsx))**: Painel visual `UnidadesModulosPanel` que permite ativar ou desativar o módulo `etiquetas` individualmente por unidade (loja). Quando desativado para uma loja, o acesso e o ícone "Etiqueta" no menu lateral ([`Layout.tsx`](file:///src/components/Layout.tsx)) são ocultados automaticamente.
         - Cálculo 100% automático da Data de Validade ao selecionar qualquer produto cadastrado, permitindo ajustes manuais pontuais.
         - Campo de Peso livre (ex: `500g`, `1kg`, `250g`) com modal de confirmação obrigatória caso o operador opte por emitir sem peso.
         - Modal de Pré-Visualização térmica com saída direta para impressão do navegador e estrutura preparada para envio RAW TCP.

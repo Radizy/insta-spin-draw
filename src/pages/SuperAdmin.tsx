@@ -31,6 +31,7 @@ import { BillingGatewayConfigPanel } from '@/components/BillingGatewayConfigPane
 import { DataExportImport } from '@/components/DataExportImport';
 import { SuperAdminFinanceiroTab } from '@/components/super-admin/SuperAdminFinanceiroTab';
 import { SuperAdminFranquiasTab } from '@/components/super-admin/SuperAdminFranquiasTab';
+import { UnidadesModulosPanel } from '@/components/UnidadesModulosPanel';
 
 interface Franquia {
   id: string;
@@ -1537,6 +1538,9 @@ export default function SuperAdmin() {
                     Nenhum módulo global encontrado no banco de dados. (Você pode cadastrá-los na tabela `modulos`)
                   </div>
                 )}
+
+                {/* Isolamento de Módulos por Loja */}
+                <UnidadesModulosPanel franquiaId={editingFranquia?.id} />
               </TabsContent>
 
               <TabsContent value="integracoes" className="space-y-4">

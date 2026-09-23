@@ -944,7 +944,25 @@ export async function fetchUnidadeModulos(unidadeId: string): Promise<UnidadeMod
 }
 
 export async function isModuloAtivo(unidadeId: string, moduloCodigo: string): Promise<boolean> {
-  // 1. Checa primeiro a permissão Mestre (Franquia)
+  // 1. Checa primeiro a permissão específica da Unidade (override por loja)
+  const { data: undMod } = await supabase
+    .from('unidade_modulos')
+    .select('ativo, data_expiracao')
+    .eq('unidade_id', unidadeId)
+    .eq('modulo_codigo', moduloCodigo)
+    .maybeSingle();
+
+  if (undMod) {
+    if (!undMod.ativo) return false; // Explicitamente desativado para a loja
+    if (undMod.data_expiracao) {
+      if (new Date(undMod.data_expiracao) < new Date()) {
+        return false;
+      }
+    }
+    return true; // Explicitamente ativado para a loja
+  }
+
+  // 2. Fallback: Checa permissão da Franquia (nível global)
   const { data: und } = await supabase
     .from('unidades')
     .select('franquia_id')
@@ -965,26 +983,7 @@ export async function isModuloAtivo(unidadeId: string, moduloCodigo: string): Pr
     }
   }
 
-  // 2. Fallback Opcional (Unidade)
-  const { data, error } = await supabase
-    .from('unidade_modulos')
-    .select('ativo, data_expiracao')
-    .eq('unidade_id', unidadeId)
-    .eq('modulo_codigo', moduloCodigo)
-    .eq('ativo', true)
-    .maybeSingle();
-
-  if (error || !data) return false;
-
-  // Verificar se expirou
-  if (data.data_expiracao) {
-    const expiracao = new Date(data.data_expiracao);
-    if (expiracao < new Date()) {
-      return false;
-    }
-  }
-
-  return true;
+  return false;
 }
 
 export async function ativarModulo(unidadeId: string, moduloCodigo: string, diasTrial?: number) {
@@ -992,12 +991,15 @@ export async function ativarModulo(unidadeId: string, moduloCodigo: string, dias
 
   const { error } = await supabase
     .from('unidade_modulos')
-    .upsert({
-      unidade_id: unidadeId,
-      modulo_codigo: moduloCodigo,
-      ativo: true,
-      data_expiracao: dataExpiracao,
-    });
+    .upsert(
+      {
+        unidade_id: unidadeId,
+        modulo_codigo: moduloCodigo,
+        ativo: true,
+        data_expiracao: dataExpiracao,
+      },
+      { onConflict: 'unidade_id,modulo_codigo' }
+    );
 
   if (error) throw error;
 }
@@ -1005,9 +1007,15 @@ export async function ativarModulo(unidadeId: string, moduloCodigo: string, dias
 export async function desativarModulo(unidadeId: string, moduloCodigo: string) {
   const { error } = await supabase
     .from('unidade_modulos')
-    .update({ ativo: false })
-    .eq('unidade_id', unidadeId)
-    .eq('modulo_codigo', moduloCodigo);
+    .upsert(
+      {
+        unidade_id: unidadeId,
+        modulo_codigo: moduloCodigo,
+        ativo: false,
+        data_expiracao: null,
+      },
+      { onConflict: 'unidade_id,modulo_codigo' }
+    );
 
   if (error) throw error;
 }
