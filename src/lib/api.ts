@@ -943,47 +943,79 @@ export async function fetchUnidadeModulos(unidadeId: string): Promise<UnidadeMod
   return data || [];
 }
 
-export async function isModuloAtivo(unidadeId: string, moduloCodigo: string): Promise<boolean> {
-  // 1. Checa primeiro a permissão específica da Unidade (override por loja)
-  const { data: undMod } = await supabase
-    .from('unidade_modulos')
-    .select('ativo, data_expiracao')
-    .eq('unidade_id', unidadeId)
-    .eq('modulo_codigo', moduloCodigo)
-    .maybeSingle();
+export async function isModuloAtivo(unidadeIdentifier: string, moduloCodigo: string): Promise<boolean> {
+  if (!unidadeIdentifier) return true;
 
-  if (undMod) {
-    if (!undMod.ativo) return false; // Explicitamente desativado para a loja
-    if (undMod.data_expiracao) {
-      if (new Date(undMod.data_expiracao) < new Date()) {
-        return false;
+  try {
+    let resolvedUuid: string | null = null;
+    let realFranquiaId: string | null = null;
+
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(unidadeIdentifier);
+
+    if (isUuid) {
+      resolvedUuid = unidadeIdentifier;
+      const { data: und } = await supabase
+        .from('unidades')
+        .select('franquia_id')
+        .eq('id', unidadeIdentifier)
+        .maybeSingle();
+      if (und) realFranquiaId = und.franquia_id;
+    } else {
+      const searchName = unidadeIdentifier === 'POA' ? 'Poá' : (unidadeIdentifier === 'ITAQUA' ? 'Itaqua' : unidadeIdentifier);
+      const { data: und } = await supabase
+        .from('unidades')
+        .select('id, franquia_id')
+        .ilike('nome_loja', `%${searchName}%`)
+        .maybeSingle();
+      if (und) {
+        resolvedUuid = und.id;
+        realFranquiaId = und.franquia_id;
       }
     }
-    return true; // Explicitamente ativado para a loja
-  }
 
-  // 2. Fallback: Checa permissão da Franquia (nível global)
-  const { data: und } = await supabase
-    .from('unidades')
-    .select('franquia_id')
-    .eq('id', unidadeId)
-    .maybeSingle();
+    // 1. Checa primeiro a permissão específica da Unidade (override por loja em unidade_modulos)
+    if (resolvedUuid) {
+      const { data: undMod } = await supabase
+        .from('unidade_modulos')
+        .select('ativo, data_expiracao')
+        .eq('unidade_id', resolvedUuid)
+        .eq('modulo_codigo', moduloCodigo)
+        .maybeSingle();
 
-  if (und && und.franquia_id) {
-    const { data: fra } = await supabase
-      .from('franquias')
-      .select('config_pagamento')
-      .eq('id', und.franquia_id)
-      .maybeSingle();
-
-    if (fra && fra.config_pagamento) {
-      const config = fra.config_pagamento as any;
-      const modulosAtivos = config.modulos_ativos || [];
-      if (Array.isArray(modulosAtivos) && modulosAtivos.includes(moduloCodigo)) return true;
+      if (undMod) {
+        if (!undMod.ativo) return false; // Explicitamente desativado para a loja
+        if (undMod.data_expiracao) {
+          if (new Date(undMod.data_expiracao) < new Date()) {
+            return false;
+          }
+        }
+        return true; // Explicitamente ativado para a loja
+      }
     }
-  }
 
-  return false;
+    // 2. Checa permissão da Franquia (nível global)
+    if (realFranquiaId) {
+      const { data: fra } = await supabase
+        .from('franquias')
+        .select('config_pagamento')
+        .eq('id', realFranquiaId)
+        .maybeSingle();
+
+      if (fra && fra.config_pagamento) {
+        const config = fra.config_pagamento as any;
+        const modulosAtivos = config.modulos_ativos || [];
+        if (Array.isArray(modulosAtivos) && modulosAtivos.includes(moduloCodigo)) {
+          return true;
+        }
+      }
+    }
+
+    // Se o módulo não estiver restrito ou desativado explicitamente, mantém ativo por padrão
+    return true;
+  } catch (err) {
+    console.error('Erro ao verificar status do módulo:', err);
+    return true;
+  }
 }
 
 export async function ativarModulo(unidadeId: string, moduloCodigo: string, diasTrial?: number) {
