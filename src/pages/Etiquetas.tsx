@@ -191,6 +191,7 @@ export default function Etiquetas() {
   const [mostrarConfigAvancadaProd, setMostrarConfigAvancadaProd] = useState<boolean>(false);
 
   // Formulário Aba Descongelamento (Sem campo de peso - apenas vias e multi-seleção)
+  const [descQuantidade, setDescQuantidade] = useState<number>(1);
   const [descImpressoraId, setDescImpressoraId] = useState<string>('');
   const [descModeloEtiqueta, setDescModeloEtiqueta] = useState<ModeloEtiquetaId>('80x30');
   const [descColunas, setDescColunas] = useState<number>(1);
@@ -1310,7 +1311,6 @@ export default function Etiquetas() {
                               type="button"
                               onClick={() => {
                                 setProdQuantidade(q);
-                                setDescQuantidade(q);
                                 if (selectedUnit) updateEtiquetaUltimasPreferencias(selectedUnit, { quantidade: q, franquia_id: user?.franquiaId });
                               }}
                               className={`text-[10px] font-mono px-2 py-0.5 rounded-md border ${
@@ -1332,7 +1332,6 @@ export default function Etiquetas() {
                           onClick={() => {
                             const newQ = Math.max(1, prodQuantidade - 1);
                             setProdQuantidade(newQ);
-                            setDescQuantidade(newQ);
                             if (selectedUnit) updateEtiquetaUltimasPreferencias(selectedUnit, { quantidade: newQ, franquia_id: user?.franquiaId });
                           }}
                           className="h-10 w-11 rounded-xl font-bold text-base bg-card"
@@ -1347,7 +1346,6 @@ export default function Etiquetas() {
                           onChange={(e) => {
                             const newQ = Math.max(1, Number(e.target.value) || 1);
                             setProdQuantidade(newQ);
-                            setDescQuantidade(newQ);
                             if (selectedUnit) updateEtiquetaUltimasPreferencias(selectedUnit, { quantidade: newQ, franquia_id: user?.franquiaId });
                           }}
                           className="h-10 rounded-xl bg-card border-border font-mono font-black text-center text-sm flex-1"
@@ -1360,7 +1358,6 @@ export default function Etiquetas() {
                           onClick={() => {
                             const newQ = Math.min(100, prodQuantidade + 1);
                             setProdQuantidade(newQ);
-                            setDescQuantidade(newQ);
                             if (selectedUnit) updateEtiquetaUltimasPreferencias(selectedUnit, { quantidade: newQ, franquia_id: user?.franquiaId });
                           }}
                           className="h-10 w-11 rounded-xl font-bold text-base bg-card"
