@@ -144,7 +144,7 @@ export function EtiquetasConfigPanel() {
     setModeloPadrao(novoModelo);
     if (novoModelo === '33x21') {
       setColunasPadrao(3);
-    } else if (novoModelo === '80x30' || novoModelo === '100x50') {
+    } else if (novoModelo === '80x30' || novoModelo === '100x50' || novoModelo === '60x40') {
       setColunasPadrao(1);
     }
   };
@@ -239,7 +239,7 @@ export function EtiquetasConfigPanel() {
             {/* 3. Colunas por Linha Padrão */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold text-foreground">Colunas por Linha (Carreira do Rolo)</Label>
+                <Label className="text-xs font-bold text-foreground">ETIQUETA POR LINHA (Carreira do Rolo)</Label>
                 <span className="text-[11px] text-muted-foreground">
                   {colunasPadrao} {colunasPadrao === 1 ? 'etiqueta por linha' : 'etiquetas lado a lado'}
                 </span>

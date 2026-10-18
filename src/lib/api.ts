@@ -1832,47 +1832,14 @@ export async function fetchFuncionariosInternos(
   apenasAtivos: boolean = false,
   franquiaId?: string | null
 ): Promise<FuncionarioInterno[]> {
-  // Carrega do LocalStorage da unidade específica para resposta instantânea
-  let local = getLocalFuncionarios(unidade);
-
-  // Se for ITAQUA ou loja sem membros, garante que toda a equipe padrão exista no cache local
-  if (unidade === 'ITAQUA' || local.length === 0) {
-    const localNames = new Set(local.map((f) => f.nome.toLowerCase().trim()));
-    const missingInLocal = INITIAL_ITAQUA_STAFF.filter(
-      (s) => !localNames.has(s.nome.toLowerCase().trim())
-    );
-    if (missingInLocal.length > 0) {
-      const now = new Date().toISOString();
-      const added = missingInLocal.map((f) => ({
-        id: generateUUID(),
-        nome: f.nome,
-        cargo: f.cargo,
-        unidade,
-        franquia_id: franquiaId || null,
-        ativo: true,
-        created_at: now,
-        updated_at: now,
-      }));
-      local = [...local, ...added];
-    }
-  }
-
-  // Deduplica cache local por nome
-  const dedupLocalMap = new Map<string, FuncionarioInterno>();
-  local.forEach((f) => {
-    const key = f.nome.toLowerCase().trim();
-    if (!dedupLocalMap.has(key)) {
-      dedupLocalMap.set(key, f);
-    }
-  });
-  local = Array.from(dedupLocalMap.values()).sort((a, b) => a.nome.localeCompare(b.nome));
-  saveLocalFuncionarios(unidade, local);
+  const unidadeNorm = (unidade || '').trim().toUpperCase();
+  let local = getLocalFuncionarios(unidadeNorm);
 
   // Sincroniza com o Supabase filtrando estritamente pela unidade (isolamento absoluto por loja)
   try {
     let query = (supabase.from('funcionarios_internos') as any)
       .select('*')
-      .eq('unidade', unidade)
+      .ilike('unidade', unidadeNorm)
       .order('nome', { ascending: true });
 
     if (franquiaId) {
@@ -1882,61 +1849,48 @@ export async function fetchFuncionariosInternos(
     const { data, error } = await query;
 
     if (!error && data) {
-      let merged: FuncionarioInterno[] = data;
-
-      // Se a equipe estiver incompleta (ex: faltam membros da equipe padrão para a loja), complementa no Supabase
-      const nomesExistentes = new Set(merged.map((f: any) => f.nome.toLowerCase().trim()));
-      const faltantes = INITIAL_ITAQUA_STAFF.filter(
-        (staff) => !nomesExistentes.has(staff.nome.toLowerCase().trim())
-      );
-
-      if (faltantes.length > 0 && (unidade === 'ITAQUA' || merged.length === 0)) {
-        try {
-          const { data: inserted, error: insErr } = await (supabase.from('funcionarios_internos') as any)
-            .insert(
-              faltantes.map((f) => ({
-                nome: f.nome,
-                cargo: f.cargo,
-                unidade,
-                franquia_id: franquiaId || null,
-                ativo: true,
-              }))
-            )
-            .select();
-
-          if (!insErr && inserted) {
-            merged = [...merged, ...inserted];
-          } else {
-            // Em caso de restrição/erro do banco, mescla com o cache local para não faltar na interface
-            const localMap = new Map(local.map((l) => [l.nome.toLowerCase().trim(), l]));
-            faltantes.forEach((fl) => {
-              const fromLocal = localMap.get(fl.nome.toLowerCase().trim());
-              if (fromLocal) merged.push(fromLocal);
-            });
-          }
-        } catch (e) {
-          console.warn('Erro ao sincronizar equipe padrão no Supabase:', e);
-          const localMap = new Map(local.map((l) => [l.nome.toLowerCase().trim(), l]));
-          faltantes.forEach((fl) => {
-            const fromLocal = localMap.get(fl.nome.toLowerCase().trim());
-            if (fromLocal) merged.push(fromLocal);
-          });
-        }
+      // Se o banco retornou os funcionários da loja, essa é a fonte de verdade absoluta!
+      // Se o usuário excluiu um funcionário, ele NÃO é ressuscitado.
+      if (data.length > 0) {
+        saveLocalFuncionarios(unidadeNorm, data);
+        localStorage.setItem(`filalab_staff_initialized_${unidadeNorm}`, 'true');
+        return apenasAtivos ? data.filter((f: any) => f.ativo) : data;
       }
 
-      // Deduplicação estrita de funcionários no retorno e no cache
-      const dedupDbMap = new Map<string, FuncionarioInterno>();
-      merged.forEach((f) => {
-        const key = f.nome.toLowerCase().trim();
-        if (!dedupDbMap.has(key)) {
-          dedupDbMap.set(key, f);
-        }
-      });
-      const dedupedMerged = Array.from(dedupDbMap.values()).sort((a, b) => a.nome.localeCompare(b.nome));
+      // Se o banco estiver totalmente VAZIO pela primeira vez (loja nova):
+      const seedKey = `filalab_staff_initialized_${unidadeNorm}`;
+      const jaInicializado = localStorage.getItem(seedKey);
 
-      if (dedupedMerged.length > 0) {
-        saveLocalFuncionarios(unidade, dedupedMerged);
-        return apenasAtivos ? dedupedMerged.filter((f: any) => f.ativo) : dedupedMerged;
+      if (!jaInicializado && data.length === 0 && unidadeNorm === 'ITAQUA') {
+        try {
+          const now = new Date().toISOString();
+          const seedPayload = INITIAL_ITAQUA_STAFF.map((f) => ({
+            nome: f.nome,
+            cargo: f.cargo,
+            unidade: unidadeNorm,
+            franquia_id: franquiaId || null,
+            ativo: true,
+            created_at: now,
+            updated_at: now,
+          }));
+
+          const { data: inserted } = await (supabase.from('funcionarios_internos') as any)
+            .insert(seedPayload)
+            .select();
+
+          localStorage.setItem(seedKey, 'true');
+
+          if (inserted && inserted.length > 0) {
+            saveLocalFuncionarios(unidadeNorm, inserted);
+            return apenasAtivos ? inserted.filter((f: any) => f.ativo) : inserted;
+          }
+        } catch (e) {
+          console.warn('Erro ao inserir seed inicial de funcionários:', e);
+        }
+      } else if (data.length === 0 && jaInicializado) {
+        // Se a loja já foi inicializada e o banco está vazio, respeita a exclusão
+        saveLocalFuncionarios(unidadeNorm, []);
+        return [];
       }
     }
   } catch (err) {
@@ -2034,19 +1988,26 @@ export async function updateFuncionarioInterno(
 
 /** Deleta funcionário interno (remove da unidade) */
 export async function deleteFuncionarioInterno(id: string, unidade?: string): Promise<void> {
+  const unidadeNorm = (unidade || '').trim().toUpperCase();
+
   try {
-    await (supabase.from('funcionarios_internos') as any).delete().eq('id', id);
+    const { error } = await (supabase.from('funcionarios_internos') as any).delete().eq('id', id);
+    if (error) {
+      console.error('Erro ao excluir no Supabase:', error);
+      throw new Error(error.message || 'Erro ao excluir no banco');
+    }
   } catch (e) {
-    console.warn('Erro ao excluir no Supabase:', e);
+    console.error('Erro ao excluir funcionário:', e);
+    throw e;
   }
 
   // Remove também do LocalStorage da unidade
-  if (unidade) {
-    const local = getLocalFuncionarios(unidade);
-    saveLocalFuncionarios(unidade, local.filter((f) => f.id !== id));
+  if (unidadeNorm) {
+    const local = getLocalFuncionarios(unidadeNorm);
+    saveLocalFuncionarios(unidadeNorm, local.filter((f) => f.id !== id));
 
-    const registros = getLocalRegistros(unidade);
-    saveLocalRegistros(unidade, registros.filter((r) => r.funcionario_id !== id));
+    const registros = getLocalRegistros(unidadeNorm);
+    saveLocalRegistros(unidadeNorm, registros.filter((r) => r.funcionario_id !== id));
   }
 }
 

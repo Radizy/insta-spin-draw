@@ -63,9 +63,9 @@ export interface ModeloEtiquetaConfig {
 
 export const MODELOS_ETIQUETAS: ModeloEtiquetaConfig[] = [
   { id: '80x30', nome: '80mm x 30mm (Padrão)', larguraMm: 80, alturaMm: 30, descricao: 'Padrão Elgin L42 Pro Full / Cozinha' },
+  { id: '60x40', nome: '60mm x 40mm (Balança / Térmica)', larguraMm: 60, alturaMm: 40, descricao: 'Formato clássico 60x40mm' },
   { id: '33x21', nome: '33mm x 21mm (Mini)', larguraMm: 33, alturaMm: 21, descricao: 'Compacta 33x21mm para potes, sachês e gôndolas' },
   { id: '100x50', nome: '100mm x 50mm', larguraMm: 100, alturaMm: 50, descricao: 'Formato grande com espaço expandido' },
-  { id: '60x40', nome: '60mm x 40mm', larguraMm: 60, alturaMm: 40, descricao: 'Formato intermediário retangular' },
   { id: '50x30', nome: '50mm x 30mm', larguraMm: 50, alturaMm: 30, descricao: 'Compacta para potes e sachês' },
   { id: 'personalizado', nome: 'Personalizado', larguraMm: 80, alturaMm: 30, descricao: 'Dimensões flexíveis' },
 ];
@@ -116,42 +116,55 @@ const generateUUID = (): string => {
 // -------------------------------------------------------------
 
 const getLocalProdutos = (unidade: string): EtiquetaProduto[] => {
+  const norm = (unidade || '').trim().toUpperCase();
   try {
-    const raw = localStorage.getItem(`filalab_etiquetas_produtos_${unidade}`);
-    return raw ? JSON.parse(raw) : [];
+    const rawDirect = localStorage.getItem(`filalab_etiquetas_produtos_${norm}`);
+    if (rawDirect) {
+      const parsed = JSON.parse(rawDirect);
+      if (Array.isArray(parsed)) return parsed;
+    }
   } catch (e) {
-    return [];
+    console.warn('Erro ao ler produtos do cache local:', e);
   }
+  return [];
 };
 
 const saveLocalProdutos = (unidade: string, lista: EtiquetaProduto[]) => {
+  const norm = (unidade || '').trim().toUpperCase();
   try {
-    localStorage.setItem(`filalab_etiquetas_produtos_${unidade}`, JSON.stringify(lista));
+    localStorage.setItem(`filalab_etiquetas_produtos_${norm}`, JSON.stringify(lista));
   } catch (e) {
     console.error('Erro ao salvar produtos no cache local:', e);
   }
 };
 
 const getLocalImpressoras = (unidade: string): EtiquetaImpressora[] => {
+  const norm = (unidade || '').trim().toUpperCase();
   try {
-    const raw = localStorage.getItem(`filalab_etiquetas_impressoras_${unidade}`);
-    return raw ? JSON.parse(raw) : [];
+    const rawDirect = localStorage.getItem(`filalab_etiquetas_impressoras_${norm}`);
+    if (rawDirect) {
+      const parsed = JSON.parse(rawDirect);
+      if (Array.isArray(parsed)) return parsed;
+    }
   } catch (e) {
-    return [];
+    console.warn('Erro ao ler impressoras do cache local:', e);
   }
+  return [];
 };
 
 const saveLocalImpressoras = (unidade: string, lista: EtiquetaImpressora[]) => {
+  const norm = (unidade || '').trim().toUpperCase();
   try {
-    localStorage.setItem(`filalab_etiquetas_impressoras_${unidade}`, JSON.stringify(lista));
+    localStorage.setItem(`filalab_etiquetas_impressoras_${norm}`, JSON.stringify(lista));
   } catch (e) {
     console.error('Erro ao salvar impressoras no cache local:', e);
   }
 };
 
 const getLocalHistorico = (unidade: string): EtiquetaHistorico[] => {
+  const norm = (unidade || '').trim().toUpperCase();
   try {
-    const raw = localStorage.getItem(`filalab_etiquetas_historico_${unidade}`);
+    const raw = localStorage.getItem(`filalab_etiquetas_historico_${norm}`);
     return raw ? JSON.parse(raw) : [];
   } catch (e) {
     return [];
@@ -159,8 +172,9 @@ const getLocalHistorico = (unidade: string): EtiquetaHistorico[] => {
 };
 
 const saveLocalHistorico = (unidade: string, lista: EtiquetaHistorico[]) => {
+  const norm = (unidade || '').trim().toUpperCase();
   try {
-    localStorage.setItem(`filalab_etiquetas_historico_${unidade}`, JSON.stringify(lista));
+    localStorage.setItem(`filalab_etiquetas_historico_${norm}`, JSON.stringify(lista));
   } catch (e) {
     console.error('Erro ao salvar histórico de etiquetas no cache local:', e);
   }
@@ -175,30 +189,12 @@ export async function fetchEtiquetaProdutos(
   franquiaId?: string | null,
   apenasAtivos: boolean = false
 ): Promise<EtiquetaProduto[]> {
-  let local = getLocalProdutos(unidade);
-
-  // Se o cache local estiver vazio para esta unidade, injeta o seed inicial
-  if (local.length === 0) {
-    const seed: EtiquetaProduto[] = PRODUTOS_SEED_INICIAIS.map((p) => ({
-      id: generateUUID(),
-      nome: p.nome,
-      categoria: p.categoria,
-      validade_producao_dias: p.validade_producao_dias,
-      validade_descongelamento_dias: p.validade_descongelamento_dias,
-      ativo: p.ativo,
-      unidade,
-      franquia_id: franquiaId || null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }));
-    local = seed;
-    saveLocalProdutos(unidade, local);
-  }
+  const unidadeNormalizada = (unidade || '').trim().toUpperCase();
 
   try {
     let query = (supabase.from('etiquetas_produtos') as any)
       .select('*')
-      .eq('unidade', unidade)
+      .ilike('unidade', unidadeNormalizada)
       .order('nome', { ascending: true });
 
     if (franquiaId) {
@@ -206,14 +202,17 @@ export async function fetchEtiquetaProdutos(
     }
 
     const { data, error } = await query;
-    if (!error && data && data.length > 0) {
-      saveLocalProdutos(unidade, data);
+    if (!error && data) {
+      // O Supabase é a fonte da verdade definitiva.
+      saveLocalProdutos(unidadeNormalizada, data);
       return apenasAtivos ? data.filter((p: EtiquetaProduto) => p.ativo) : data;
     }
   } catch (e) {
-    // Silencioso - contingência local
+    // Silencioso - contingência offline se a rede cair
   }
 
+  // Em caso de falha de conexão, retorna o cache local
+  const local = getLocalProdutos(unidadeNormalizada);
   return apenasAtivos ? local.filter((p) => p.ativo) : local;
 }
 
@@ -303,14 +302,37 @@ export async function updateEtiquetaProduto(
 }
 
 export async function deleteEtiquetaProduto(id: string, unidade: string): Promise<void> {
+  const unidadeNorm = (unidade || '').trim().toUpperCase();
+
   try {
-    await (supabase.from('etiquetas_produtos') as any).delete().eq('id', id);
+    const { error } = await (supabase.from('etiquetas_produtos') as any).delete().eq('id', id);
+    if (error) {
+      console.error('Erro ao excluir no Supabase:', error);
+      throw new Error(error.message || 'Erro ao excluir produto no banco');
+    }
   } catch (e) {
-    // Silencioso
+    console.error('Erro ao excluir produto:', e);
+    throw e;
   }
 
-  const local = getLocalProdutos(unidade);
-  saveLocalProdutos(unidade, local.filter((p) => p.id !== id));
+  // Limpa de TODAS as variações de chaves de produtos do localStorage para garantir que não ressuscite
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.toLowerCase().startsWith('filalab_etiquetas_produtos_')) {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              const filtered = parsed.filter((p: any) => p.id !== id);
+              localStorage.setItem(key, JSON.stringify(filtered));
+            }
+          } catch (_) {}
+        }
+      }
+    }
+  } catch (_) {}
 }
 
 // -------------------------------------------------------------
@@ -321,28 +343,12 @@ export async function fetchEtiquetaImpressoras(
   unidade: string,
   franquiaId?: string | null
 ): Promise<EtiquetaImpressora[]> {
-  let local = getLocalImpressoras(unidade);
-
-  if (local.length === 0) {
-    const seed: EtiquetaImpressora[] = IMPRESSORAS_SEED_INICIAIS.map((imp) => ({
-      id: generateUUID(),
-      nome: imp.nome,
-      modelo: imp.modelo,
-      ip: imp.ip,
-      porta: imp.porta,
-      ativa: imp.ativa,
-      unidade,
-      franquia_id: franquiaId || null,
-      created_at: new Date().toISOString(),
-    }));
-    local = seed;
-    saveLocalImpressoras(unidade, local);
-  }
+  const unidadeNormalizada = (unidade || '').trim().toUpperCase();
 
   try {
     let query = (supabase.from('etiquetas_impressoras') as any)
       .select('*')
-      .eq('unidade', unidade)
+      .ilike('unidade', unidadeNormalizada)
       .order('nome', { ascending: true });
 
     if (franquiaId) {
@@ -350,15 +356,15 @@ export async function fetchEtiquetaImpressoras(
     }
 
     const { data, error } = await query;
-    if (!error && data && data.length > 0) {
-      saveLocalImpressoras(unidade, data);
+    if (!error && data) {
+      saveLocalImpressoras(unidadeNormalizada, data);
       return data;
     }
   } catch (e) {
     // Silencioso
   }
 
-  return local;
+  return getLocalImpressoras(unidadeNormalizada);
 }
 
 export async function createEtiquetaImpressora(params: {
@@ -439,14 +445,36 @@ export async function updateEtiquetaImpressora(
 }
 
 export async function deleteEtiquetaImpressora(id: string, unidade: string): Promise<void> {
+  const unidadeNorm = (unidade || '').trim().toUpperCase();
+
   try {
-    await (supabase.from('etiquetas_impressoras') as any).delete().eq('id', id);
+    const { error } = await (supabase.from('etiquetas_impressoras') as any).delete().eq('id', id);
+    if (error) {
+      console.error('Erro ao excluir impressora no Supabase:', error);
+      throw new Error(error.message || 'Erro ao excluir impressora no banco');
+    }
   } catch (e) {
-    // Silencioso
+    console.error('Erro ao excluir impressora:', e);
+    throw e;
   }
 
-  const local = getLocalImpressoras(unidade);
-  saveLocalImpressoras(unidade, local.filter((i) => i.id !== id));
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.toLowerCase().startsWith('filalab_etiquetas_impressoras_')) {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              const filtered = parsed.filter((imp: any) => imp.id !== id);
+              localStorage.setItem(key, JSON.stringify(filtered));
+            }
+          } catch (_) {}
+        }
+      }
+    }
+  } catch (_) {}
 }
 
 // -------------------------------------------------------------
@@ -643,20 +671,27 @@ export function generateEPL2Commands(params: {
   unidade: string;
   usuarioNome: string;
   quantidade?: number;
+  modeloEtiqueta?: ModeloEtiquetaId;
 }): string {
   const qtd = params.quantidade || 1;
+  const is60x40 = params.modeloEtiqueta === '60x40';
   const tipoLabel = params.tipo.toUpperCase();
   const dataOpFormatted = formatarDataBR(params.dataOperacao);
   const dataValFormatted = formatarDataBR(params.dataValidade);
 
+  // 80mm = ~640 dots, 30mm = ~240 dots
+  // 60mm = ~480 dots, 40mm = ~320 dots
+  const larguraPontos = is60x40 ? 480 : 640;
+  const alturaPontos = is60x40 ? 320 : 240;
+
   return [
     'N', // Limpa o buffer de imagem
-    'q640', // Largura da etiqueta (80mm a 203 DPI = ~640 pontos)
-    'Q240,24', // Altura da etiqueta (30mm = ~240 pontos) + GAP 24 pontos
+    `q${larguraPontos}`, // Largura da etiqueta
+    `Q${alturaPontos},24`, // Altura da etiqueta + GAP 24 pontos
     'D10', // Densidade de impressão
     'ZT', // Posição de corte/avanço
     `A40,15,0,4,1,1,N,"${tipoLabel}"`,
-    `A40,50,0,4,1,2,N,"${params.produtoNome.slice(0, 26)}"`,
+    `A40,50,0,4,1,2,N,"${params.produtoNome.slice(0, is60x40 ? 20 : 26)}"`,
     params.peso ? `A40,95,0,3,1,1,N,"Peso: ${params.peso}"` : '',
     `A40,130,0,2,1,1,N,"Data: ${dataOpFormatted}   Hora: ${params.horaOperacao}"`,
     `A40,160,0,3,1,1,N,"Validade: ${dataValFormatted}"`,
@@ -678,6 +713,7 @@ export interface EtiquetaConfigLoja {
   modelo_padrao: ModeloEtiquetaId;
   colunas_padrao: number;
   layout_padrao: TipoLayoutEtiqueta;
+  quantidade_padrao?: number;
   largura_mm?: number;
   altura_mm?: number;
   updated_at?: string;
@@ -689,6 +725,7 @@ export const DEFAULT_ETIQUETA_CONFIG_LOJA = (unidade: string, franquiaId?: strin
   modelo_padrao: '80x30',
   colunas_padrao: 1,
   layout_padrao: 'completa',
+  quantidade_padrao: 1,
   largura_mm: 80,
   altura_mm: 30,
 });
@@ -728,5 +765,33 @@ export async function saveEtiquetaConfigLoja(
     console.error('Erro ao salvar config de etiquetas local:', e);
   }
   return payload;
+}
+
+/**
+ * Atualiza e memoriza instantaneamente as últimas preferências usadas na loja,
+ * garantindo que sejam o novo padrão em todas as próximas emissões.
+ */
+export async function updateEtiquetaUltimasPreferencias(
+  unidade: string,
+  preferencias: {
+    modelo?: ModeloEtiquetaId;
+    colunas?: number;
+    quantidade?: number;
+    layout?: TipoLayoutEtiqueta;
+    impressora_id?: string;
+    franquia_id?: string | null;
+  }
+): Promise<EtiquetaConfigLoja> {
+  const current = await fetchEtiquetaConfigLoja(unidade, preferencias.franquia_id);
+  const updated: EtiquetaConfigLoja = {
+    ...current,
+    modelo_padrao: preferencias.modelo ?? current.modelo_padrao,
+    colunas_padrao: preferencias.colunas ?? current.colunas_padrao,
+    quantidade_padrao: preferencias.quantidade ?? current.quantidade_padrao ?? 1,
+    layout_padrao: preferencias.layout ?? current.layout_padrao,
+    impressora_padrao_id: preferencias.impressora_id ?? current.impressora_padrao_id,
+    updated_at: new Date().toISOString(),
+  };
+  return saveEtiquetaConfigLoja(updated);
 }
 

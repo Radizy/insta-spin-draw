@@ -26,8 +26,15 @@ Os módulos principais são:
 Esses módulos podem ser geridos livremente pelo painel Super Admin na visualização e edição de uma franquia.
 
 ### Versão do Sistema
-- **Versão Atual**: `2.9.9` (Setembro 2026)
+- **Versão Atual**: `2.9.9` (Outubro 2026)
 - **Últimas Implementações**:
+    - **Otimizações no Módulo de Etiquetas ([`/etiquetas`](file:///src/pages/Etiquetas.tsx))**:
+        - **Descongelamento em Lote com Impressão Direta**: Catálogo em grid com seleção múltipla (checkboxes), ajuste independente de vias por item e botão **"Imprimir" direto** (sem necessidade de abrir modal de pré-visualização), otimizando a rotina de retirada da câmara fria.
+        - **Sincronização Estrita da Seleção**: Painel lateral e disparo de impressão agora utilizam estritamente os produtos marcados na lista de seleção. Elimina qualquer fallback para itens desmarcados (como o primeiro item padrão), exibindo estado vazio e desabilitando botões caso nenhum produto esteja selecionado.
+        - **Auto-Limpeza da Seleção**: Limpeza automática e imediata dos produtos marcados após o término da impressão térmica (seja pelo botão direto ou após confirmação no modal de pré-visualização).
+        - **Botões Rápidos de Peso na Produção**: Incremento e decremento rápido com 1 clique (`-5kg`, `-1kg`, `+1kg`, `+5kg`) para facilitar a pesagem de insumos.
+        - **Estabilização do Modal Sem Peso**: Migração do `SemPesoConfirmModal` para o componente `Dialog` com fechamento assíncrono suave, eliminando qualquer travamento ou congelamento de tela.
+        - **Exclusão Definitiva de Produtos e Funcionários**: Remoção de mecanismos de auto-ressuscitação em cache/local storage, garantindo exclusão real e sincronizada no Supabase.
     - **Novo Módulo: Etiquetas de Produção e Descongelamento ([`/etiquetas`](file:///src/pages/Etiquetas.tsx))**:
         - Sistema completo de impressão de etiquetas térmicas adesivas nos padrões **80mm x 30mm**, **100mm x 50mm** e **33mm x 21mm (carreira de 3 colunas)** (calibrado para Elgin L42 Pro Full e impressoras de rede térmicas via RAW 9100 / ESC/POS / ZPL).
         - Abas dedicadas: **Produção**, **Descongelamento**, **Produtos**, **Impressoras** e **Histórico (7 dias)**.
@@ -1605,11 +1612,12 @@ CREATE POLICY "only_admins_can_modify_franquias"
 **Sistema de impressão térmica para controle de validades de insumos e preparação (Elgin L42 Pro Full 80x30mm).**
 
 **Funcionalidades:**
-- **Aba Produção**: Emissão de etiquetas para alimentos manipulados ou fracionados na loja com data/hora e validade calculada automaticamente pelo produto.
-- **Aba Descongelamento**: Emissão de etiquetas específicas com o cabeçalho `DESCONGELAMENTO` e validade reduzida de câmara fria/refrigeração.
-- **Confirmação Obrigatória de Peso Opcional**: Caso o operador avance sem preencher o peso, o sistema exibe o modal de confirmação antes de liberar a impressão.
-- **Pré-Visualização Fiel da Etiqueta Térmica**: Modal com renderização do layout 80mm x 30mm em alto contraste e acionamento direto do driver de impressão.
-- **Catálogo de Produtos com Validades Customizadas**: Cadastro de produtos com definição independente de dias de validade para produção e para descongelamento.
+- **Aba Produção**: Emissão de etiquetas para alimentos manipulados ou fracionados na loja com data/hora e validade calculada automaticamente pelo produto. Inclui botões rápidos de incremento/decremento de peso (-5kg, -1kg, +1kg, +5kg) e modal de confirmação para itens sem peso.
+- **Aba Descongelamento Ágil**: Emissão de etiquetas com cabeçalho `DESCONGELAMENTO`, validade padrão para o dia seguinte (+1d) sem necessidade de pesagem. Suporte a seleção múltipla de produtos via catálogo em grid com contadores de vias independentes, impressão direta com 1 clique (sem necessidade de abrir modal) e auto-limpeza da seleção após o envio.
+- **Painel Lateral Sincronizado**: Exibição em tempo real do item selecionado ou resumo do lote com bloqueio automático dos botões caso nenhum produto esteja marcado.
+- **Confirmação Obrigatória de Peso Opcional**: Modal baseado em Radix Dialog de alta performance para confirmação de emissão sem peso na aba Produção, com fechamento suave e sem congelamento de interface.
+- **Pré-Visualização Fiel da Etiqueta Térmica**: Modal com renderização de layouts (Completa e Simples/Gôndola) nos tamanhos 80x30mm, 100x50mm e 33x21mm (3 colunas), com envio direto para o driver ou impressão térmica em lote.
+- **Catálogo de Produtos com Validades Customizadas**: Cadastro de produtos com definição independente de dias de validade para produção e para descongelamento, com exclusão permanente e sem auto-ressuscitação de itens deletados.
 - **Gestão de Impressoras Térmicas de Rede**: Configuração de IPs locais, portas (RAW 9100) e modelos suportados (Elgin L42 Pro Full, Zebra, etc.).
 - **Histórico Rotativo de 7 Dias com Reimpressão**: Armazenamento com rotina de limpeza automática de registros com mais de 7 dias e botão de reimpressão com 1 clique.
 
@@ -2173,6 +2181,15 @@ ORDER BY valor_final DESC;
 ---
 
 ## 📝 CHANGELOG
+
+### v2.9.9 (2026-10-17)
+- ✅ **Aprimoramentos no Módulo de Etiquetas de Descongelamento e Produção ([`/etiquetas`](file:///src/pages/Etiquetas.tsx))**:
+    - **Impressão Direta e Multi-Seleção no Descongelamento**: Catálogo em grade com seleção múltipla, contador de vias por item e botão "Imprimir" direto sem abrir modal de pré-visualização.
+    - **Sincronização Estrita da Seleção**: Corrigido bug em que o painel lateral exibia o produto padrão em vez do item marcado no catálogo. Painel e impressão agora utilizam estritamente os itens selecionados, exibindo estado vazio e desabilitando ações quando nada estiver marcado.
+    - **Auto-Limpeza Pós-Impressão**: Limpeza automática da seleção de itens de descongelamento imediatamente após o envio da impressão (direta ou pelo modal).
+    - **Controles Rápidos de Peso na Produção**: Botões de adição e subtração rápida de peso (`-5kg`, `-1kg`, `+1kg`, `+5kg`) para agilizar o lançamento na cozinha.
+    - **Estabilização do Modal Sem Peso**: Migração do `SemPesoConfirmModal` para o componente `Dialog` com fechamento assíncrono suave, prevenindo travamento do navegador.
+    - **Exclusão Definitiva de Registros**: Removida lógica de auto-ressuscitação em cache local, garantindo exclusão real no Supabase para colaboradores internos (`funcionarios_internos`) e produtos de etiquetas (`etiquetas_produtos`).
 
 ### v2.9.8 (2026-09-08)
 - ✅ **Módulo de Etiquetas de Produção e Descongelamento ([`/etiquetas`](file:///src/pages/Etiquetas.tsx))**:

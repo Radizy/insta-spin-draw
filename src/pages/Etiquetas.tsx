@@ -52,7 +52,11 @@ import {
   Check,
   Zap,
   X,
-  Layers
+  Layers,
+  ChevronDown,
+  ChevronUp,
+  Minus,
+  FileText,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -71,6 +75,7 @@ import {
   saveEtiquetaHistorico,
   cleanupEtiquetaHistorico7Dias,
   fetchEtiquetaConfigLoja,
+  updateEtiquetaUltimasPreferencias,
   calcularDataValidade,
   formatarDataBR,
   getHoraAtualHHMM,
@@ -81,10 +86,11 @@ import {
 } from '@/lib/api-etiquetas';
 import { getHojeLocalYMD } from '@/lib/api';
 import { SemPesoConfirmModal } from '@/components/etiquetas/SemPesoConfirmModal';
+import { EtiquetaPreviewModal } from '@/components/etiquetas/EtiquetaPreviewModal';
 import {
-  EtiquetaPreviewModal,
   DadosImpressaoEtiqueta,
-} from '@/components/etiquetas/EtiquetaPreviewModal';
+  imprimirEtiquetasEmLote,
+} from '@/lib/etiquetas-print';
 import { CadastroProdutoModal } from '@/components/etiquetas/CadastroProdutoModal';
 import { CadastroImpressoraModal } from '@/components/etiquetas/CadastroImpressoraModal';
 
@@ -123,6 +129,31 @@ function autoFormatarPeso(valorBruto: string): string {
   }
 }
 
+/** Incrementa ou decrementa o peso em kg (+1, -1, +5, -5, +0.25, etc) mantendo a formatação amigável */
+function ajustarPesoDelta(pesoAtual: string, deltaKg: number): string {
+  const limpo = (pesoAtual || '').trim().toLowerCase().replace(',', '.');
+  let kgAtual = 0;
+
+  if (limpo.endsWith('kg')) {
+    kgAtual = parseFloat(limpo.replace('kg', '')) || 0;
+  } else if (limpo.endsWith('g')) {
+    kgAtual = (parseFloat(limpo.replace('g', '')) || 0) / 1000;
+  } else if (limpo) {
+    const num = parseFloat(limpo) || 0;
+    kgAtual = num >= 20 ? num / 1000 : num;
+  }
+
+  const novoKg = Math.max(0, Math.round((kgAtual + deltaKg) * 1000) / 1000);
+
+  if (novoKg <= 0) return '';
+  if (novoKg >= 1) {
+    return Number.isInteger(novoKg) ? `${novoKg}kg` : `${novoKg}kg`;
+  } else {
+    const g = Math.round(novoKg * 1000);
+    return `${g}g`;
+  }
+}
+
 export default function Etiquetas() {
   const { selectedUnit } = useUnit();
   const { user } = useAuth();
@@ -157,21 +188,23 @@ export default function Etiquetas() {
   const [prodModeloEtiqueta, setProdModeloEtiqueta] = useState<ModeloEtiquetaId>('80x30');
   const [prodColunas, setProdColunas] = useState<number>(1);
   const [prodLayoutEtiqueta, setProdLayoutEtiqueta] = useState<TipoLayoutEtiqueta>('completa');
+  const [mostrarConfigAvancadaProd, setMostrarConfigAvancadaProd] = useState<boolean>(false);
 
-  // Formulário Aba Descongelamento
-  const [descProdutoId, setDescProdutoId] = useState<string>('');
-  const [descPeso, setDescPeso] = useState<string>('');
-  const [descQuantidade, setDescQuantidade] = useState<number>(1);
+  // Formulário Aba Descongelamento (Sem campo de peso - apenas vias e multi-seleção)
   const [descImpressoraId, setDescImpressoraId] = useState<string>('');
   const [descModeloEtiqueta, setDescModeloEtiqueta] = useState<ModeloEtiquetaId>('80x30');
   const [descColunas, setDescColunas] = useState<number>(1);
   const [descLayoutEtiqueta, setDescLayoutEtiqueta] = useState<TipoLayoutEtiqueta>('completa');
+  const [mostrarConfigAvancadaDesc, setMostrarConfigAvancadaDesc] = useState<boolean>(false);
+  const [descItensSelecionados, setDescItensSelecionados] = useState<Record<string, { selected: boolean; vias: number }>>({});
 
   // Modais
   const [semPesoModalOpen, setSemPesoModalOpen] = useState(false);
   const [pendenteDadosSemPeso, setPendenteDadosSemPeso] = useState<DadosImpressaoEtiqueta | null>(null);
+  const [modoPendenteSemPeso, setModoPendenteSemPeso] = useState<'preview' | 'direto'>('direto');
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [dadosParaPreview, setDadosParaPreview] = useState<DadosImpressaoEtiqueta | null>(null);
+  const [itensParaPreview, setItensParaPreview] = useState<DadosImpressaoEtiqueta[]>([]);
 
   // Modais de Cadastro / Edição
   const [produtoModalOpen, setProdutoModalOpen] = useState(false);
@@ -197,7 +230,7 @@ export default function Etiquetas() {
     });
   }, []);
 
-  // 1. Query Produtos
+  // 1. Query Produtos (sincroniza a cada 10s com o banco)
   const {
     data: produtos = [],
     isLoading: loadingProdutos,
@@ -206,6 +239,7 @@ export default function Etiquetas() {
     queryKey: ['etiquetas-produtos', selectedUnit, user?.franquiaId],
     queryFn: () => (selectedUnit ? fetchEtiquetaProdutos(selectedUnit, user?.franquiaId) : []),
     enabled: !!selectedUnit,
+    refetchInterval: 10000,
   });
 
   // 2. Query Impressoras
@@ -250,11 +284,8 @@ export default function Etiquetas() {
       if (!prodProdutoId) {
         setProdProdutoId(produtosAtivos[0].id);
       }
-      if (!descProdutoId) {
-        setDescProdutoId(produtosAtivos[0].id);
-      }
     }
-  }, [produtosAtivos, prodProdutoId, descProdutoId]);
+  }, [produtosAtivos, prodProdutoId]);
 
   // Atualiza estados com os padrões configurados para a loja ou impressora ativa
   useEffect(() => {
@@ -270,6 +301,10 @@ export default function Etiquetas() {
       if (configLoja.layout_padrao) {
         setProdLayoutEtiqueta(configLoja.layout_padrao);
         setDescLayoutEtiqueta(configLoja.layout_padrao);
+      }
+      if (configLoja.quantidade_padrao) {
+        setProdQuantidade(configLoja.quantidade_padrao);
+        setDescQuantidade(configLoja.quantidade_padrao);
       }
       if (configLoja.impressora_padrao_id) {
         setProdImpressoraId(configLoja.impressora_padrao_id);
@@ -308,14 +343,82 @@ export default function Etiquetas() {
     });
   }, [produtosAtivos, buscaCatalogoDesc, catCatalogoDesc]);
 
+  // Helpers de seleção múltipla e quantidade de vias por item no Descongelamento
+  const getViasDesc = (produtoId: string): number => {
+    return descItensSelecionados[produtoId]?.vias || 1;
+  };
+
+  const isDescSelected = (produtoId: string): boolean => {
+    return !!descItensSelecionados[produtoId]?.selected;
+  };
+
+  const toggleSelectDesc = (produtoId: string) => {
+    setDescItensSelecionados((prev) => {
+      const atual = prev[produtoId];
+      const novoStatus = !atual?.selected;
+      return {
+        ...prev,
+        [produtoId]: {
+          selected: novoStatus,
+          vias: atual?.vias || 1,
+        },
+      };
+    });
+  };
+
+  const alterarViasDesc = (produtoId: string, delta: number) => {
+    setDescItensSelecionados((prev) => {
+      const atual = prev[produtoId] || { selected: true, vias: 1 };
+      const novaQtd = Math.max(1, Math.min(100, (atual.vias || 1) + delta));
+      return {
+        ...prev,
+        [produtoId]: {
+          selected: true,
+          vias: novaQtd,
+        },
+      };
+    });
+  };
+
+  const handleSelecionarTodosDesc = () => {
+    setDescItensSelecionados((prev) => {
+      const next = { ...prev };
+      produtosCatalogoDescongelamento.forEach((p) => {
+        next[p.id] = { selected: true, vias: next[p.id]?.vias || 1 };
+      });
+      return next;
+    });
+  };
+
+  const handleLimparSelecaoDesc = () => {
+    setDescItensSelecionados({});
+  };
+
+  // Lista dos produtos marcados para descongelar com suas respectivas vias
+  const itensSelecionadosDescongelamento = useMemo(() => {
+    const list: { produto: EtiquetaProduto; vias: number }[] = [];
+    produtosAtivos.forEach((p) => {
+      const estado = descItensSelecionados[p.id];
+      if (estado?.selected) {
+        list.push({ produto: p, vias: Math.max(1, estado.vias || 1) });
+      }
+    });
+    return list;
+  }, [produtosAtivos, descItensSelecionados]);
+
+  // Se houver exatamente 1 produto selecionado no descongelamento
+  const itemUnicoSelecionadoDesc = useMemo(() => {
+    return itensSelecionadosDescongelamento.length === 1 ? itensSelecionadosDescongelamento[0] : null;
+  }, [itensSelecionadosDescongelamento]);
+
+  const totalViasSelecionadasDesc = useMemo(() => {
+    return itensSelecionadosDescongelamento.reduce((acc, it) => acc + it.vias, 0);
+  }, [itensSelecionadosDescongelamento]);
+
   // Objeto do produto selecionado
   const produtoSelecionadoProducao = useMemo(() => {
     return produtosAtivos.find((p) => p.id === prodProdutoId) || produtosAtivos[0];
   }, [produtosAtivos, prodProdutoId]);
-
-  const produtoSelecionadoDesc = useMemo(() => {
-    return produtosAtivos.find((p) => p.id === descProdutoId) || produtosAtivos[0];
-  }, [produtosAtivos, descProdutoId]);
 
   // Validade calculada para produção (dias do cadastro)
   const validadeCalculadaProducao = useMemo(() => {
@@ -325,11 +428,11 @@ export default function Etiquetas() {
 
   // Validade calculada para descongelamento (padrão dia seguinte / 1 dia)
   const validadeCalculadaDescongelamento = useMemo(() => {
-    if (!produtoSelecionadoDesc) return dataHoje;
+    if (!itemUnicoSelecionadoDesc) return calcularDataValidade(dataHoje, 1);
     // Padrão obrigatório: dia seguinte (1 dia) conforme norma operacional
-    const dias = produtoSelecionadoDesc.validade_descongelamento_dias || 1;
+    const dias = itemUnicoSelecionadoDesc.produto.validade_descongelamento_dias || 1;
     return calcularDataValidade(dataHoje, dias);
-  }, [produtoSelecionadoDesc, dataHoje]);
+  }, [itemUnicoSelecionadoDesc, dataHoje]);
 
   // KPIs / Relatórios
   const stats = useMemo(() => {
@@ -417,10 +520,11 @@ export default function Etiquetas() {
     mutationFn: (id: string) => deleteEtiquetaProduto(id, selectedUnit!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['etiquetas-produtos'] });
+      refetchProdutos();
       toast.success('Produto excluído com sucesso');
       setProdutoParaExcluir(null);
     },
-    onError: () => toast.error('Erro ao excluir produto'),
+    onError: (err: any) => toast.error(err?.message || 'Erro ao excluir produto'),
   });
 
   const salvarImpressoraMutation = useMutation({
@@ -444,6 +548,7 @@ export default function Etiquetas() {
     },
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ['etiquetas-impressoras'] });
+      refetchImpressoras();
       toast.success(vars.id ? 'Impressora atualizada com sucesso!' : 'Impressora cadastrada!');
       setImpressoraModalOpen(false);
       setImpressoraEditando(null);
@@ -455,15 +560,28 @@ export default function Etiquetas() {
     mutationFn: (id: string) => deleteEtiquetaImpressora(id, selectedUnit!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['etiquetas-impressoras'] });
+      refetchImpressoras();
       toast.success('Impressora removida com sucesso');
       setImpressoraParaExcluir(null);
     },
-    onError: () => toast.error('Erro ao excluir impressora'),
+    onError: (err: any) => toast.error(err?.message || 'Erro ao excluir impressora'),
   });
 
-  // Ação de Pré-Visualização da Produção com Verificação de Peso Vazio
-  const handlePrevisualizarProducao = (e: React.FormEvent) => {
-    e.preventDefault();
+  // Executa impressão direta da produção e registra no histórico (sem modal)
+  const executarImpressaoProducao = (dados: DadosImpressaoEtiqueta) => {
+    const ok = imprimirEtiquetasEmLote([dados], {
+      modelo: prodModeloEtiqueta,
+      colunas: prodColunas,
+      layout: prodLayoutEtiqueta,
+    });
+    if (ok) {
+      salvarHistoricoMutation.mutate(dados);
+    }
+  };
+
+  // Botão Imprimir Direto (Produção) - imprime direto sem abrir o preview modal
+  const handleImprimirProducaoDireto = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!produtoSelecionadoProducao) {
       toast.error('Selecione um produto para continuar.');
       return;
@@ -489,90 +607,148 @@ export default function Etiquetas() {
       layout: prodLayoutEtiqueta,
     };
 
-    // Confirmação se peso estiver vazio
+    // Confirmação rápida se não digitou o peso
     if (!pesoFormatado) {
       setPendenteDadosSemPeso(dadosMontados);
+      setModoPendenteSemPeso('direto');
       setSemPesoModalOpen(true);
       return;
     }
 
-    setDadosParaPreview(dadosMontados);
-    setPreviewModalOpen(true);
+    executarImpressaoProducao(dadosMontados);
   };
 
-  // Ação de Pré-Visualização do Descongelamento com Verificação de Peso Vazio
-  const handlePrevisualizarDescongelamento = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!produtoSelecionadoDesc) {
+  // Botão Pré-Visualizar (Produção) - abre o modal que já temos
+  const handlePrevisualizarProducao = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!produtoSelecionadoProducao) {
       toast.error('Selecione um produto para continuar.');
       return;
     }
 
-    const imp = impressoras.find((i) => i.id === descImpressoraId);
-    const pesoFormatado = descPeso.trim() ? autoFormatarPeso(descPeso) : null;
+    const imp = impressoras.find((i) => i.id === prodImpressoraId);
+    const pesoFormatado = prodPeso.trim() ? autoFormatarPeso(prodPeso) : null;
 
     const dadosMontados: DadosImpressaoEtiqueta = {
-      tipo: 'DESCONGELAMENTO',
-      produtoNome: produtoSelecionadoDesc.nome,
-      categoria: produtoSelecionadoDesc.categoria,
+      tipo: 'PRODUÇÃO',
+      produtoNome: produtoSelecionadoProducao.nome,
+      categoria: produtoSelecionadoProducao.categoria,
       peso: pesoFormatado,
       dataOperacao: dataHoje,
       horaOperacao: getHoraAtualHHMM(),
-      dataValidade: validadeCalculadaDescongelamento,
-      quantidade: Math.max(1, descQuantidade || 1),
+      dataValidade: validadeCalculadaProducao,
+      quantidade: Math.max(1, prodQuantidade || 1),
+      unidade: selectedUnit!,
+      usuarioNome: user?.username || 'Operador',
+      impressoraNome: imp?.nome || 'Elgin L42 Pro Full',
+      modeloEtiqueta: prodModeloEtiqueta,
+      colunas: prodColunas,
+      layout: prodLayoutEtiqueta,
+    };
+
+    if (!pesoFormatado) {
+      setPendenteDadosSemPeso(dadosMontados);
+      setModoPendenteSemPeso('preview');
+      setSemPesoModalOpen(true);
+      return;
+    }
+
+    setItensParaPreview([]);
+    setDadosParaPreview(dadosMontados);
+    setPreviewModalOpen(true);
+  };
+
+  // Monta lista de itens para impressão no Descongelamento (apenas itens marcados)
+  const montarItensImpressaoDescongelamento = (): DadosImpressaoEtiqueta[] => {
+    const imp = impressoras.find((i) => i.id === descImpressoraId);
+    if (itensSelecionadosDescongelamento.length === 0) {
+      return [];
+    }
+
+    return itensSelecionadosDescongelamento.map(({ produto, vias }) => ({
+      tipo: 'DESCONGELAMENTO' as const,
+      produtoNome: produto.nome,
+      categoria: produto.categoria,
+      peso: null, // Descongelamento não tem peso
+      dataOperacao: dataHoje,
+      horaOperacao: getHoraAtualHHMM(),
+      dataValidade: calcularDataValidade(dataHoje, produto.validade_descongelamento_dias || 1),
+      quantidade: vias,
       unidade: selectedUnit!,
       usuarioNome: user?.username || 'Operador',
       impressoraNome: imp?.nome || 'Elgin L42 Pro Full',
       modeloEtiqueta: descModeloEtiqueta,
       colunas: descColunas,
       layout: descLayoutEtiqueta,
-    };
+    }));
+  };
 
-    // Confirmação se peso estiver vazio
-    if (!pesoFormatado) {
-      setPendenteDadosSemPeso(dadosMontados);
-      setSemPesoModalOpen(true);
+  // Botão Imprimir Direto (Descongelamento) - imprime todos os itens selecionados juntos sem abrir modal!
+  const handleImprimirDescongelamentoDireto = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const itens = montarItensImpressaoDescongelamento();
+    if (itens.length === 0) {
+      toast.error('Selecione pelo menos um produto para descongelar.');
       return;
     }
 
-    setDadosParaPreview(dadosMontados);
+    const ok = imprimirEtiquetasEmLote(itens, {
+      modelo: descModeloEtiqueta,
+      colunas: descColunas,
+      layout: descLayoutEtiqueta,
+    });
+
+    if (ok) {
+      itens.forEach((it) => salvarHistoricoMutation.mutate(it));
+      toast.success(`${itens.length} produto(s) enviado(s) para impressão térmica!`);
+      handleLimparSelecaoDesc();
+    }
+  };
+
+  // Botão Pré-Visualizar (Descongelamento) - abre o modal com todos os itens do lote
+  const handlePrevisualizarDescongelamento = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const itens = montarItensImpressaoDescongelamento();
+    if (itens.length === 0) {
+      toast.error('Selecione pelo menos um produto para descongelar.');
+      return;
+    }
+
+    setItensParaPreview(itens);
+    setDadosParaPreview(itens[0]);
     setPreviewModalOpen(true);
   };
 
   // Impressão direta sem peso (1 toque rápido)
   const handleImprimirSemPesoDireto = (tipo: 'PRODUÇÃO' | 'DESCONGELAMENTO') => {
-    const prod = tipo === 'PRODUÇÃO' ? produtoSelecionadoProducao : produtoSelecionadoDesc;
-    if (!prod) {
+    if (tipo === 'DESCONGELAMENTO') {
+      handleImprimirDescongelamentoDireto();
+      return;
+    }
+
+    if (!produtoSelecionadoProducao) {
       toast.error('Selecione um produto.');
       return;
     }
-    const impId = tipo === 'PRODUÇÃO' ? prodImpressoraId : descImpressoraId;
-    const imp = impressoras.find((i) => i.id === impId);
-    const qtd = tipo === 'PRODUÇÃO' ? prodQuantidade : descQuantidade;
-    const val = tipo === 'PRODUÇÃO' ? validadeCalculadaProducao : validadeCalculadaDescongelamento;
-    const modelo = tipo === 'PRODUÇÃO' ? prodModeloEtiqueta : descModeloEtiqueta;
-    const col = tipo === 'PRODUÇÃO' ? prodColunas : descColunas;
-    const layout = tipo === 'PRODUÇÃO' ? prodLayoutEtiqueta : descLayoutEtiqueta;
-
+    const imp = impressoras.find((i) => i.id === prodImpressoraId);
     const dados: DadosImpressaoEtiqueta = {
-      tipo,
-      produtoNome: prod.nome,
-      categoria: prod.categoria,
+      tipo: 'PRODUÇÃO',
+      produtoNome: produtoSelecionadoProducao.nome,
+      categoria: produtoSelecionadoProducao.categoria,
       peso: null,
       dataOperacao: dataHoje,
       horaOperacao: getHoraAtualHHMM(),
-      dataValidade: val,
-      quantidade: Math.max(1, qtd || 1),
+      dataValidade: validadeCalculadaProducao,
+      quantidade: Math.max(1, prodQuantidade || 1),
       unidade: selectedUnit!,
       usuarioNome: user?.username || 'Operador',
       impressoraNome: imp?.nome || 'Elgin L42 Pro Full',
-      modeloEtiqueta: modelo,
-      colunas: col,
-      layout,
+      modeloEtiqueta: prodModeloEtiqueta,
+      colunas: prodColunas,
+      layout: prodLayoutEtiqueta,
     };
 
-    setDadosParaPreview(dados);
-    setPreviewModalOpen(true);
+    executarImpressaoProducao(dados);
   };
 
   // Reimpressão direta pelo histórico
@@ -972,143 +1148,171 @@ export default function Etiquetas() {
                   )}
 
                   <form onSubmit={handlePrevisualizarProducao} className="space-y-4">
-                    {/* Campo de Peso Inteligente (Auto-Ajustável com g / kg) */}
-                    <div className="space-y-2 p-4 rounded-2xl bg-secondary/30 border border-border/70">
+                    {/* Campo de Peso Inteligente com Botões Rápidos */}
+                    <div className="space-y-2.5 p-4 rounded-2xl bg-secondary/30 border border-border/70">
                       <div className="flex items-center justify-between">
                         <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
                           <Scale className="w-4 h-4 text-amber-400" />
                           Peso do Produto (Opcional)
                         </Label>
-                        {prodPeso && (
-                          <span className="text-[11px] font-mono font-bold text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded-lg border border-amber-500/30">
-                            Formatado: {autoFormatarPeso(prodPeso)}
-                          </span>
+                        {prodPeso ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-mono font-bold text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded-lg border border-amber-500/30">
+                              {autoFormatarPeso(prodPeso)}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setProdPeso('')}
+                              className="text-[11px] text-muted-foreground hover:text-destructive flex items-center gap-0.5 font-medium transition-colors"
+                              title="Limpar peso"
+                            >
+                              <RotateCcw className="w-3 h-3" /> Zerar
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground">Sem peso definido</span>
                         )}
                       </div>
 
+                      {/* Display & Input Central */}
                       <div className="relative">
                         <Input
-                          placeholder="Digite o peso (ex: 500 -> 500g | 1.5 -> 1.5kg | 1200 -> 1.2kg)..."
+                          placeholder="Sem peso (digite ou use os botões abaixo)..."
                           value={prodPeso}
                           onChange={(e) => setProdPeso(e.target.value)}
                           onBlur={(e) => setProdPeso(autoFormatarPeso(e.target.value))}
-                          className="h-11 rounded-xl bg-card border-border font-mono font-bold text-sm"
+                          className="h-11 rounded-xl bg-card border-border font-mono font-black text-center text-sm placeholder:text-muted-foreground/60 placeholder:text-xs"
                         />
                         {prodPeso && (
                           <button
                             type="button"
                             onClick={() => setProdPeso('')}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
                           >
                             <X className="w-4 h-4" />
                           </button>
                         )}
                       </div>
 
-                      {/* Botões Rápidos de Preset de Peso */}
-                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                        {['250g', '500g', '750g', '1kg', '1.5kg', '2kg', '3kg', '5kg'].map((pesoPreset) => (
-                          <button
-                            key={pesoPreset}
-                            type="button"
-                            onClick={() => setProdPeso(pesoPreset)}
-                            className={`text-[11px] font-mono px-2.5 py-1 rounded-lg border font-semibold transition-all ${
-                              prodPeso === pesoPreset
-                                ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold'
-                                : 'bg-secondary/70 text-muted-foreground border-border hover:text-foreground hover:bg-secondary'
-                            }`}
-                          >
-                            {pesoPreset}
-                          </button>
-                        ))}
+                      {/* Botões Rápidos de Peso (-5kg, -1kg, +1kg, +5kg) */}
+                      <div className="grid grid-cols-4 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setProdPeso(ajustarPesoDelta(prodPeso, -5))}
+                          className="h-10 rounded-xl font-mono font-black text-xs bg-card hover:bg-destructive/10 hover:text-destructive hover:border-destructive/40 border border-border transition-all active:scale-95 flex items-center justify-center text-foreground shadow-sm"
+                        >
+                          -5kg
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setProdPeso(ajustarPesoDelta(prodPeso, -1))}
+                          className="h-10 rounded-xl font-mono font-black text-xs bg-card hover:bg-destructive/10 hover:text-destructive hover:border-destructive/40 border border-border transition-all active:scale-95 flex items-center justify-center text-foreground shadow-sm"
+                        >
+                          -1kg
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setProdPeso(ajustarPesoDelta(prodPeso, 1))}
+                          className="h-10 rounded-xl font-mono font-black text-xs bg-card hover:bg-amber-500/20 hover:text-amber-400 hover:border-amber-500/50 border border-border transition-all active:scale-95 flex items-center justify-center text-foreground shadow-sm"
+                        >
+                          +1kg
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setProdPeso(ajustarPesoDelta(prodPeso, 5))}
+                          className="h-10 rounded-xl font-mono font-black text-xs bg-card hover:bg-amber-500/20 hover:text-amber-400 hover:border-amber-500/50 border border-border transition-all active:scale-95 flex items-center justify-center text-foreground shadow-sm"
+                        >
+                          +5kg
+                        </button>
+                      </div>
+
+                      {/* Micro-atalhos de gramas e presets */}
+                      <div className="flex items-center justify-between gap-1 pt-0.5">
+                        <div className="flex items-center gap-1">
+                          {['+250g', '+500g'].map((preset) => {
+                            const delta = preset === '+250g' ? 0.25 : 0.5;
+                            return (
+                              <button
+                                key={preset}
+                                type="button"
+                                onClick={() => setProdPeso(ajustarPesoDelta(prodPeso, delta))}
+                                className="text-[11px] font-mono px-2.5 py-1 rounded-lg border border-border/80 bg-secondary/60 hover:bg-secondary text-muted-foreground hover:text-foreground font-semibold transition-all active:scale-95"
+                              >
+                                {preset}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {['500g', '1kg', '2kg'].map((preset) => (
+                            <button
+                              key={preset}
+                              type="button"
+                              onClick={() => setProdPeso(preset)}
+                              className={`text-[10px] font-mono px-2 py-0.5 rounded-md border transition-all ${
+                                prodPeso === preset
+                                  ? 'bg-amber-500 text-slate-950 font-bold border-amber-400'
+                                  : 'border-border/60 text-muted-foreground/80 hover:text-foreground'
+                              }`}
+                            >
+                              {preset}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Datas e Horas: Data/Hora de Produção (FIXAS/BLOQUEADAS) + Validade Calculada */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {/* Data & Hora de Produção (Bloqueadas em Tempo Real) */}
-                      <div className="p-3.5 rounded-2xl bg-secondary/40 border border-border/70 space-y-1">
+                    {/* Datas e Horas: Produção e Validade Compactas */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div className="p-3 rounded-2xl bg-secondary/40 border border-border/70 space-y-0.5">
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider flex items-center gap-1">
                             <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                            Data & Hora Produção
+                            Produção
                           </span>
-                          <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1 bg-emerald-950/30 px-1.5 py-0.5 rounded border border-emerald-500/30">
-                            <Lock className="w-3 h-3" /> Atual
+                          <span className="text-[9px] text-emerald-400 font-bold bg-emerald-950/30 px-1.5 py-0.2 rounded border border-emerald-500/30">
+                            Hoje
                           </span>
                         </div>
-                        <div className="pt-1">
-                          <span className="text-sm font-mono font-bold text-foreground block">
-                            {formatarDataBR(dataHoje)}
-                          </span>
-                          <span className="text-xs font-mono font-semibold text-muted-foreground block">
-                            às {horaAtual} (Horário Real)
+                        <div className="pt-0.5">
+                          <span className="text-xs font-mono font-bold text-foreground">
+                            {formatarDataBR(dataHoje)} <span className="text-[11px] text-muted-foreground font-medium">às {horaAtual}</span>
                           </span>
                         </div>
                       </div>
 
-                      {/* Validade Calculada */}
-                      <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-1">
+                      <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-0.5">
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] uppercase font-bold text-amber-400 tracking-wider flex items-center gap-1">
                             <Clock className="w-3.5 h-3.5" />
-                            Validade do Produto
+                            Validade
                           </span>
-                          <span className="text-[10px] text-amber-300 font-bold bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">
+                          <span className="text-[9px] text-amber-300 font-bold bg-amber-500/20 px-1.5 py-0.2 rounded border border-amber-500/30">
                             +{produtoSelecionadoProducao?.validade_producao_dias || 1}d
                           </span>
                         </div>
-                        <div className="pt-1">
-                          <span className="text-sm font-mono font-bold text-amber-300 block">
+                        <div className="pt-0.5">
+                          <span className="text-xs font-mono font-bold text-amber-300">
                             {formatarDataBR(validadeCalculadaProducao)}
-                          </span>
-                          <span className="text-[11px] text-muted-foreground block">
-                            Cálculo automático
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Quantidade e Impressora */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {/* Quantidade */}
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-bold text-foreground">Quantidade de Etiquetas</Label>
-                        <div className="flex items-center gap-1.5">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setProdQuantidade((q) => Math.max(1, q - 1))}
-                            className="h-10 w-10 p-0 rounded-xl font-bold text-base"
-                          >
-                            -
-                          </Button>
-                          <Input
-                            type="number"
-                            min="1"
-                            max="100"
-                            value={prodQuantidade}
-                            onChange={(e) => setProdQuantidade(Math.max(1, Number(e.target.value) || 1))}
-                            className="h-10 rounded-xl bg-card border-border font-mono font-bold text-center text-sm flex-1"
-                            required
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setProdQuantidade((q) => Math.min(100, q + 1))}
-                            className="h-10 w-10 p-0 rounded-xl font-bold text-base"
-                          >
-                            +
-                          </Button>
-                        </div>
-                        <div className="flex items-center justify-between gap-1 pt-0.5">
+                    {/* Quantidade de Impressões */}
+                    <div className="space-y-1.5 p-3 rounded-2xl bg-secondary/30 border border-border/70">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-bold text-foreground">Quantidade de Impressões</Label>
+                        <div className="flex items-center gap-1">
                           {[1, 2, 5, 10].map((q) => (
                             <button
                               key={q}
                               type="button"
-                              onClick={() => setProdQuantidade(q)}
+                              onClick={() => {
+                                setProdQuantidade(q);
+                                setDescQuantidade(q);
+                                if (selectedUnit) updateEtiquetaUltimasPreferencias(selectedUnit, { quantidade: q, franquia_id: user?.franquiaId });
+                              }}
                               className={`text-[10px] font-mono px-2 py-0.5 rounded-md border ${
                                 prodQuantidade === q
                                   ? 'bg-amber-500 text-slate-950 font-bold border-amber-400'
@@ -1120,128 +1324,241 @@ export default function Etiquetas() {
                           ))}
                         </div>
                       </div>
-
-                      {/* Impressora e Formato */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-bold text-foreground">Impressora Térmica</Label>
-                          <Select value={prodImpressoraId} onValueChange={setProdImpressoraId}>
-                            <SelectTrigger className="h-10 rounded-xl bg-card border-border text-xs font-semibold">
-                              <SelectValue placeholder="Selecione..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {impressoras.map((imp) => (
-                                <SelectItem key={imp.id} value={imp.id} className="text-xs">
-                                  {imp.nome} <span className="text-muted-foreground ml-1">({imp.modelo})</span>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-bold text-foreground">Tamanho da Etiqueta</Label>
-                          <Select
-                            value={prodModeloEtiqueta}
-                            onValueChange={(v) => {
-                              const mod = v as ModeloEtiquetaId;
-                              setProdModeloEtiqueta(mod);
-                              if (mod === '33x21') setProdColunas(3);
-                              else setProdColunas(1);
-                            }}
-                          >
-                            <SelectTrigger className="h-10 rounded-xl bg-card border-border text-xs font-semibold">
-                              <SelectValue placeholder="Selecione formato..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {MODELOS_ETIQUETAS.map((m) => (
-                                <SelectItem key={m.id} value={m.id} className="text-xs">
-                                  {m.nome}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const newQ = Math.max(1, prodQuantidade - 1);
+                            setProdQuantidade(newQ);
+                            setDescQuantidade(newQ);
+                            if (selectedUnit) updateEtiquetaUltimasPreferencias(selectedUnit, { quantidade: newQ, franquia_id: user?.franquiaId });
+                          }}
+                          className="h-10 w-11 rounded-xl font-bold text-base bg-card"
+                        >
+                          <Minus className="w-4 h-4" />
+                        </Button>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={prodQuantidade}
+                          onChange={(e) => {
+                            const newQ = Math.max(1, Number(e.target.value) || 1);
+                            setProdQuantidade(newQ);
+                            setDescQuantidade(newQ);
+                            if (selectedUnit) updateEtiquetaUltimasPreferencias(selectedUnit, { quantidade: newQ, franquia_id: user?.franquiaId });
+                          }}
+                          className="h-10 rounded-xl bg-card border-border font-mono font-black text-center text-sm flex-1"
+                          required
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const newQ = Math.min(100, prodQuantidade + 1);
+                            setProdQuantidade(newQ);
+                            setDescQuantidade(newQ);
+                            if (selectedUnit) updateEtiquetaUltimasPreferencias(selectedUnit, { quantidade: newQ, franquia_id: user?.franquiaId });
+                          }}
+                          className="h-10 w-11 rounded-xl font-bold text-base bg-card"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </Button>
                       </div>
+                    </div>
 
-                      {/* Colunas por Carreira */}
-                      <div className="space-y-1.5 pt-0.5">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs font-bold text-foreground">Colunas por Linha (Carreira)</Label>
-                          <span className="text-[10px] text-muted-foreground">
-                            {prodColunas} {prodColunas === 1 ? 'etiqueta por linha' : 'etiquetas lado a lado'}
+                    {/* Padrão de Impressão Memorizado (Colapsável para limpar a tela) */}
+                    <div className="rounded-2xl border border-border/70 bg-secondary/30 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setMostrarConfigAvancadaProd(!mostrarConfigAvancadaProd)}
+                        className="w-full p-3 flex items-center justify-between text-xs hover:bg-secondary/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2 text-muted-foreground flex-wrap">
+                          <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                          <span className="font-semibold text-foreground">Padrão da Loja:</span>
+                          <span className="font-mono text-[11px] text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                            {MODELOS_ETIQUETAS.find((m) => m.id === prodModeloEtiqueta)?.nome || prodModeloEtiqueta} • {prodColunas}x • {prodLayoutEtiqueta === 'simples' ? 'Simples' : 'Completa'}
                           </span>
                         </div>
-                        <div className="grid grid-cols-4 gap-1.5">
-                          {[1, 2, 3, 4].map((num) => (
-                            <button
-                              key={num}
-                              type="button"
-                              onClick={() => setProdColunas(num)}
-                              className={`h-9 rounded-xl text-xs font-bold transition-all border ${
-                                prodColunas === num
-                                  ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-sm font-black'
-                                  : 'bg-card text-muted-foreground border-border hover:text-foreground hover:bg-secondary'
-                              }`}
-                            >
-                              {num}x {num > 1 ? 'Col.' : 'Col.'}
-                            </button>
-                          ))}
+                        <div className="flex items-center gap-1 text-[11px] font-bold text-amber-400 shrink-0 ml-2">
+                          <span>{mostrarConfigAvancadaProd ? 'Ocultar' : 'Ajustar'}</span>
+                          {mostrarConfigAvancadaProd ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                         </div>
-                      </div>
+                      </button>
 
-                      {/* Tipo de Etiqueta (Completa vs Simples) */}
-                      <div className="space-y-1.5 pt-0.5">
-                        <Label className="text-xs font-bold text-foreground">Tipo de Layout</Label>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setProdLayoutEtiqueta('completa')}
-                            className={`h-9 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${
-                              prodLayoutEtiqueta === 'completa'
-                                ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-sm font-black'
-                                : 'bg-card text-muted-foreground border-border hover:text-foreground hover:bg-secondary'
-                            }`}
-                          >
-                            <Sparkles className="w-3.5 h-3.5" />
-                            Completa
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setProdLayoutEtiqueta('simples')}
-                            className={`h-9 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${
-                              prodLayoutEtiqueta === 'simples'
-                                ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-sm font-black'
-                                : 'bg-card text-muted-foreground border-border hover:text-foreground hover:bg-secondary'
-                            }`}
-                          >
-                            <Tag className="w-3.5 h-3.5" />
-                            Simples (Limpa)
-                          </button>
+                      {mostrarConfigAvancadaProd && (
+                        <div className="p-3.5 pt-2 border-t border-border/50 space-y-3 bg-secondary/20 animate-in fade-in-50 duration-200">
+                          {/* Impressora e Formato */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-bold text-foreground">Impressora Térmica</Label>
+                              <Select
+                                value={prodImpressoraId}
+                                onValueChange={(id) => {
+                                  setProdImpressoraId(id);
+                                  setDescImpressoraId(id);
+                                  if (selectedUnit) updateEtiquetaUltimasPreferencias(selectedUnit, { impressora_id: id, franquia_id: user?.franquiaId });
+                                }}
+                              >
+                                <SelectTrigger className="h-10 rounded-xl bg-card border-border text-xs font-semibold">
+                                  <SelectValue placeholder="Selecione..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {impressoras.map((imp) => (
+                                    <SelectItem key={imp.id} value={imp.id} className="text-xs">
+                                      {imp.nome} <span className="text-muted-foreground ml-1">({imp.modelo})</span>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-bold text-foreground">Tamanho da Etiqueta</Label>
+                              <Select
+                                value={prodModeloEtiqueta}
+                                onValueChange={(v) => {
+                                  const mod = v as ModeloEtiquetaId;
+                                  setProdModeloEtiqueta(mod);
+                                  setDescModeloEtiqueta(mod);
+                                  const col = mod === '33x21' ? 3 : 1;
+                                  setProdColunas(col);
+                                  setDescColunas(col);
+                                  if (selectedUnit) {
+                                    updateEtiquetaUltimasPreferencias(selectedUnit, {
+                                      modelo: mod,
+                                      colunas: col,
+                                      franquia_id: user?.franquiaId,
+                                    });
+                                  }
+                                }}
+                              >
+                                <SelectTrigger className="h-10 rounded-xl bg-card border-border text-xs font-semibold">
+                                  <SelectValue placeholder="Selecione formato..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {MODELOS_ETIQUETAS.map((m) => (
+                                    <SelectItem key={m.id} value={m.id} className="text-xs">
+                                      {m.nome}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+
+                          {/* ETIQUETA POR LINHA */}
+                          <div className="space-y-1.5 pt-0.5">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs font-bold text-foreground">ETIQUETA POR LINHA</Label>
+                              <span className="text-[10px] text-muted-foreground">
+                                {prodColunas} {prodColunas === 1 ? 'etiqueta por linha' : 'etiquetas lado a lado'}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-4 gap-1.5">
+                              {[1, 2, 3, 4].map((num) => (
+                                <button
+                                  key={num}
+                                  type="button"
+                                  onClick={() => {
+                                    setProdColunas(num);
+                                    setDescColunas(num);
+                                    if (selectedUnit) {
+                                      updateEtiquetaUltimasPreferencias(selectedUnit, {
+                                        colunas: num,
+                                        franquia_id: user?.franquiaId,
+                                      });
+                                    }
+                                  }}
+                                  className={`h-9 rounded-xl text-xs font-bold transition-all border ${
+                                    prodColunas === num
+                                      ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-sm font-black'
+                                      : 'bg-card text-muted-foreground border-border hover:text-foreground hover:bg-secondary'
+                                  }`}
+                                >
+                                  {num}x {num > 1 ? 'Col.' : 'Col.'}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Tipo de Etiqueta (Completa vs Simples) */}
+                          <div className="space-y-1.5 pt-0.5">
+                            <Label className="text-xs font-bold text-foreground">Tipo de Layout</Label>
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setProdLayoutEtiqueta('completa');
+                                  setDescLayoutEtiqueta('completa');
+                                  if (selectedUnit) {
+                                    updateEtiquetaUltimasPreferencias(selectedUnit, {
+                                      layout: 'completa',
+                                      franquia_id: user?.franquiaId,
+                                    });
+                                  }
+                                }}
+                                className={`h-9 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${
+                                  prodLayoutEtiqueta === 'completa'
+                                    ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-sm font-black'
+                                    : 'bg-card text-muted-foreground border-border hover:text-foreground hover:bg-secondary'
+                                }`}
+                              >
+                                <Sparkles className="w-3.5 h-3.5" />
+                                Completa
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setProdLayoutEtiqueta('simples');
+                                  setDescLayoutEtiqueta('simples');
+                                  if (selectedUnit) {
+                                    updateEtiquetaUltimasPreferencias(selectedUnit, {
+                                      layout: 'simples',
+                                      franquia_id: user?.franquiaId,
+                                    });
+                                  }
+                                }}
+                                className={`h-9 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${
+                                  prodLayoutEtiqueta === 'simples'
+                                    ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-sm font-black'
+                                    : 'bg-card text-muted-foreground border-border hover:text-foreground hover:bg-secondary'
+                                }`}
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                                Simples (Limpa)
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
 
                     {/* Botões de Ação */}
                     <div className="pt-3 space-y-2">
                       <Button
-                        type="submit"
+                        type="button"
                         disabled={!produtoSelecionadoProducao}
-                        className="w-full h-12 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 gap-2"
+                        onClick={handleImprimirProducaoDireto}
+                        className="w-full h-12 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 gap-2 transition-all active:scale-[0.99]"
                       >
-                        <Printer className="w-5 h-5" />
-                        Pré-visualizar e Imprimir
+                        <Printer className="w-5 h-5 stroke-[2.5]" />
+                        Imprimir ({prodQuantidade * prodColunas} {prodQuantidade * prodColunas === 1 ? 'etiqueta' : 'etiquetas'})
                       </Button>
 
                       <Button
                         type="button"
                         variant="outline"
                         disabled={!produtoSelecionadoProducao}
-                        onClick={() => handleImprimirSemPesoDireto('PRODUÇÃO')}
+                        onClick={handlePrevisualizarProducao}
                         className="w-full h-10 rounded-xl border-border/80 text-muted-foreground hover:text-foreground hover:bg-secondary/80 text-xs font-semibold gap-1.5"
                       >
-                        <Zap className="w-3.5 h-3.5 text-amber-400" />
-                        Imprimir Direto Sem Peso (1 Toque)
+                        <FileText className="w-4 h-4 text-amber-400" />
+                        Pré-visualizar Etiqueta
                       </Button>
                     </div>
                   </form>
@@ -1332,7 +1649,7 @@ export default function Etiquetas() {
                   </div>
                 </div>
 
-                {/* Grid Visual de Cards de Descongelamento */}
+                {/* Grid Visual de Cards de Descongelamento com Seleção Múltipla e Vias */}
                 {loadingProdutos ? (
                   <div className="py-16 text-center text-muted-foreground flex flex-col items-center justify-center gap-2">
                     <RefreshCw className="w-6 h-6 animate-spin text-blue-400" />
@@ -1347,48 +1664,109 @@ export default function Etiquetas() {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-[580px] overflow-y-auto pr-1">
-                    {produtosCatalogoDescongelamento.map((p) => {
-                      const isSelected = descProdutoId === p.id;
-                      return (
+                  <div className="space-y-3">
+                    {/* Barra de Ações Rápidas de Seleção em Lote */}
+                    <div className="flex items-center justify-between px-2 py-1.5 bg-secondary/30 rounded-2xl border border-border/60 text-xs">
+                      <div className="flex items-center gap-2">
                         <button
-                          key={p.id}
                           type="button"
-                          onClick={() => setDescProdutoId(p.id)}
-                          className={`text-left p-4 rounded-2xl border transition-all flex flex-col justify-between gap-2.5 cursor-pointer select-none group relative ${
-                            isSelected
-                              ? 'bg-blue-950/30 border-blue-500 shadow-md shadow-blue-500/10 ring-2 ring-blue-500/50 scale-[1.01]'
-                              : 'bg-card/70 border-border/70 hover:border-blue-500/40 hover:bg-card/90 shadow-sm'
-                          }`}
+                          onClick={handleSelecionarTodosDesc}
+                          className="text-xs text-blue-400 hover:text-blue-300 font-bold flex items-center gap-1.5 transition-colors px-2 py-1 rounded-lg hover:bg-blue-500/10"
                         >
-                          <div>
-                            <div className="flex items-center justify-between gap-1.5 mb-1.5">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">
-                                {p.categoria}
-                              </span>
-                              {isSelected && (
-                                <span className="w-5 h-5 rounded-full bg-blue-500 text-slate-950 flex items-center justify-center shrink-0">
-                                  <Check className="w-3 h-3 stroke-[3]" />
-                                </span>
-                              )}
-                            </div>
-                            <h4 className="text-sm font-extrabold uppercase text-foreground leading-snug group-hover:text-blue-400 transition-colors">
-                              {p.nome}
-                            </h4>
-                          </div>
-
-                          <div className="pt-2 border-t border-border/50 flex items-center justify-between text-xs">
-                            <span className="text-[11px] text-muted-foreground flex items-center gap-1 font-medium">
-                              <Snowflake className="w-3 h-3 text-blue-400" />
-                              Descongela:
-                            </span>
-                            <span className="font-mono font-bold text-blue-400 text-xs">
-                              {p.validade_descongelamento_dias || 1} {(p.validade_descongelamento_dias || 1) === 1 ? 'dia (Amanhã)' : 'dias'}
-                            </span>
-                          </div>
+                          <Check className="w-3.5 h-3.5" />
+                          Selecionar Todos ({produtosCatalogoDescongelamento.length})
                         </button>
-                      );
-                    })}
+                        {itensSelecionadosDescongelamento.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleLimparSelecaoDesc}
+                            className="text-xs text-muted-foreground hover:text-foreground underline transition-colors px-1"
+                          >
+                            Limpar Seleção
+                          </button>
+                        )}
+                      </div>
+                      <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[11px] font-mono font-bold">
+                        {itensSelecionadosDescongelamento.length} {itensSelecionadosDescongelamento.length === 1 ? 'item' : 'itens'} • {totalViasSelecionadasDesc} {totalViasSelecionadasDesc === 1 ? 'etiqueta' : 'etiquetas'}
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-[540px] overflow-y-auto pr-1">
+                      {produtosCatalogoDescongelamento.map((p) => {
+                        const isSelected = isDescSelected(p.id);
+                        const vias = getViasDesc(p.id);
+
+                        return (
+                          <div
+                            key={p.id}
+                            onClick={() => toggleSelectDesc(p.id)}
+                            className={`text-left p-4 rounded-2xl border transition-all flex flex-col justify-between gap-2.5 cursor-pointer select-none group relative ${
+                              isSelected
+                                ? 'bg-blue-950/40 border-blue-500 shadow-md shadow-blue-500/10 ring-2 ring-blue-500/50 scale-[1.01]'
+                                : 'bg-card/70 border-border/70 hover:border-blue-500/40 hover:bg-card/90 shadow-sm'
+                            }`}
+                          >
+                            <div>
+                              <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">
+                                  {p.categoria}
+                                </span>
+                                <div
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleSelectDesc(p.id);
+                                  }}
+                                  className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all ${
+                                    isDescSelected(p.id)
+                                      ? 'bg-blue-500 border-blue-400 text-slate-950'
+                                      : 'border-border bg-secondary/50 group-hover:border-blue-400/50'
+                                  }`}
+                                  title="Marcar item para impressão em lote"
+                                >
+                                  {isDescSelected(p.id) && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                                </div>
+                              </div>
+                              <h4 className="text-sm font-extrabold uppercase text-foreground leading-snug group-hover:text-blue-400 transition-colors">
+                                {p.nome}
+                              </h4>
+                            </div>
+
+                            <div className="pt-2 border-t border-border/50 flex items-center justify-between text-xs">
+                              <span className="text-[11px] text-muted-foreground flex items-center gap-1 font-medium">
+                                <Snowflake className="w-3 h-3 text-blue-400" />
+                                Amanhã (+1d)
+                              </span>
+
+                              {/* Contador de Vias por Item */}
+                              <div
+                                className="flex items-center gap-1 bg-secondary/80 rounded-xl p-0.5 border border-border/70"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => alterarViasDesc(p.id, -1)}
+                                  className="w-6 h-6 rounded-lg bg-card text-muted-foreground hover:text-foreground flex items-center justify-center font-bold text-xs"
+                                  title="Diminuir vias"
+                                >
+                                  <Minus className="w-3 h-3" />
+                                </button>
+                                <span className="w-6 text-center font-mono font-black text-xs text-foreground">
+                                  {vias}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => alterarViasDesc(p.id, 1)}
+                                  className="w-6 h-6 rounded-lg bg-card text-muted-foreground hover:text-foreground flex items-center justify-center font-bold text-xs"
+                                  title="Aumentar vias"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1402,87 +1780,78 @@ export default function Etiquetas() {
                       Painel de Descongelamento
                     </h3>
                     <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/40 text-[11px] font-semibold">
-                      Descongelamento
+                      {itensSelecionadosDescongelamento.length > 1
+                        ? `${itensSelecionadosDescongelamento.length} Itens no Lote`
+                        : itensSelecionadosDescongelamento.length === 1
+                        ? '1 Item Selecionado'
+                        : 'Descongelamento'}
                     </Badge>
                   </div>
 
-                  {/* Card do Produto Selecionado */}
-                  {produtoSelecionadoDesc ? (
+                  {/* Card de Resumo: Lote, Produto Único ou Nenhum */}
+                  {itensSelecionadosDescongelamento.length > 1 ? (
+                    <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/30 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-blue-400 flex items-center gap-1.5">
+                          <Layers className="w-4 h-4" />
+                          {itensSelecionadosDescongelamento.length} Itens Marcados para Imprimir Juntos
+                        </span>
+                        <span className="text-xs font-mono font-black text-blue-300 bg-blue-500/20 px-2 py-0.5 rounded-lg border border-blue-500/30">
+                          {totalViasSelecionadasDesc} {totalViasSelecionadasDesc === 1 ? 'etiqueta' : 'etiquetas'}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
+                        {itensSelecionadosDescongelamento.map(({ produto, vias }) => (
+                          <div
+                            key={produto.id}
+                            className="flex items-center gap-1.5 bg-card/90 border border-blue-500/30 rounded-xl px-2.5 py-1 text-xs shadow-sm"
+                          >
+                            <span className="font-bold text-foreground truncate max-w-[150px]">{produto.nome}</span>
+                            <span className="font-mono font-black text-blue-400 bg-blue-500/20 px-1.5 py-0.2 rounded text-[11px]">
+                              {vias} {vias === 1 ? 'via' : 'vias'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => toggleSelectDesc(produto.id)}
+                              className="text-muted-foreground hover:text-destructive p-0.5 transition-colors"
+                              title="Remover do lote"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : itemUnicoSelecionadoDesc ? (
                     <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/30 flex items-start gap-3">
                       <div className="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center shrink-0">
                         <Snowflake className="w-5 h-5" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <span className="text-[10px] uppercase font-bold text-blue-400/80 tracking-wider block">
-                          {produtoSelecionadoDesc.categoria}
+                          {itemUnicoSelecionadoDesc.produto.categoria}
                         </span>
                         <h4 className="text-base font-black text-foreground uppercase truncate">
-                          {produtoSelecionadoDesc.nome}
+                          {itemUnicoSelecionadoDesc.produto.nome}
                         </h4>
                         <span className="text-xs text-muted-foreground mt-0.5 block">
-                          Validade descongelado: <strong className="text-blue-300 font-mono">Padrão Dia Seguinte (1 dia)</strong>
+                          Validade descongelado: <strong className="text-blue-300 font-mono">Padrão Dia Seguinte (Amanhã)</strong>
                         </span>
                       </div>
                     </div>
                   ) : (
-                    <div className="p-4 rounded-2xl bg-secondary/40 border border-border text-center text-xs text-muted-foreground">
-                      Selecione um produto no catálogo à esquerda para emitir
+                    <div className="p-6 rounded-2xl bg-secondary/30 border border-dashed border-border/80 text-center space-y-2">
+                      <div className="w-9 h-9 mx-auto rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center">
+                        <Snowflake className="w-4 h-4 opacity-60" />
+                      </div>
+                      <p className="text-xs font-bold text-foreground">Nenhum produto selecionado</p>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        Selecione um ou mais produtos no catálogo à esquerda para descongelar.
+                      </p>
                     </div>
                   )}
 
-                  <form onSubmit={handlePrevisualizarDescongelamento} className="space-y-4">
-                    {/* Campo de Peso Inteligente */}
-                    <div className="space-y-2 p-4 rounded-2xl bg-secondary/30 border border-border/70">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                          <Scale className="w-4 h-4 text-blue-400" />
-                          Peso do Produto (Opcional)
-                        </Label>
-                        {descPeso && (
-                          <span className="text-[11px] font-mono font-bold text-blue-300 bg-blue-500/15 px-2 py-0.5 rounded-lg border border-blue-500/30">
-                            Formatado: {autoFormatarPeso(descPeso)}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="relative">
-                        <Input
-                          placeholder="Digite o peso (ex: 500 -> 500g | 1.5 -> 1.5kg)..."
-                          value={descPeso}
-                          onChange={(e) => setDescPeso(e.target.value)}
-                          onBlur={(e) => setDescPeso(autoFormatarPeso(e.target.value))}
-                          className="h-11 rounded-xl bg-card border-border font-mono font-bold text-sm"
-                        />
-                        {descPeso && (
-                          <button
-                            type="button"
-                            onClick={() => setDescPeso('')}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Botões Rápidos de Preset de Peso */}
-                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                        {['250g', '500g', '750g', '1kg', '1.5kg', '2kg', '3kg', '5kg'].map((pesoPreset) => (
-                          <button
-                            key={pesoPreset}
-                            type="button"
-                            onClick={() => setDescPeso(pesoPreset)}
-                            className={`text-[11px] font-mono px-2.5 py-1 rounded-lg border font-semibold transition-all ${
-                              descPeso === pesoPreset
-                                ? 'bg-blue-500 text-slate-950 border-blue-400 font-bold'
-                                : 'bg-secondary/70 text-muted-foreground border-border hover:text-foreground hover:bg-secondary'
-                            }`}
-                          >
-                            {pesoPreset}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
+                  <div className="space-y-4">
                     {/* Datas e Horas: Data/Hora de Descongelamento (FIXAS) + Validade Calculada (D+1 Dia Seguinte) */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {/* Data & Hora Descongelamento (Bloqueadas em Tempo Real) */}
@@ -1528,182 +1897,264 @@ export default function Etiquetas() {
                       </div>
                     </div>
 
-                    {/* Quantidade e Impressora */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {/* Quantidade */}
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-bold text-foreground">Quantidade de Etiquetas</Label>
+                    {/* Quantidade de Vias (Quando apenas 1 item está selecionado) */}
+                    {itemUnicoSelecionadoDesc && (
+                      <div className="space-y-1.5 p-3 rounded-2xl bg-secondary/30 border border-border/70">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-bold text-foreground">Quantidade de Vias</Label>
+                          <div className="flex items-center gap-1">
+                            {[1, 2, 5, 10].map((q) => (
+                              <button
+                                key={q}
+                                type="button"
+                                onClick={() => {
+                                  setDescItensSelecionados((prev) => ({
+                                    ...prev,
+                                    [itemUnicoSelecionadoDesc.produto.id]: { selected: true, vias: q },
+                                  }));
+                                }}
+                                className={`text-[10px] font-mono px-2 py-0.5 rounded-md border ${
+                                  itemUnicoSelecionadoDesc.vias === q
+                                    ? 'bg-blue-500 text-slate-950 font-bold border-blue-400'
+                                    : 'bg-secondary text-muted-foreground border-border hover:text-foreground'
+                                }`}
+                              >
+                                {q}x
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                         <div className="flex items-center gap-1.5">
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => setDescQuantidade((q) => Math.max(1, q - 1))}
-                            className="h-10 w-10 p-0 rounded-xl font-bold text-base"
+                            onClick={() => alterarViasDesc(itemUnicoSelecionadoDesc.produto.id, -1)}
+                            className="h-10 w-11 rounded-xl font-bold text-base bg-card"
                           >
-                            -
+                            <Minus className="w-4 h-4" />
                           </Button>
                           <Input
                             type="number"
                             min="1"
                             max="100"
-                            value={descQuantidade}
-                            onChange={(e) => setDescQuantidade(Math.max(1, Number(e.target.value) || 1))}
-                            className="h-10 rounded-xl bg-card border-border font-mono font-bold text-center text-sm flex-1"
-                            required
+                            value={itemUnicoSelecionadoDesc.vias}
+                            onChange={(e) => {
+                              const val = Math.max(1, Math.min(100, Number(e.target.value) || 1));
+                              setDescItensSelecionados((prev) => ({
+                                ...prev,
+                                [itemUnicoSelecionadoDesc.produto.id]: { selected: true, vias: val },
+                              }));
+                            }}
+                            className="h-10 rounded-xl bg-card border-border font-mono font-black text-center text-sm flex-1"
                           />
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => setDescQuantidade((q) => Math.min(100, q + 1))}
-                            className="h-10 w-10 p-0 rounded-xl font-bold text-base"
+                            onClick={() => alterarViasDesc(itemUnicoSelecionadoDesc.produto.id, 1)}
+                            className="h-10 w-11 rounded-xl font-bold text-base bg-card"
                           >
-                            +
+                            <Plus className="w-4 h-4" />
                           </Button>
                         </div>
-                        <div className="flex items-center justify-between gap-1 pt-0.5">
-                          {[1, 2, 5, 10].map((q) => (
-                            <button
-                              key={q}
-                              type="button"
-                              onClick={() => setDescQuantidade(q)}
-                              className={`text-[10px] font-mono px-2 py-0.5 rounded-md border ${
-                                descQuantidade === q
-                                  ? 'bg-blue-500 text-slate-950 font-bold border-blue-400'
-                                  : 'bg-secondary text-muted-foreground border-border hover:text-foreground'
-                              }`}
-                            >
-                              {q}x
-                            </button>
-                          ))}
-                        </div>
                       </div>
+                    )}
 
-                      {/* Impressora e Formato */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-bold text-foreground">Impressora Térmica</Label>
-                          <Select value={descImpressoraId} onValueChange={setDescImpressoraId}>
-                            <SelectTrigger className="h-10 rounded-xl bg-card border-border text-xs font-semibold">
-                              <SelectValue placeholder="Selecione..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {impressoras.map((imp) => (
-                                <SelectItem key={imp.id} value={imp.id} className="text-xs">
-                                  {imp.nome} <span className="text-muted-foreground ml-1">({imp.modelo})</span>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-bold text-foreground">Tamanho da Etiqueta</Label>
-                          <Select
-                            value={descModeloEtiqueta}
-                            onValueChange={(v) => {
-                              const mod = v as ModeloEtiquetaId;
-                              setDescModeloEtiqueta(mod);
-                              if (mod === '33x21') setDescColunas(3);
-                              else setDescColunas(1);
-                            }}
-                          >
-                            <SelectTrigger className="h-10 rounded-xl bg-card border-border text-xs font-semibold">
-                              <SelectValue placeholder="Selecione formato..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {MODELOS_ETIQUETAS.map((m) => (
-                                <SelectItem key={m.id} value={m.id} className="text-xs">
-                                  {m.nome}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-
-                      {/* Colunas por Carreira */}
-                      <div className="space-y-1.5 pt-0.5">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs font-bold text-foreground">Colunas por Linha (Carreira)</Label>
-                          <span className="text-[10px] text-muted-foreground">
-                            {descColunas} {descColunas === 1 ? 'etiqueta por linha' : 'etiquetas lado a lado'}
+                    {/* Padrão de Impressão Memorizado da Loja (Colapsável para manter tela limpa) */}
+                    <div className="rounded-2xl border border-border/70 bg-secondary/30 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setMostrarConfigAvancadaDesc(!mostrarConfigAvancadaDesc)}
+                        className="w-full p-3 flex items-center justify-between text-xs hover:bg-secondary/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2 text-muted-foreground flex-wrap">
+                          <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                          <span className="font-semibold text-foreground">Padrão da Loja:</span>
+                          <span className="font-mono text-[11px] text-blue-300 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
+                            {MODELOS_ETIQUETAS.find((m) => m.id === descModeloEtiqueta)?.nome || descModeloEtiqueta} • {descColunas}x • {descLayoutEtiqueta === 'simples' ? 'Simples' : 'Completa'}
                           </span>
                         </div>
-                        <div className="grid grid-cols-4 gap-1.5">
-                          {[1, 2, 3, 4].map((num) => (
-                            <button
-                              key={num}
-                              type="button"
-                              onClick={() => setDescColunas(num)}
-                              className={`h-9 rounded-xl text-xs font-bold transition-all border ${
-                                descColunas === num
-                                  ? 'bg-blue-500 text-slate-950 border-blue-500 shadow-sm font-black'
-                                  : 'bg-card text-muted-foreground border-border hover:text-foreground hover:bg-secondary'
-                              }`}
-                            >
-                              {num}x {num > 1 ? 'Col.' : 'Col.'}
-                            </button>
-                          ))}
+                        <div className="flex items-center gap-1 text-[11px] font-bold text-blue-400 shrink-0 ml-2">
+                          <span>{mostrarConfigAvancadaDesc ? 'Ocultar' : 'Ajustar'}</span>
+                          {mostrarConfigAvancadaDesc ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                         </div>
-                      </div>
+                      </button>
 
-                      {/* Tipo de Etiqueta (Completa vs Simples) */}
-                      <div className="space-y-1.5 pt-0.5">
-                        <Label className="text-xs font-bold text-foreground">Tipo de Layout</Label>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setDescLayoutEtiqueta('completa')}
-                            className={`h-9 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${
-                              descLayoutEtiqueta === 'completa'
-                                ? 'bg-blue-500 text-slate-950 border-blue-500 shadow-sm font-black'
-                                : 'bg-card text-muted-foreground border-border hover:text-foreground hover:bg-secondary'
-                            }`}
-                          >
-                            <Sparkles className="w-3.5 h-3.5" />
-                            Completa
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDescLayoutEtiqueta('simples')}
-                            className={`h-9 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${
-                              descLayoutEtiqueta === 'simples'
-                                ? 'bg-blue-500 text-slate-950 border-blue-500 shadow-sm font-black'
-                                : 'bg-card text-muted-foreground border-border hover:text-foreground hover:bg-secondary'
-                            }`}
-                          >
-                            <Tag className="w-3.5 h-3.5" />
-                            Simples (Limpa)
-                          </button>
+                      {mostrarConfigAvancadaDesc && (
+                        <div className="p-3.5 pt-2 border-t border-border/50 space-y-3 bg-secondary/20 animate-in fade-in-50 duration-200">
+                          {/* Impressora e Formato */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-bold text-foreground">Impressora Térmica</Label>
+                              <Select
+                                value={descImpressoraId}
+                                onValueChange={(id) => {
+                                  setDescImpressoraId(id);
+                                  setProdImpressoraId(id);
+                                  if (selectedUnit) updateEtiquetaUltimasPreferencias(selectedUnit, { impressora_id: id, franquia_id: user?.franquiaId });
+                                }}
+                              >
+                                <SelectTrigger className="h-10 rounded-xl bg-card border-border text-xs font-semibold">
+                                  <SelectValue placeholder="Selecione..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {impressoras.map((imp) => (
+                                    <SelectItem key={imp.id} value={imp.id} className="text-xs">
+                                      {imp.nome} <span className="text-muted-foreground ml-1">({imp.modelo})</span>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-bold text-foreground">Tamanho da Etiqueta</Label>
+                              <Select
+                                value={descModeloEtiqueta}
+                                onValueChange={(v) => {
+                                  const mod = v as ModeloEtiquetaId;
+                                  setDescModeloEtiqueta(mod);
+                                  setProdModeloEtiqueta(mod);
+                                  const col = mod === '33x21' ? 3 : 1;
+                                  setDescColunas(col);
+                                  setProdColunas(col);
+                                  if (selectedUnit) {
+                                    updateEtiquetaUltimasPreferencias(selectedUnit, {
+                                      modelo: mod,
+                                      colunas: col,
+                                      franquia_id: user?.franquiaId,
+                                    });
+                                  }
+                                }}
+                              >
+                                <SelectTrigger className="h-10 rounded-xl bg-card border-border text-xs font-semibold">
+                                  <SelectValue placeholder="Selecione formato..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {MODELOS_ETIQUETAS.map((m) => (
+                                    <SelectItem key={m.id} value={m.id} className="text-xs">
+                                      {m.nome}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+
+                          {/* ETIQUETA POR LINHA */}
+                          <div className="space-y-1.5 pt-0.5">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs font-bold text-foreground">ETIQUETA POR LINHA</Label>
+                              <span className="text-[10px] text-muted-foreground">
+                                {descColunas} {descColunas === 1 ? 'etiqueta por linha' : 'etiquetas lado a lado'}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-4 gap-1.5">
+                              {[1, 2, 3, 4].map((num) => (
+                                <button
+                                  key={num}
+                                  type="button"
+                                  onClick={() => {
+                                    setDescColunas(num);
+                                    setProdColunas(num);
+                                    if (selectedUnit) {
+                                      updateEtiquetaUltimasPreferencias(selectedUnit, {
+                                        colunas: num,
+                                        franquia_id: user?.franquiaId,
+                                      });
+                                    }
+                                  }}
+                                  className={`h-9 rounded-xl text-xs font-bold transition-all border ${
+                                    descColunas === num
+                                      ? 'bg-blue-500 text-slate-950 border-blue-500 shadow-sm font-black'
+                                      : 'bg-card text-muted-foreground border-border hover:text-foreground hover:bg-secondary'
+                                  }`}
+                                >
+                                  {num}x Col.
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Tipo de Etiqueta (Completa vs Simples) */}
+                          <div className="space-y-1.5 pt-0.5">
+                            <Label className="text-xs font-bold text-foreground">Tipo de Layout</Label>
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDescLayoutEtiqueta('completa');
+                                  setProdLayoutEtiqueta('completa');
+                                  if (selectedUnit) {
+                                    updateEtiquetaUltimasPreferencias(selectedUnit, {
+                                      layout: 'completa',
+                                      franquia_id: user?.franquiaId,
+                                    });
+                                  }
+                                }}
+                                className={`h-9 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${
+                                  descLayoutEtiqueta === 'completa'
+                                    ? 'bg-blue-500 text-slate-950 border-blue-500 shadow-sm font-black'
+                                    : 'bg-card text-muted-foreground border-border hover:text-foreground hover:bg-secondary'
+                                }`}
+                              >
+                                <Sparkles className="w-3.5 h-3.5" />
+                                Completa
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDescLayoutEtiqueta('simples');
+                                  setProdLayoutEtiqueta('simples');
+                                  if (selectedUnit) {
+                                    updateEtiquetaUltimasPreferencias(selectedUnit, {
+                                      layout: 'simples',
+                                      franquia_id: user?.franquiaId,
+                                    });
+                                  }
+                                }}
+                                className={`h-9 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${
+                                  descLayoutEtiqueta === 'simples'
+                                    ? 'bg-blue-500 text-slate-950 border-blue-500 shadow-sm font-black'
+                                    : 'bg-card text-muted-foreground border-border hover:text-foreground hover:bg-secondary'
+                                }`}
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                                Simples (Limpa)
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
 
                     {/* Botões de Ação */}
                     <div className="pt-3 space-y-2">
                       <Button
-                        type="submit"
-                        disabled={!produtoSelecionadoDesc}
-                        className="w-full h-12 rounded-2xl bg-blue-500 hover:bg-blue-400 text-slate-950 font-bold text-sm shadow-lg shadow-blue-500/20 gap-2"
+                        type="button"
+                        onClick={handleImprimirDescongelamentoDireto}
+                        disabled={itensSelecionadosDescongelamento.length === 0}
+                        className="w-full h-12 rounded-2xl bg-blue-500 hover:bg-blue-400 text-slate-950 font-bold text-sm shadow-lg shadow-blue-500/20 gap-2 transition-all active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none"
                       >
-                        <Printer className="w-5 h-5" />
-                        Pré-visualizar e Imprimir
+                        <Printer className="w-5 h-5 stroke-[2.5]" />
+                        {itensSelecionadosDescongelamento.length === 0
+                          ? 'Selecione produtos para imprimir'
+                          : `Imprimir (${totalViasSelecionadasDesc * descColunas} ${totalViasSelecionadasDesc * descColunas === 1 ? 'etiqueta' : 'etiquetas'})`}
                       </Button>
 
                       <Button
                         type="button"
                         variant="outline"
-                        disabled={!produtoSelecionadoDesc}
-                        onClick={() => handleImprimirSemPesoDireto('DESCONGELAMENTO')}
-                        className="w-full h-10 rounded-xl border-border/80 text-muted-foreground hover:text-foreground hover:bg-secondary/80 text-xs font-semibold gap-1.5"
+                        disabled={itensSelecionadosDescongelamento.length === 0}
+                        onClick={handlePrevisualizarDescongelamento}
+                        className="w-full h-10 rounded-xl border-border/80 text-muted-foreground hover:text-foreground hover:bg-secondary/80 text-xs font-semibold gap-1.5 disabled:opacity-40 disabled:pointer-events-none"
                       >
-                        <Zap className="w-3.5 h-3.5 text-blue-400" />
-                        Imprimir Direto Sem Peso (1 Toque)
+                        <FileText className="w-4 h-4 text-blue-400" />
+                        Pré-visualizar Etiqueta(s)
                       </Button>
                     </div>
-                  </form>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2102,13 +2553,28 @@ export default function Etiquetas() {
       {/* 1. Confirmação Obrigatória de Peso Vazio */}
       <SemPesoConfirmModal
         open={semPesoModalOpen}
-        onOpenChange={setSemPesoModalOpen}
-        onConfirm={() => {
-          setSemPesoModalOpen(false);
-          if (pendenteDadosSemPeso) {
-            setDadosParaPreview(pendenteDadosSemPeso);
-            setPreviewModalOpen(true);
+        onOpenChange={(isOpen) => {
+          setSemPesoModalOpen(isOpen);
+          if (!isOpen) {
             setPendenteDadosSemPeso(null);
+          }
+        }}
+        onConfirm={() => {
+          const dados = pendenteDadosSemPeso;
+          const modo = modoPendenteSemPeso;
+          setSemPesoModalOpen(false);
+          setPendenteDadosSemPeso(null);
+
+          if (dados) {
+            setTimeout(() => {
+              if (modo === 'direto') {
+                executarImpressaoProducao(dados);
+              } else {
+                setDadosParaPreview(dados);
+                setItensParaPreview([dados]);
+                setPreviewModalOpen(true);
+              }
+            }, 80);
           }
         }}
       />
@@ -2120,13 +2586,60 @@ export default function Etiquetas() {
           setPreviewModalOpen(isOpen);
           if (!isOpen) {
             setDadosParaPreview(null);
+            setItensParaPreview([]);
           }
         }}
         dados={dadosParaPreview}
+        itens={itensParaPreview}
+        onConfirmPrintBatch={(itens) => {
+          itens.forEach((it) => {
+            salvarHistoricoMutation.mutate(it);
+          });
+          if (itens.some((it) => it.tipo === 'DESCONGELAMENTO')) {
+            handleLimparSelecaoDesc();
+          }
+          setPreviewModalOpen(false);
+          setDadosParaPreview(null);
+          setItensParaPreview([]);
+        }}
         onConfirmPrint={(dadosCompletos) => {
+          if (dadosCompletos.tipo === 'DESCONGELAMENTO') {
+            handleLimparSelecaoDesc();
+          }
+          if (selectedUnit) {
+            updateEtiquetaUltimasPreferencias(selectedUnit, {
+              modelo: dadosCompletos.modeloEtiqueta,
+              colunas: dadosCompletos.colunas,
+              quantidade: dadosCompletos.quantidade,
+              layout: dadosCompletos.layout,
+              impressora_id: impressoras.find((i) => i.nome === dadosCompletos.impressoraNome)?.id,
+              franquia_id: user?.franquiaId,
+            }).then(() => {
+              queryClient.invalidateQueries({ queryKey: ['etiquetas-config-loja', selectedUnit] });
+            });
+
+            // Atualiza os estados locais imediatamente para as próximas emissões
+            if (dadosCompletos.modeloEtiqueta) {
+              setProdModeloEtiqueta(dadosCompletos.modeloEtiqueta);
+              setDescModeloEtiqueta(dadosCompletos.modeloEtiqueta);
+            }
+            if (dadosCompletos.colunas) {
+              setProdColunas(dadosCompletos.colunas);
+              setDescColunas(dadosCompletos.colunas);
+            }
+            if (dadosCompletos.layout) {
+              setProdLayoutEtiqueta(dadosCompletos.layout);
+              setDescLayoutEtiqueta(dadosCompletos.layout);
+            }
+            if (dadosCompletos.quantidade) {
+              setProdQuantidade(dadosCompletos.quantidade);
+              setDescQuantidade(dadosCompletos.quantidade);
+            }
+          }
           salvarHistoricoMutation.mutate(dadosCompletos);
           setPreviewModalOpen(false);
           setDadosParaPreview(null);
+          setItensParaPreview([]);
         }}
       />
 
