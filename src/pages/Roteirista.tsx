@@ -590,6 +590,7 @@ export default function Roteirista() {
                   unidade_nome: selectedUnit,
                   unidade_id: activeUnitId || user?.unidadeId,
                   cod_pedido_interno: sisfoodInternalId, // AQUI envia o ID longo para o despacho funcionar!
+                  comanda_diaria: String(comandaDigitada).trim(),
                   nome_motoboy: selectedEntregador.nome, 
                   status: 'PENDENTE'
               });
