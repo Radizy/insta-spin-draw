@@ -323,29 +323,57 @@ export default function TV() {
       await pause();
     }
     if (bagId) {
-      console.log('[TV] Processando Ã¡udio da bag:', bagId);
+      console.log('[TV] Processando áudio da bag:', bagId);
       const bagTipo = franquiaBagTipos.find((b) => b.id === bagId || b.nome === bagId);
       
       let playedBag = false;
       if (bagTipo) {
-        const bagPath = `${user.franquiaId}/bags/${bagTipo.id}.mp3`;
-        console.log('[TV] Tentando reproduzir Ã¡udio da bag:', bagPath);
-        playedBag = await playOneAudio(bagPath, volume);
+        // 1. Tenta reproduzir diretamente por audio_url da bag se existir
+        if (bagTipo.audio_url) {
+          try {
+            console.log('[TV] Tentando reproduzir áudio da bag via audio_url:', bagTipo.audio_url);
+            const audio = new Audio(bagTipo.audio_url);
+            audio.volume = volume;
+            await new Promise((resolve, reject) => {
+              audio.onended = () => resolve(true);
+              audio.onerror = (e) => reject(e);
+              audio.play().catch(reject);
+            });
+            playedBag = true;
+          } catch (err) {
+            console.warn('[TV] Erro ao reproduzir audio_url da bag:', err);
+          }
+        }
+
+        // 2. Se não tocou, tenta arquivos do Storage (.wav e depois .mp3)
+        if (!playedBag) {
+          const bagPathWav = `${user.franquiaId}/bags/${bagTipo.id}.wav`;
+          const bagPathMp3 = `${user.franquiaId}/bags/${bagTipo.id}.mp3`;
+          console.log('[TV] Tentando reproduzir áudio da bag via storage:', bagPathWav);
+          playedBag = await playOneAudio(bagPathWav, volume);
+          if (!playedBag) {
+            playedBag = await playOneAudio(bagPathMp3, volume);
+          }
+        }
       } else {
-        console.warn('[TV] Tipo de bag nÃ£o encontrado na lista da franquia para id:', bagId);
+        console.warn('[TV] Tipo de bag não encontrado na lista da franquia para id:', bagId);
       }
 
       if (!playedBag) {
-        console.log('[TV] Ãudio da bag falhou ou inexistente, usando TTS para bag');
+        console.log('[TV] Áudio da bag falhou ou inexistente, usando TTS para bag');
         const bagNomeReal = bagTipo?.nome || bagId;
         await speak(`Pegue a ${bagNomeReal}`, { enabled: true, volume: Math.min(100, volume * 130), voice_model: 'browser_clara' });
         await pause();
       }
     }
     if (hasBebida) {
-      const bebidaPath = `${user.franquiaId}/bebida.mp3`;
-      console.log('[TV] Tentando reproduzir Ã¡udio de bebida:', bebidaPath);
-      const playedBebida = await playOneAudio(bebidaPath, volume);
+      const bebidaPathWav = `${user.franquiaId}/bebida.wav`;
+      const bebidaPathMp3 = `${user.franquiaId}/bebida.mp3`;
+      console.log('[TV] Tentando reproduzir áudio de bebida:', bebidaPathWav);
+      let playedBebida = await playOneAudio(bebidaPathWav, volume);
+      if (!playedBebida) {
+        playedBebida = await playOneAudio(bebidaPathMp3, volume);
+      }
       if (!playedBebida) await speak('Tem bebida nas comandas', { enabled: true, volume: volume * 100, voice_model: 'browser_clara' });
     }
   }, [franquiaConfig, franquiaBagTipos, speak, playOneAudio, user.franquiaId]);
@@ -440,7 +468,7 @@ export default function TV() {
     const channel = supabase.channel('tv-calls').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'entregadores', filter: `unidade=eq.${selectedUnit}` }, (payload: any) => {
       const newData = payload.new as any;
       if (newData.status === 'chamado') {
-        const hasBebida = newData.has_bebida || localStorage.getItem(`bebida_${newData.id}`) === 'true';
+        const hasBebida = !!newData.has_bebida || localStorage.getItem(`bebida_${newData.id}`) === 'true';
         triggerCall(newData, hasBebida);
       }
     }).subscribe();
@@ -470,7 +498,7 @@ export default function TV() {
         const { entregadorId } = payload.payload;
         const e = entregadoresRef.current.find((ent: any) => ent.id === entregadorId);
         if (e) {
-          const hasBebida = localStorage.getItem(`bebida_${e.id}`) === 'true';
+          const hasBebida = !!e.has_bebida || localStorage.getItem(`bebida_${e.id}`) === 'true';
           triggerCallRef.current(e, hasBebida, true);
           toast.info(`Re-tentativa de chamada para ${e.nome}`);
         }
@@ -510,7 +538,7 @@ export default function TV() {
     const it = setInterval(() => {
       const called = entregadores.filter((e: any) => e.status === 'chamado');
       called.forEach((e: any) => {
-        const hasBebida = localStorage.getItem(`bebida_${e.id}`) === 'true';
+        const hasBebida = !!e.has_bebida || localStorage.getItem(`bebida_${e.id}`) === 'true';
         triggerCall(e, hasBebida);
       });
     }, 5000);

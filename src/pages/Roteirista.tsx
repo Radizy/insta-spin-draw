@@ -546,12 +546,13 @@ export default function Roteirista() {
       // Resolver nome da BAG a partir do ID (para franquias com tipos cadastrados)
       const bagName = franquiaBagTipos.find((b) => b.id === tipoBag)?.nome || tipoBag || '';
 
-      // Update status to "chamado" and set tipo_bag (salvando nominalmente)
+      // Update status to "chamado" and set tipo_bag (salvando nominalmente) e has_bebida
       await updateMutation.mutateAsync({
         id: selectedEntregador.id,
         data: {
           status: 'chamado',
           tipo_bag: bagName,
+          has_bebida: hasBebida,
         },
       });
 
@@ -685,6 +686,7 @@ export default function Roteirista() {
         data: {
           status: 'entregando',
           hora_saida: new Date().toISOString(),
+          has_bebida: false,
         },
       });
 
@@ -744,6 +746,7 @@ export default function Roteirista() {
           status: 'disponivel',
           hora_saida: null,
           fila_posicao: new Date().toISOString(),
+          has_bebida: false,
         },
       });
 
@@ -1205,9 +1208,10 @@ export default function Roteirista() {
                         )}
                       </div>
                       <p className="text-sm text-muted-foreground break-all">{entregador.telefone}</p>
-                      {/* Indicador visual de bebida, baseado na flag temporária armazenada no localStorage */}
-                      {typeof window !== 'undefined' &&
-                        localStorage.getItem(`bebida_${entregador.id}`) === 'true' && (
+                      {/* Indicador visual de bebida, vindo do banco ou localStorage temporário */}
+                      {(entregador.has_bebida ||
+                        (typeof window !== 'undefined' &&
+                          localStorage.getItem(`bebida_${entregador.id}`) === 'true')) && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-400/20 text-xs font-semibold text-yellow-300 border border-yellow-400/60">
                             <span className="text-base leading-none">🍹</span>
                             Tem bebida neste pedido

@@ -39,11 +39,17 @@ serve(async (req) => {
             });
         }
 
-        const { data: currentUnit } = await supabaseClient
+        let currentUnitQuery = supabaseClient
             .from('unidades')
-            .select('sisfood_pedidos_fila')
-            .ilike('nome_loja', `%${loja}%`)
-            .maybeSingle();
+            .select('sisfood_pedidos_fila');
+
+        if (unidade_id) {
+            currentUnitQuery = currentUnitQuery.eq('id', unidade_id);
+        } else {
+            currentUnitQuery = currentUnitQuery.ilike('nome_loja', `%${loja}%`);
+        }
+
+        const { data: currentUnit } = await currentUnitQuery.maybeSingle();
 
         const oldPedidos = (currentUnit?.sisfood_pedidos_fila as any[]) || [];
         const now = new Date().toISOString();

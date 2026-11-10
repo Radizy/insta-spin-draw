@@ -112,6 +112,7 @@ export type Database = {
           updated_at: string
           usar_turno_padrao: boolean | null
           whatsapp_ativo: boolean | null
+          has_bebida: boolean | null
         }
         Insert: {
           ativo?: boolean
@@ -136,6 +137,7 @@ export type Database = {
           updated_at?: string
           usar_turno_padrao?: boolean | null
           whatsapp_ativo?: boolean | null
+          has_bebida?: boolean | null
         }
         Update: {
           ativo?: boolean
@@ -160,6 +162,7 @@ export type Database = {
           updated_at?: string
           usar_turno_padrao?: boolean | null
           whatsapp_ativo?: boolean | null
+          has_bebida?: boolean | null
         }
         Relationships: [
           {

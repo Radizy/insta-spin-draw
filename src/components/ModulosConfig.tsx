@@ -513,6 +513,11 @@ function TvTtsConfigSection({ franquiaId, initialConfig }: TvTtsConfigSectionPro
   const [elevenVoiceId, setElevenVoiceId] = useState<string>(initialConfig?.eleven_voice_id ?? '');
   const [googleVoiceName, setGoogleVoiceName] = useState<string>(initialConfig?.google_voice_name ?? 'pt-BR-Neural2-B');
   const [googleApiKey, setGoogleApiKey] = useState<string>(initialConfig?.google_api_key ?? '');
+  const [openrouterApiKey, setOpenrouterApiKey] = useState<string>(initialConfig?.openrouter_api_key ?? '');
+  const [openrouterModel, setOpenrouterModel] = useState<string>(
+    initialConfig?.openrouter_model ?? 'heygen/heygen-voice-1-turbo:free',
+  );
+  const [openrouterVoice, setOpenrouterVoice] = useState<string>(initialConfig?.openrouter_voice ?? 'sabrina');
   const [ringtoneId, setRingtoneId] = useState<string>(initialConfig?.ringtone_id ?? 'classic_short');
   const [idleTimeSeconds, setIdleTimeSeconds] = useState<number>(initialConfig?.idle_time_seconds ?? 15);
 
@@ -604,6 +609,9 @@ function TvTtsConfigSection({ franquiaId, initialConfig }: TvTtsConfigSectionPro
           eleven_voice_id: elevenVoiceId || undefined,
           google_api_key: googleApiKey || undefined,
           google_voice_name: googleVoiceName || undefined,
+          openrouter_api_key: openrouterApiKey || undefined,
+          openrouter_model: openrouterModel || undefined,
+          openrouter_voice: openrouterVoice || undefined,
           ringtone_id: ringtoneId || undefined,
           idle_time_seconds: idleTimeSeconds,
         },
@@ -712,12 +720,61 @@ function TvTtsConfigSection({ franquiaId, initialConfig }: TvTtsConfigSectionPro
     }
   };
 
+  const playWithOpenRouter = async (text: string) => {
+    if (voiceModel !== 'openrouter') {
+      await speak(text);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/openrouter-tts`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            text,
+            voice: openrouterVoice || 'sabrina',
+            model: openrouterModel || 'heygen/heygen-voice-1-turbo:free',
+            franquia_id: franquiaId,
+            api_key: openrouterApiKey || undefined,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error('Erro OpenRouter TTS (teste):', errText);
+        toast.error('Erro ao testar voz OpenRouter, usando voz do navegador.');
+        await speak(text);
+        return;
+      }
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audio.volume = (volume ?? 100) / 100;
+      await audio.play();
+    } catch (e) {
+      console.error('Erro ao chamar OpenRouter (teste):', e);
+      toast.error('Erro ao testar voz OpenRouter, usando voz do navegador.');
+      await speak(text);
+    }
+  };
+
   const handleTest = (text: string) => {
     if (voiceModel === 'elevenlabs') {
       return playWithElevenLabs(text);
     }
     if (voiceModel === 'google') {
       return playWithGoogle(text);
+    }
+    if (voiceModel === 'openrouter') {
+      return playWithOpenRouter(text);
     }
     return speak(text);
   };
@@ -792,10 +849,14 @@ function TvTtsConfigSection({ franquiaId, initialConfig }: TvTtsConfigSectionPro
                 🔍 Google Cloud TTS (alternativa)
               </div>
               <SelectItem value="google">Usar Google Cloud TTS (configurado abaixo)</SelectItem>
+              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-2">
+                🤖 OpenRouter AI (HeyGen Voice Turbo)
+              </div>
+              <SelectItem value="openrouter">Usar OpenRouter (HeyGen Sabrina / etc.)</SelectItem>
             </SelectContent>
           </Select>
           <p className="text-[11px] text-muted-foreground mt-1">
-            💡 Navegador = 100% grátis. ElevenLabs usa seus créditos da conta Eleven.
+            💡 Navegador = 100% grátis. ElevenLabs e OpenRouter usam suas chaves de API.
           </p>
         </div>
       </div>
@@ -938,6 +999,73 @@ function TvTtsConfigSection({ franquiaId, initialConfig }: TvTtsConfigSectionPro
                 />
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {voiceModel === 'openrouter' && (
+        <div className="space-y-4 border-t border-border pt-4 mt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="space-y-1">
+            <Label>OpenRouter AI (HeyGen Voice Turbo)</Label>
+            <p className="text-[11px] text-muted-foreground">
+              Utilize sua chave do OpenRouter para gerar vozes realistas (ex: HeyGen Sabrina). Você pode alterar o modelo e a voz livremente.
+            </p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="space-y-1">
+              <Label>API Key OpenRouter 🔑</Label>
+              <Input
+                type="password"
+                value={openrouterApiKey}
+                onChange={(e) => setOpenrouterApiKey(e.target.value)}
+                placeholder="sk-or-v1-..."
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Chave da sua conta OpenRouter.ai
+              </p>
+            </div>
+            <div className="space-y-1">
+              <Label>Modelo de Voz ⚡</Label>
+              <Input
+                value={openrouterModel}
+                onChange={(e) => setOpenrouterModel(e.target.value)}
+                placeholder="heygen/heygen-voice-1-turbo:free"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Ex: heygen/heygen-voice-1-turbo:free ou versão paga
+              </p>
+            </div>
+            <div className="space-y-1">
+              <Label>Voz (HeyGen) 🎙️</Label>
+              <div className="space-y-1.5">
+                <Select
+                  value={['sabrina', 'nadine', 'claire', 'austin', 'dexter'].includes(openrouterVoice) ? openrouterVoice : 'custom'}
+                  onValueChange={(val) => {
+                    if (val !== 'custom') {
+                      setOpenrouterVoice(val);
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione ou personalize a voz" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sabrina">Sabrina (Feminina - Recomendada) ⭐</SelectItem>
+                    <SelectItem value="nadine">Nadine (Feminina)</SelectItem>
+                    <SelectItem value="claire">Claire (Feminina)</SelectItem>
+                    <SelectItem value="austin">Austin (Masculina)</SelectItem>
+                    <SelectItem value="dexter">Dexter (Masculina)</SelectItem>
+                    <SelectItem value="custom">Outra voz (digitar abaixo)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  value={openrouterVoice}
+                  onChange={(e) => setOpenrouterVoice(e.target.value)}
+                  placeholder="Nome exato da voz (ex: sabrina)"
+                  className="text-xs"
+                />
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -192,6 +192,8 @@ export default function Config() {
     descricao: string | null;
     ativo: boolean;
     franquia_id: string;
+    audio_url?: string | null;
+    icone_url?: string | null;
   }[]>({
     queryKey: ['franquia-bag-tipos', user?.franquiaId],
     staleTime: 1000 * 60 * 60,
@@ -199,7 +201,7 @@ export default function Config() {
       if (!user?.franquiaId) return [];
       const { data, error } = await supabase
         .from('franquia_bag_tipos')
-        .select('id, nome, descricao, ativo, franquia_id')
+        .select('id, nome, descricao, ativo, franquia_id, audio_url, icone_url')
         .eq('franquia_id', user.franquiaId)
         .order('created_at', { ascending: true });
       if (error) throw error;
@@ -209,22 +211,71 @@ export default function Config() {
   });
 
   // Query para verificar áudios de bags/bebida gerados
-  const { data: generatedAudios, refetch: refetchAudios } = useQuery({
+  const { data: generatedAudios = { bags: [], bebida: null }, refetch: refetchAudios } = useQuery({
     queryKey: ['generated-audios', user?.franquiaId],
     queryFn: async () => {
-      if (!user?.franquiaId) return { bags: [], bebida: false };
+      if (!user?.franquiaId) return { bags: [], bebida: null };
 
       const { data: files } = await supabase.storage
         .from('motoboy_voices')
         .list(`${user.franquiaId}/bags`);
 
-      const { data: bebidaFile } = await supabase.storage
+      const { data: rootFiles } = await supabase.storage
         .from('motoboy_voices')
-        .list(user.franquiaId, { search: 'bebida.mp3' });
+        .list(user.franquiaId);
+
+      const { data: bagRows } = await supabase
+        .from('franquia_bag_tipos')
+        .select('id, nome, audio_url')
+        .eq('franquia_id', user.franquiaId);
+
+      const bebidaFile = rootFiles?.find(
+        (f) => f.name === 'bebida.mp3' || f.name === 'bebida.wav',
+      );
+
+      const storageBagFiles = (files || []).filter((f) => f.name !== '.emptyFolderPlaceholder');
+
+      const allBagAudios: Array<{
+        name: string;
+        bagId?: string;
+        bagNome?: string;
+        url?: string;
+        storagePath?: string;
+        source: 'storage' | 'url';
+      }> = [];
+
+      storageBagFiles.forEach((f) => {
+        const bagIdFromFilename = f.name.replace(/\.(mp3|wav|ogg|m4a)$/i, '');
+        const matchedBag = bagRows?.find((b) => b.id === bagIdFromFilename);
+        allBagAudios.push({
+          name: f.name,
+          bagId: matchedBag?.id || bagIdFromFilename,
+          bagNome: matchedBag?.nome,
+          storagePath: `${user.franquiaId}/bags/${f.name}`,
+          source: 'storage',
+        });
+      });
+
+      // Adiciona bags que têm audio_url direto na tabela se já não estiverem mapeadas
+      (bagRows || []).forEach((b) => {
+        if (b.audio_url) {
+          const alreadyInList = allBagAudios.some((item) => item.bagId === b.id);
+          if (!alreadyInList) {
+            const fileName = b.audio_url.split('/').pop()?.split('?')[0] || `${b.nome}.audio`;
+            allBagAudios.push({
+              name: fileName,
+              bagId: b.id,
+              bagNome: b.nome,
+              url: b.audio_url,
+              source: 'url',
+            });
+          }
+        }
+      });
 
       return {
-        bags: files || [],
-        bebida: (bebidaFile && bebidaFile.length > 0) || false,
+        bags: allBagAudios,
+        bebida: bebidaFile ? bebidaFile.name : null,
       };
     },
     enabled: !!user?.franquiaId,
@@ -435,9 +486,17 @@ export default function Config() {
 
     const tvTts = (franquiaConfig?.config_pagamento as any)?.tv_tts;
     const elevenVoiceId = tvTts?.eleven_voice_id as string | undefined;
+    const isEleven = tvTts?.voice_model === 'elevenlabs';
+    const isGoogle = tvTts?.voice_model === 'google';
+    const isOpenRouter = tvTts?.voice_model === 'openrouter';
 
-    if (!tvTts || tvTts.voice_model !== 'elevenlabs' || !elevenVoiceId) {
-      toast.error('Configure o ElevenLabs antes de gerar os áudios.');
+    if (!tvTts || (!isEleven && !isGoogle && !isOpenRouter)) {
+      toast.error('Configure um provedor de voz (OpenRouter, Google ou ElevenLabs) na aba Módulos antes de gerar os áudios.');
+      return;
+    }
+
+    if (isEleven && !elevenVoiceId) {
+      toast.error('Configure o Voice ID do ElevenLabs antes de gerar os áudios.');
       return;
     }
 
@@ -456,74 +515,125 @@ export default function Config() {
       for (const bag of bagsAtivas) {
         try {
           const texto = `Pegue a bag ${bag.nome}`;
-          const response = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-              },
-              body: JSON.stringify({
+          const extension = isOpenRouter ? 'wav' : 'mp3';
+          const path = `${user.franquiaId}/bags/${bag.id}.${extension}`;
+
+          const endpoint = isOpenRouter
+            ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/openrouter-tts`
+            : isGoogle
+              ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-tts`
+              : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`;
+
+          const requestBody = isOpenRouter
+            ? {
                 text: texto,
-                voiceId: elevenVoiceId,
-                franquiaId: user.franquiaId,
-              }),
-            },
-          );
+                voice: tvTts?.openrouter_voice || 'sabrina',
+                model: tvTts?.openrouter_model || 'heygen/heygen-voice-1-turbo:free',
+                filename: path,
+                franquia_id: user.franquiaId,
+                api_key: tvTts?.openrouter_api_key || undefined,
+              }
+            : isGoogle
+              ? {
+                  text: texto,
+                  voice_name: tvTts?.google_voice_name,
+                  filename: path,
+                  franquia_id: user.franquiaId,
+                  api_key: tvTts?.google_api_key || undefined,
+                }
+              : {
+                  text: texto,
+                  voiceId: elevenVoiceId,
+                  franquiaId: user.franquiaId,
+                };
 
-          if (!response.ok) {
-            falhas++;
-            continue;
-          }
-
-          const audioBlob = await response.blob();
-          const path = `${user.franquiaId}/bags/${bag.id}.mp3`;
-
-          const { error: uploadError } = await supabase.storage
-            .from('motoboy_voices')
-            .upload(path, audioBlob, { upsert: true, contentType: 'audio/mpeg' });
-
-          if (uploadError) {
-            falhas++;
-            continue;
-          }
-
-          sucesso++;
-          await new Promise((resolve) => setTimeout(resolve, 3000));
-        } catch (e) {
-          console.error('Erro ao gerar áudio da bag:', bag.id, e);
-          falhas++;
-        }
-      }
-
-      // Gerar áudio de bebida
-      try {
-        const textoBebida = 'Atenção! O pedido possui refrigerante!';
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`,
-          {
+          const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
               Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
             },
-            body: JSON.stringify({
-              text: textoBebida,
-              voiceId: elevenVoiceId,
-              franquiaId: user.franquiaId,
-            }),
-          },
-        );
+            body: JSON.stringify(requestBody),
+          });
 
-        if (response.ok) {
-          const audioBlob = await response.blob();
-          const path = `${user.franquiaId}/bebida.mp3`;
-          await supabase.storage
-            .from('motoboy_voices')
-            .upload(path, audioBlob, { upsert: true, contentType: 'audio/mpeg' });
+          if (!response.ok) {
+            falhas++;
+            continue;
+          }
+
+          if (isEleven) {
+            const audioBlob = await response.blob();
+            const { error: uploadError } = await supabase.storage
+              .from('motoboy_voices')
+              .upload(path, audioBlob, { upsert: true, contentType: 'audio/mpeg' });
+
+            if (uploadError) {
+              falhas++;
+              continue;
+            }
+          }
+
+          sucesso++;
+          await new Promise((resolve) => setTimeout(resolve, isOpenRouter ? 1500 : 3000));
+        } catch (e) {
+          console.error('Erro ao gerar áudio da bag:', bag.id, e);
+          falhas++;
+        }
+      }
+
+      // Gerar áudio de bebida usando o provedor ativo
+      try {
+        const textoBebida = 'Atenção! O pedido possui refrigerante!';
+        const extension = isOpenRouter ? 'wav' : 'mp3';
+        const pathBebida = `${user.franquiaId}/bebida.${extension}`;
+
+        const endpointBebida = isOpenRouter
+          ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/openrouter-tts`
+          : isGoogle
+            ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-tts`
+            : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`;
+
+        const requestBodyBebida = isOpenRouter
+          ? {
+              text: textoBebida,
+              voice: tvTts?.openrouter_voice || 'sabrina',
+              model: tvTts?.openrouter_model || 'heygen/heygen-voice-1-turbo:free',
+              filename: pathBebida,
+              franquia_id: user.franquiaId,
+              api_key: tvTts?.openrouter_api_key || undefined,
+            }
+          : isGoogle
+            ? {
+                text: textoBebida,
+                voice_name: tvTts?.google_voice_name,
+                filename: pathBebida,
+                franquia_id: user.franquiaId,
+                api_key: tvTts?.google_api_key || undefined,
+              }
+            : {
+                text: textoBebida,
+                voiceId: elevenVoiceId,
+                franquiaId: user.franquiaId,
+              };
+
+        const responseBebida = await fetch(endpointBebida, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify(requestBodyBebida),
+        });
+
+        if (responseBebida.ok) {
+          if (isEleven) {
+            const audioBlob = await responseBebida.blob();
+            await supabase.storage
+              .from('motoboy_voices')
+              .upload(pathBebida, audioBlob, { upsert: true, contentType: 'audio/mpeg' });
+          }
           sucesso++;
         }
       } catch (e) {
@@ -564,16 +674,106 @@ export default function Config() {
         await supabase.storage.from('motoboy_voices').remove(filesToRemove);
       }
 
-      // Deletar áudio de bebida
+      // Deletar áudio de bebida (.mp3 e .wav)
       await supabase.storage
         .from('motoboy_voices')
-        .remove([`${user.franquiaId}/bebida.mp3`]);
+        .remove([`${user.franquiaId}/bebida.mp3`, `${user.franquiaId}/bebida.wav`]);
 
       refetchAudios();
       toast.success('Áudios das bags removidos com sucesso!');
     } catch (error) {
       console.error('Erro ao limpar áudios das bags:', error);
       toast.error('Erro ao limpar áudios das bags.');
+    }
+  };
+
+  const handleDeleteAudioFile = async (item: any) => {
+    if (!user?.franquiaId) return;
+    const displayName = item.bagNome ? `${item.bagNome} (${item.name})` : item.name;
+    const confirmDelete = window.confirm(`Tem certeza que deseja desvincular/excluir o áudio "${displayName}"?`);
+    if (!confirmDelete) return;
+
+    try {
+      // 1. Se estiver vinculado via audio_url na tabela franquia_bag_tipos, remove o link
+      if (item.bagId) {
+        await supabase
+          .from('franquia_bag_tipos')
+          .update({ audio_url: null })
+          .eq('id', item.bagId);
+      }
+
+      // 2. Se for arquivo físico no storage, remove
+      if (item.storagePath) {
+        await supabase.storage.from('motoboy_voices').remove([item.storagePath]);
+      } else if (item.url) {
+        const match = item.url.match(/motoboy_voices\/(.+)$/);
+        if (match) {
+          await supabase.storage.from('motoboy_voices').remove([decodeURIComponent(match[1])]);
+        }
+      }
+
+      toast.success(`Áudio "${displayName}" removido com sucesso!`);
+      refetchBagTipos();
+      refetchAudios();
+    } catch (e: any) {
+      console.error('Erro ao excluir áudio:', e);
+      toast.error('Erro ao excluir áudio.');
+    }
+  };
+
+  const handleLinkAudioToBag = async (item: any, targetBagId: string) => {
+    if (!user?.franquiaId || !targetBagId) return;
+    if (item.bagId === targetBagId) {
+      toast.info('Este áudio já está atrelado a esta bag.');
+      return;
+    }
+
+    try {
+      const targetBag = franquiaBagTipos.find((b) => b.id === targetBagId);
+      const ext = item.name.split('.').pop() || 'mp3';
+
+      if (item.source === 'url' && item.url) {
+        // Modo URL: desvincula da bag antiga e vincula na nova bag
+        if (item.bagId) {
+          await supabase
+            .from('franquia_bag_tipos')
+            .update({ audio_url: null })
+            .eq('id', item.bagId);
+        }
+
+        await supabase
+          .from('franquia_bag_tipos')
+          .update({ audio_url: item.url })
+          .eq('id', targetBagId);
+
+        toast.success(`Áudio atrelado à ${targetBag?.nome || 'Bag'}!`);
+      } else {
+        // Modo storage: move/copia o arquivo com o ID da nova bag
+        const oldPath = item.storagePath || `${user.franquiaId}/bags/${item.name}`;
+        const newPath = `${user.franquiaId}/bags/${targetBagId}.${ext}`;
+
+        const { data: blob, error: downloadError } = await supabase.storage
+          .from('motoboy_voices')
+          .download(oldPath);
+        if (downloadError || !blob) throw downloadError || new Error('Arquivo não encontrado no Storage');
+
+        const { error: uploadError } = await supabase.storage
+          .from('motoboy_voices')
+          .upload(newPath, blob, {
+            upsert: true,
+            contentType: ext === 'wav' ? 'audio/wav' : 'audio/mpeg',
+          });
+        if (uploadError) throw uploadError;
+
+        await supabase.storage.from('motoboy_voices').remove([oldPath]);
+        toast.success(`Áudio atrelado à ${targetBag?.nome || 'Bag'}!`);
+      }
+
+      refetchBagTipos();
+      refetchAudios();
+    } catch (e: any) {
+      console.error('Erro ao atrelar áudio à bag:', e);
+      toast.error('Erro ao atrelar áudio à bag.');
     }
   };
 
@@ -585,9 +785,17 @@ export default function Config() {
 
     const tvTts = (franquiaConfig?.config_pagamento as any)?.tv_tts;
     const elevenVoiceId = tvTts?.eleven_voice_id as string | undefined;
+    const isEleven = tvTts?.voice_model === 'elevenlabs';
+    const isGoogle = tvTts?.voice_model === 'google';
+    const isOpenRouter = tvTts?.voice_model === 'openrouter';
 
-    if (!tvTts || tvTts.voice_model !== 'elevenlabs' || !elevenVoiceId) {
-      toast.error('Configure o ElevenLabs na aba Módulos (voz da TV) antes de gerar as vozes.');
+    if (!tvTts || (!isEleven && !isGoogle && !isOpenRouter)) {
+      toast.error('Configure um provedor de voz (OpenRouter, Google ou ElevenLabs) na aba Módulos antes de gerar as vozes.');
+      return;
+    }
+
+    if (isEleven && !elevenVoiceId) {
+      toast.error('Configure o Voice ID do ElevenLabs na aba Módulos antes de gerar as vozes.');
       return;
     }
 
@@ -618,53 +826,78 @@ export default function Config() {
 
         try {
           const texto = `${motoboy.nome}, é a sua vez!`;
+          const extension = isOpenRouter ? 'wav' : 'mp3';
+          const path = `${user.franquiaId}/${motoboy.id}.${extension}`;
 
-          const response = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-              },
-              body: JSON.stringify({
+          const endpoint = isOpenRouter
+            ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/openrouter-tts`
+            : isGoogle
+              ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-tts`
+              : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`;
+
+          const requestBody = isOpenRouter
+            ? {
                 text: texto,
-                voiceId: elevenVoiceId,
-                franquiaId: user.franquiaId,
-                sequenceIndex: index,
-              }),
+                voice: tvTts?.openrouter_voice || 'sabrina',
+                model: tvTts?.openrouter_model || 'heygen/heygen-voice-1-turbo:free',
+                filename: path,
+                franquia_id: user.franquiaId,
+                api_key: tvTts?.openrouter_api_key || undefined,
+              }
+            : isGoogle
+              ? {
+                  text: texto,
+                  voice_name: tvTts?.google_voice_name,
+                  filename: path,
+                  franquia_id: user.franquiaId,
+                  api_key: tvTts?.google_api_key || undefined,
+                }
+              : {
+                  text: texto,
+                  voiceId: elevenVoiceId,
+                  franquiaId: user.franquiaId,
+                  sequenceIndex: index,
+                };
+
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
             },
-          );
+            body: JSON.stringify(requestBody),
+          });
 
           if (!response.ok) {
             const errText = await response.text();
-            console.error('Erro ElevenLabs ao gerar voz fixa (lote):', errText);
+            console.error('Erro ao gerar voz fixa (lote):', errText);
             falhas++;
             continue;
           }
 
-          const audioBlob = await response.blob();
-          const path = `${user.franquiaId}/${motoboy.id}.mp3`;
+          if (isEleven) {
+            const audioBlob = await response.blob();
+            const { error: uploadError } = await supabase.storage
+              .from('motoboy_voices')
+              .upload(path, audioBlob, {
+                upsert: true,
+                contentType: 'audio/mpeg',
+              });
 
-          const { error: uploadError } = await supabase.storage
-            .from('motoboy_voices')
-            .upload(path, audioBlob, {
-              upsert: true,
-              contentType: 'audio/mpeg',
-            });
-
-          if (uploadError) {
-            console.error('Erro ao salvar MP3 no storage (lote):', uploadError);
-            falhas++;
-            continue;
+            if (uploadError) {
+              console.error('Erro ao salvar MP3 no storage (lote):', uploadError);
+              falhas++;
+              continue;
+            }
           }
 
           await updateEntregador(motoboy.id, { tts_voice_path: path });
           sucesso++;
 
-          // Delay entre cada geração para evitar bloqueios na API da ElevenLabs
-          await new Promise((resolve) => setTimeout(resolve, 10000));
+          // Delay entre cada geração para respeitar limites de API
+          const delayMs = isOpenRouter ? 2000 : isGoogle ? 500 : 10000;
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
         } catch (e) {
           console.error('Erro ao gerar voz fixa em lote para motoboy:', motoboy.id, e);
           falhas++;
@@ -1060,42 +1293,123 @@ export default function Config() {
                   </Button>
 
                   {showAudioPreview && (
-                    <div className="mt-3 p-3 md:p-4 border rounded-lg bg-card space-y-3 text-xs">
+                    <div className="mt-3 p-3 md:p-4 border rounded-lg bg-card space-y-4 text-xs animate-in fade-in duration-200">
                       {/* Bags */}
                       {generatedAudios.bags.length > 0 && (
-                        <div>
-                          <h4 className="font-semibold mb-2 text-muted-foreground">
-                            Bags ({generatedAudios.bags.length})
-                          </h4>
-                          <div className="flex flex-wrap gap-2">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-semibold text-muted-foreground flex items-center gap-1.5">
+                              <span>🎒 Áudios das Bags ({generatedAudios.bags.length})</span>
+                            </h4>
+                            <span className="text-[10px] text-muted-foreground">
+                              Ouça, exclua ou altere a qual bag cada áudio está atrelado
+                            </span>
+                          </div>
+
+                          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                             {generatedAudios.bags.map((file: any) => {
-                              const bagId = file.name.replace('.mp3', '');
-                              const bag = franquiaBagTipos.find((b) => b.id === bagId);
+                              const ext = file.name.split('.').pop()?.toLowerCase() || 'mp3';
+                              const bagId = file.bagId || file.name.replace(/\.(mp3|wav|ogg|m4a)$/i, '');
+                              const linkedBag = franquiaBagTipos.find((b) => b.id === bagId) || (file.bagNome ? { id: bagId, nome: file.bagNome } : null);
 
                               return (
-                                <Button
-                                  key={file.name}
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-[11px] gap-1"
-                                  onClick={async () => {
-                                    try {
-                                      const { data } = await supabase.storage
-                                        .from('motoboy_voices')
-                                        .download(`${user?.franquiaId}/bags/${file.name}`);
-                                      if (data) {
-                                        const url = URL.createObjectURL(data);
-                                        const audio = new Audio(url);
-                                        await audio.play();
-                                        audio.onended = () => URL.revokeObjectURL(url);
-                                      }
-                                    } catch (e) {
-                                      toast.error('Erro ao reproduzir áudio');
-                                    }
-                                  }}
+                                <div
+                                  key={file.name + (file.bagId || '')}
+                                  className="flex flex-col justify-between p-2.5 rounded-lg border border-border bg-secondary/30 hover:bg-secondary/50 transition-colors gap-2"
                                 >
-                                  ▶️ {bag?.nome || bagId}
-                                </Button>
+                                  <div className="flex items-start justify-between gap-1.5">
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="font-semibold text-xs text-foreground truncate max-w-[160px]">
+                                          {linkedBag ? linkedBag.nome : 'Bag Não Atrelada'}
+                                        </span>
+                                        <span
+                                          className={`text-[9px] px-1.5 py-0.2 rounded font-mono uppercase font-bold ${
+                                            ext === 'wav'
+                                              ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
+                                              : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                                          }`}
+                                        >
+                                          {ext}
+                                        </span>
+                                        {file.source === 'url' && (
+                                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 font-medium">
+                                            Link Galeria
+                                          </span>
+                                        )}
+                                      </div>
+                                      <p
+                                        className="text-[10px] text-muted-foreground truncate font-mono mt-0.5"
+                                        title={file.name}
+                                      >
+                                        {linkedBag ? `Arquivo: ${file.name}` : `Órfão: ${file.name}`}
+                                      </p>
+                                    </div>
+
+                                    {/* Botão de Excluir / Desvincular Áudio */}
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+                                      title="Desvincular ou excluir este áudio"
+                                      onClick={() => handleDeleteAudioFile(file)}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </div>
+
+                                  {/* Ações: Tocar e Atrelar */}
+                                  <div className="flex items-center gap-1.5 pt-1.5 border-t border-border/50">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 px-2 text-[11px] gap-1 shrink-0"
+                                      onClick={async () => {
+                                        try {
+                                          if (file.url) {
+                                            const audio = new Audio(file.url);
+                                            await audio.play();
+                                            return;
+                                          }
+                                          const { data } = await supabase.storage
+                                            .from('motoboy_voices')
+                                            .download(file.storagePath || `${user?.franquiaId}/bags/${file.name}`);
+                                          if (data) {
+                                            const url = URL.createObjectURL(data);
+                                            const audio = new Audio(url);
+                                            await audio.play();
+                                            audio.onended = () => URL.revokeObjectURL(url);
+                                          }
+                                        } catch (e) {
+                                          toast.error('Erro ao reproduzir áudio');
+                                        }
+                                      }}
+                                    >
+                                      ▶️ Ouvir
+                                    </Button>
+
+                                    {/* Seletor para atrelar/reatrelar à bag */}
+                                    <Select
+                                      value={linkedBag ? linkedBag.id : ''}
+                                      onValueChange={(newBagId) =>
+                                        handleLinkAudioToBag(file, newBagId)
+                                      }
+                                    >
+                                      <SelectTrigger className="h-7 text-[11px] flex-1 py-0 px-2 truncate bg-background">
+                                        <SelectValue placeholder="Atrelar à bag..." />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {franquiaBagTipos.map((b) => (
+                                          <SelectItem key={b.id} value={b.id} className="text-xs">
+                                            {b.nome} {b.id === bagId ? '✓ (Atual)' : ''}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </div>
                               );
                             })}
                           </div>
@@ -1104,30 +1418,50 @@ export default function Config() {
 
                       {/* Bebida */}
                       {generatedAudios.bebida && (
-                        <div>
-                          <h4 className="font-semibold mb-2 text-muted-foreground">Bebida</h4>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-[11px] gap-1"
-                            onClick={async () => {
-                              try {
-                                const { data } = await supabase.storage
-                                  .from('motoboy_voices')
-                                  .download(`${user?.franquiaId}/bebida.mp3`);
-                                if (data) {
-                                  const url = URL.createObjectURL(data);
-                                  const audio = new Audio(url);
-                                  await audio.play();
-                                  audio.onended = () => URL.revokeObjectURL(url);
+                        <div className="pt-2 border-t border-border/60">
+                          <h4 className="font-semibold mb-2 text-muted-foreground flex items-center gap-1.5">
+                            <span>🥤 Áudio de Bebida</span>
+                          </h4>
+                          <div className="inline-flex items-center gap-2 p-2 rounded-lg border border-border bg-secondary/30">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-[11px] gap-1.5 h-7 px-2.5"
+                              onClick={async () => {
+                                try {
+                                  const { data } = await supabase.storage
+                                    .from('motoboy_voices')
+                                    .download(`${user?.franquiaId}/${generatedAudios.bebida}`);
+                                  if (data) {
+                                    const url = URL.createObjectURL(data);
+                                    const audio = new Audio(url);
+                                    await audio.play();
+                                    audio.onended = () => URL.revokeObjectURL(url);
+                                  }
+                                } catch (e) {
+                                  toast.error('Erro ao reproduzir áudio');
                                 }
-                              } catch (e) {
-                                toast.error('Erro ao reproduzir áudio');
+                              }}
+                            >
+                              ▶️ Ouvir Aviso de Bebida (
+                              {generatedAudios.bebida.split('.').pop()?.toUpperCase()})
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                              title="Excluir áudio de bebida"
+                              onClick={() =>
+                                handleDeleteAudioFile(
+                                  `${user?.franquiaId}/${generatedAudios.bebida}`,
+                                  generatedAudios.bebida,
+                                )
                               }
-                            }}
-                          >
-                            ▶️ Aviso de bebida
-                          </Button>
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1424,10 +1758,23 @@ export default function Config() {
               <div className="space-y-3 border border-border rounded-lg p-4 bg-secondary/40">
                 <div className="flex items-center justify-between gap-2">
                   <div>
-                    <Label>Voz personalizada ({(franquiaConfig?.config_pagamento as any)?.tv_tts?.voice_model === 'google' ? 'Google' : 'ElevenLabs'})</Label>
+                    <Label>
+                      Voz personalizada (
+                      {(franquiaConfig?.config_pagamento as any)?.tv_tts?.voice_model === 'google'
+                        ? 'Google'
+                        : (franquiaConfig?.config_pagamento as any)?.tv_tts?.voice_model === 'openrouter'
+                        ? 'OpenRouter'
+                        : 'ElevenLabs'}
+                      )
+                    </Label>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Gera um MP3 fixo com o nome deste motoboy usando seus créditos {(franquiaConfig?.config_pagamento as any)?.tv_tts?.voice_model === 'google' ? 'Google' : 'ElevenLabs'}.
-                      Depois a TV usa sempre esse arquivo, sem gastar créditos de novo.
+                      Gera um áudio fixo com o nome deste motoboy usando{' '}
+                      {(franquiaConfig?.config_pagamento as any)?.tv_tts?.voice_model === 'google'
+                        ? 'Google'
+                        : (franquiaConfig?.config_pagamento as any)?.tv_tts?.voice_model === 'openrouter'
+                        ? 'OpenRouter'
+                        : 'ElevenLabs'}
+                      . Depois a TV usa sempre esse arquivo gravado.
                     </p>
                   </div>
                   {editingEntregador.tts_voice_path && (
@@ -1484,9 +1831,10 @@ export default function Config() {
 
                             if (data) {
                               const url = URL.createObjectURL(data);
+                              const ext = path.endsWith('.wav') ? 'wav' : 'mp3';
                               const a = document.createElement('a');
                               a.href = url;
-                              a.download = `voz_${editingEntregador.nome.replace(/\s/g, '_')}.mp3`;
+                              a.download = `voz_${editingEntregador.nome.replace(/\s/g, '_')}.${ext}`;
                               a.click();
                               URL.revokeObjectURL(url);
                               toast.success('Áudio baixado!');
@@ -1515,9 +1863,10 @@ export default function Config() {
 
                     const isEleven = tvTts?.voice_model === 'elevenlabs';
                     const isGoogle = tvTts?.voice_model === 'google';
+                    const isOpenRouter = tvTts?.voice_model === 'openrouter';
 
-                    if (!tvTts || (!isEleven && !isGoogle)) {
-                      toast.error('Configure um provedor de voz (Google ou ElevenLabs) na aba Módulos antes de gerar.');
+                    if (!tvTts || (!isEleven && !isGoogle && !isOpenRouter)) {
+                      toast.error('Configure um provedor de voz (OpenRouter, Google ou ElevenLabs) na aba Módulos antes de gerar.');
                       return;
                     }
 
@@ -1534,37 +1883,47 @@ export default function Config() {
                     try {
                       setIsGeneratingVoice(true);
                       const texto = `${editingEntregador.nome}, é a sua vez!`;
-                      const path = `${user.franquiaId}/${editingEntregador.id}.mp3`;
-                      const isGoogle = (franquiaConfig?.config_pagamento as any)?.tv_tts?.voice_model === 'google';
+                      const extension = isOpenRouter ? 'wav' : 'mp3';
+                      const path = `${user.franquiaId}/${editingEntregador.id}.${extension}`;
 
-                      const response = await fetch(
-                        isGoogle
+                      const endpoint = isOpenRouter
+                        ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/openrouter-tts`
+                        : isGoogle
                           ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-tts`
-                          : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`,
-                        {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-                          },
-                          body: JSON.stringify(
-                            isGoogle
-                              ? {
-                                text: texto,
-                                voice_name: (franquiaConfig?.config_pagamento as any)?.tv_tts?.google_voice_name,
-                                filename: path,
-                                franquia_id: user.franquiaId,
-                                api_key: (franquiaConfig?.config_pagamento as any)?.tv_tts?.google_api_key || undefined
-                              }
-                              : {
-                                text: texto,
-                                voiceId: tvTts?.eleven_voice_id,
-                                franquiaId: user.franquiaId,
-                              }
-                          ),
+                          : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`;
+
+                      const requestBody = isOpenRouter
+                        ? {
+                            text: texto,
+                            voice: tvTts?.openrouter_voice || 'sabrina',
+                            model: tvTts?.openrouter_model || 'heygen/heygen-voice-1-turbo:free',
+                            filename: path,
+                            franquia_id: user.franquiaId,
+                            api_key: tvTts?.openrouter_api_key || undefined,
+                          }
+                        : isGoogle
+                          ? {
+                              text: texto,
+                              voice_name: tvTts?.google_voice_name,
+                              filename: path,
+                              franquia_id: user.franquiaId,
+                              api_key: tvTts?.google_api_key || undefined,
+                            }
+                          : {
+                              text: texto,
+                              voiceId: tvTts?.eleven_voice_id,
+                              franquiaId: user.franquiaId,
+                            };
+
+                      const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
                         },
-                      );
+                        body: JSON.stringify(requestBody),
+                      });
 
                       if (!response.ok) {
                         const errText = await response.text();
@@ -1574,7 +1933,7 @@ export default function Config() {
                       }
 
                       // Se for ElevenLabs, ainda precisamos fazer o upload do blob aqui
-                      if (!isGoogle) {
+                      if (isEleven) {
                         const audioBlob = await response.blob();
                         const { error: uploadError } = await supabase.storage
                           .from('motoboy_voices')
@@ -1612,7 +1971,9 @@ export default function Config() {
                       Gerando voz...
                     </>
                   ) : (
-                    (franquiaConfig?.config_pagamento as any)?.tv_tts?.voice_model === 'google' 
+                    (franquiaConfig?.config_pagamento as any)?.tv_tts?.voice_model === 'openrouter'
+                      ? `🔊 Gerar voz personalizada (OpenRouter - ${(franquiaConfig?.config_pagamento as any)?.tv_tts?.openrouter_voice || 'Sabrina'})`
+                      : (franquiaConfig?.config_pagamento as any)?.tv_tts?.voice_model === 'google' 
                       ? '🔊 Gerar voz personalizada (Google)' 
                       : '🔊 Gerar voz personalizada (ElevenLabs)'
                   )}

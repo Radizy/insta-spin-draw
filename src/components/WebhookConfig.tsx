@@ -82,6 +82,23 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
     enabled: !!unidadeId,
   });
 
+  const { data: unitData } = useQuery({
+    queryKey: ['unidade-detalhe-script', unidadeId, selectedUnit],
+    queryFn: async () => {
+      if (!unidadeId && !selectedUnit) return null;
+      let query = supabase.from('unidades').select('id, nome_loja, slug');
+      if (unidadeId) {
+        query = query.eq('id', unidadeId);
+      } else if (selectedUnit) {
+        query = query.or(`slug.eq.${selectedUnit},nome_loja.eq.${selectedUnit}`);
+      }
+      const { data, error } = await query.maybeSingle();
+      if (error) return null;
+      return data;
+    },
+    enabled: !!(unidadeId || selectedUnit),
+  });
+
   const toggleMutation = useMutation({
     mutationFn: async (ativo: boolean) => {
       if (!unidadeId) return;
@@ -167,32 +184,35 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
   };
 
   const getSisfoodScript = () => {
-    if (!unidadeId || !selectedUnit) {
+    const finalUnitId = unitData?.id || unidadeId;
+    const finalLojaNome = unitData?.nome_loja || selectedUnit || user?.unidade || 'Loja';
+    const finalLojaSlug = unitData?.slug || selectedUnit || user?.unidade || 'LOJA';
+    const finalLojaTag = finalLojaSlug.toUpperCase();
+    const versao = '14.1';
+
+    if (!finalUnitId) {
       return `// Selecione uma loja no topo do painel para gerar o script.`;
     }
-    const nomeLoja = selectedUnit;
-    const unidadeIdLoja = unidadeId;
-    const versao = '14.0';
 
     return `// ==UserScript==
-// @name         Integração SISFOOD x FilaLab (${nomeLoja.toUpperCase()}) - v${versao} (Auto-Gerado)
+// @name         Integração SISFOOD x FilaLab (${finalLojaTag}) - v${versao} (Filtro Diário & Re-despacho)
 // @namespace    http://tampermonkey.net/
 // @version      ${versao}
-// @description  Script gerado automaticamente pelo FilaLab para a loja ${nomeLoja}.
+// @description  Script gerado automaticamente pelo FilaLab para a loja ${finalLojaNome} com isolamento diário e re-despacho inteligente.
 // @match        https://app.sisfood.com.br/*
 // @grant        none
 // ==/UserScript==
 
 (function() {
-    console.log("🚀 [FILALAB ${nomeLoja.toUpperCase()} v${versao}] Painel Rápido com Bags Cadastradas Iniciado!");
+    console.log("🚀 [FILALAB ${finalLojaTag} v${versao}] Filtro Diário & Re-despacho Inteligente Iniciado!");
 
     const API_FILALAB = "${SUPABASE_URL_FILALAB}/functions/v1/sisfood-webhook";
     const SUPABASE_URL = "${SUPABASE_URL_FILALAB}";
     const ANON_KEY = "${ANON_KEY_FILALAB}";
     
     // CONFIGURAÇÃO DA UNIDADE (ISOLAMENTO GARANTIDO)
-    const LOJA_FIXA = "${nomeLoja}";
-    const UNIDADE_ID = "${unidadeIdLoja}";
+    const LOJA_FIXA = "${finalLojaNome}";
+    const UNIDADE_ID = "${finalUnitId}";
     
     let ultimaHashFila = "";
     let ultimaContagemFila = -1;
@@ -427,7 +447,7 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
             <div id="filalab-hud-header" title="Clique para minimizar ou expandir">
                 <div id="filalab-hud-title">
                     <span class="filalab-dot pulse" id="filalab-status-dot"></span>
-                    <span>FilaLab ${nomeLoja} <span style="font-size:10px; color:#10b981; font-weight:normal;">v${versao}</span></span>
+                    <span>FilaLab ${finalLojaNome} <span style="font-size:10px; color:#10b981; font-weight:normal;">v${versao}</span></span>
                 </div>
                 <span id="filalab-hud-toggle" style="color: #9ca3af; font-size: 14px; font-weight: bold;">_</span>
             </div>
@@ -480,7 +500,7 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
 
                 <!-- FEED DE EVENTOS RECENTES COM NÚMERO DIÁRIO -->
                 <div id="filalab-hud-logs">
-                    <div class="filalab-hud-log info">🟢 Integração v14.0 pronta (Bags cadastradas ativas)</div>
+                    <div class="filalab-hud-log info">🟢 Integração v${versao} pronta (Filtro Diário & Bags ativas)</div>
                 </div>
             </div>
         \`;
@@ -830,7 +850,7 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
 
             // 3. Insere cada comanda em sisfood_comandos (com comanda_diaria)
             for (const comanda of comandasArray) {
-                const idResolvido = resolverIdPedido(comanda);
+                const idResolvido = resolverIdPedido(comanda, comanda);
                 const codPedidoInterno = idResolvido || comanda;
 
                 await fetch(SUPABASE_URL + "/rest/v1/sisfood_comandos", {
@@ -1007,13 +1027,13 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
 
                     const hashAtual = JSON.stringify(pedidosNaFila);
                     if (hashAtual !== ultimaHashFila || contagemFila !== ultimaContagemFila) {
-                        console.log("🟢 [FILALAB ITAQUA] Fila atualizada: " + contagemFila + " pedidos.");
+                        console.log("🟢 [FILALAB " + LOJA_FIXA.toUpperCase() + "] Fila atualizada: " + contagemFila + " pedidos.");
                         ultimaHashFila = hashAtual;
                         ultimaContagemFila = contagemFila;
                         enviarFilaLab(LOJA_FIXA, contagemFila, pedidosNaFila);
                     }
                 } catch(err) {
-                    console.error("❌ [FILALAB ITAQUA] Erro ao ler JSON da fila:", err);
+                    console.error("❌ [FILALAB " + LOJA_FIXA.toUpperCase() + "] Erro ao ler JSON da fila:", err);
                 }
             }
         });
@@ -1039,11 +1059,11 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
                     unidade_id: UNIDADE_ID,
                     fila: filaCount, 
                     pedidos_fila: pedidosFila, 
-                    sistema: "SISFOOD_V14_0" 
+                    sistema: "SISFOOD_V14_1" 
                 })
             });
         } catch (e) {
-            console.error("❌ [FILALAB ITAQUA] Erro de Rede ao enviar Fila:", e);
+            console.error("❌ [FILALAB " + LOJA_FIXA.toUpperCase() + "] Erro de Rede ao enviar Fila:", e);
         }
     }
 
@@ -1069,22 +1089,37 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
         }
     }
 
-    function resolverIdPedido(codRaw) {
-        if (!codRaw) return null;
-        const codLimpo = String(codRaw).trim();
+    function resolverIdPedido(codRaw, comandaDiaria = null) {
         const fila = window._pedidosFilaSisfood || [];
+        const codLimpo = codRaw ? String(codRaw).trim() : '';
+        const comandaLimpa = comandaDiaria ? String(comandaDiaria).trim() : '';
 
-        const matchId = fila.find(p => p.id_interno === codLimpo);
-        if (matchId) return matchId.id_interno;
+        // 1. Tenta casar com ID interno exato que está ATUALMENTE na fila do Sisfood
+        if (codLimpo) {
+            const matchId = fila.find(p => String(p.id_interno).trim() === codLimpo);
+            if (matchId) return matchId.id_interno;
+        }
 
-        const targetSanit = sanitizeComanda(codLimpo);
-        if (targetSanit) {
-            const matchComanda = fila.find(p => sanitizeComanda(p.comanda) === targetSanit);
-            if (matchComanda) {
-                return matchComanda.id_interno;
+        // 2. Tenta casar pelo número da comanda diária que está na fila atual do Sisfood
+        // Isso garante que se a comanda 8 já foi despachada mas AINDA está na fila, ela é resolvida para tentar despachar de novo!
+        if (comandaLimpa) {
+            const targetComanda = sanitizeComanda(comandaLimpa);
+            if (targetComanda) {
+                const matchComanda = fila.find(p => sanitizeComanda(p.comanda) === targetComanda);
+                if (matchComanda) return matchComanda.id_interno;
             }
         }
 
+        // 3. Tenta casar se codLimpo for o próprio número da comanda (ex: digitou "8")
+        if (codLimpo) {
+            const targetSanit = sanitizeComanda(codLimpo);
+            if (targetSanit) {
+                const matchComanda = fila.find(p => sanitizeComanda(p.comanda) === targetSanit);
+                if (matchComanda) return matchComanda.id_interno;
+            }
+        }
+
+        // 4. Se for ID interno longo (>= 6 dígitos) e não achou na fila, usa diretamente
         if (codLimpo.length >= 6 && /^\\d+$/.test(codLimpo)) {
             return codLimpo;
         }
@@ -1106,7 +1141,7 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
                 return '#' + c.cod_pedido_interno;
             }).join(', ');
 
-            console.log(\`🚀 [FILALAB ITAQUA] Despachando Sub-lote 2x2 (\${visualComandas}) para \${nomeMotoboy}...\`);
+            console.log(\`🚀 [FILALAB \${LOJA_FIXA.toUpperCase()}] Despachando Sub-lote 2x2 (\${visualComandas}) para \${nomeMotoboy}...\`);
 
             const xhr = new XMLHttpRequest();
             xhr.open("POST", urlDespacho, true);
@@ -1117,7 +1152,7 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
                 if (this.readyState === XMLHttpRequest.DONE) {
                     if (this.status === 200) {
                         if (this.responseText && (this.responseText.includes('<!DOCTYPE') || this.responseText.includes('<html') || this.responseText.includes('login'))) {
-                            console.error("❌ [FILALAB ITAQUA] Sessão do Sisfood expirou!");
+                            console.error("❌ [FILALAB " + LOJA_FIXA.toUpperCase() + "] Sessão do Sisfood expirou!");
                             hudLog("❌ Sessão do Sisfood expirou! Faça login.", "error");
                             return resolve(false);
                         }
@@ -1127,7 +1162,7 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
                             const jsonResp = JSON.parse(this.responseText);
                             if (jsonResp && (jsonResp.status === false || jsonResp.erro === true || jsonResp.error)) {
                                 erroSisfood = true;
-                                console.error("❌ [FILALAB ITAQUA] Sisfood recusou:", jsonResp);
+                                console.error("❌ [FILALAB " + LOJA_FIXA.toUpperCase() + "] Sisfood recusou:", jsonResp);
                             }
                         } catch (e) {}
 
@@ -1135,7 +1170,7 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
                             for (let cmd of comandosChunk) {
                                 await patchSupabaseStatus(cmd.id, 'EXECUTADO');
                             }
-                            console.log(\`✅ [FILALAB ITAQUA] Sub-lote [\${visualComandas}] baixado!\`);
+                            console.log(\`✅ [FILALAB \${LOJA_FIXA.toUpperCase()}] Sub-lote [\${visualComandas}] baixado!\`);
                             hudLog(\`✅ Comanda(s) [\${visualComandas}] despachada(s) ➔ \${nomeMotoboy}\`, "success");
                             resolve(true);
                         } else {
@@ -1158,7 +1193,7 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
 
         for (let cmd of comandos) {
             const codRaw = cmd.cod_pedido_interno ? cmd.cod_pedido_interno.replace(/\\s+/g, '') : '';
-            const idResolvido = resolverIdPedido(codRaw);
+            const idResolvido = resolverIdPedido(codRaw, cmd.comanda_diaria);
             const numVisual = cmd.comanda_diaria ? '#' + cmd.comanda_diaria : '#' + codRaw;
 
             if (idResolvido) {
@@ -1185,7 +1220,7 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
 
         const idMotoboy = findMotoboyIdByName(nomeMotoboy);
         if (!idMotoboy) {
-            console.warn(\`🛑 [FILALAB ITAQUA] TRAVA ATIVA: Motoboy "\${nomeMotoboy}" não encontrado no DOM.\`);
+            console.warn(\`🛑 [FILALAB \${LOJA_FIXA.toUpperCase()}] TRAVA ATIVA: Motoboy "\${nomeMotoboy}" não encontrado no DOM.\`);
             hudLog(\`🛑 Despacho travado: Motoboy "\${nomeMotoboy}" não localizado na tela!\`, "warn");
 
             const refreshBtn = document.querySelector('button[title*="Atualizar"], a[title*="Atualizar"], .btn-refresh');
@@ -1223,11 +1258,51 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
     }
 
     // ==========================================
-    // ⏱️ [PARTE 3: POLLING] Varredura Periódica de Comandos
+    // ⏱️ [PARTE 3: POLLING] Varredura Periódica de Comandos (Apenas do Dia Atual)
     // ==========================================
+    function getInicioDoDiaLocalISO() {
+        const d = new Date();
+        const ano = d.getFullYear();
+        const mes = String(d.getMonth() + 1).padStart(2, '0');
+        const dia = String(d.getDate()).padStart(2, '0');
+        // 00:00:00 da data local do restaurante (America/Sao_Paulo)
+        return \`\${ano}-\${mes}-\${dia}T00:00:00\`;
+    }
+
+    let _ultimaLimpezaDia = "";
+
+    async function limparComandosDiasAnteriores() {
+        const hojeStr = new Date().toISOString().split('T')[0];
+        if (_ultimaLimpezaDia === hojeStr) return;
+        _ultimaLimpezaDia = hojeStr;
+
+        const inicioDia = getInicioDoDiaLocalISO();
+        try {
+            console.log("🧹 [FILALAB] Expirando comandos pendentes de dias anteriores à data de hoje...");
+            await fetch(SUPABASE_URL + "/rest/v1/sisfood_comandos?status=eq.PENDENTE&unidade_id=eq." + UNIDADE_ID + "&created_at=lt." + encodeURIComponent(inicioDia), {
+                method: 'PATCH',
+                headers: {
+                    "apikey": ANON_KEY,
+                    "Authorization": "Bearer " + ANON_KEY,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    status: 'IGNORADO',
+                    observacao: 'Expirado automaticamente na virada de dia'
+                })
+            });
+        } catch (e) {
+            console.error("Erro ao expirar comandos anteriores:", e);
+        }
+    }
+
     async function pollComandos() {
         try {
-            const resp = await fetch(SUPABASE_URL + "/rest/v1/sisfood_comandos?status=eq.PENDENTE&unidade_id=eq." + UNIDADE_ID, {
+            await limparComandosDiasAnteriores();
+
+            const inicioDia = getInicioDoDiaLocalISO();
+            const urlQuery = SUPABASE_URL + "/rest/v1/sisfood_comandos?status=eq.PENDENTE&unidade_id=eq." + UNIDADE_ID + "&created_at=gte." + encodeURIComponent(inicioDia);
+            const resp = await fetch(urlQuery, {
                 headers: { "apikey": ANON_KEY, "Authorization": "Bearer " + ANON_KEY }
             });
             
@@ -1604,17 +1679,38 @@ export function WebhookConfig({ overrideUnidadeId }: WebhookConfigProps) {
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-bold flex items-center gap-2">
                       <Code2 className="w-4 h-4 text-primary" />
-                      Script de Envio
+                      Script Tampermonkey (v14.1)
                     </h3>
-                    <Button 
-                      size="sm" 
-                      variant={copied ? "default" : "secondary"}
-                      onClick={() => copyScript(getSisfoodScript())}
-                      className="h-8 gap-1.5 transition-all text-xs"
-                    >
-                      {copied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                      {copied ? 'Copiado!' : 'Copiar Código'}
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => {
+                          const scriptContent = getSisfoodScript();
+                          const blob = new Blob([scriptContent], { type: 'text/javascript' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `filalab_sisfood_${(unitData?.slug || selectedUnit || 'loja').toLowerCase()}_v14.1.user.js`;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                          toast.success('Download do script v14.1 iniciado!');
+                        }}
+                        className="h-8 gap-1.5 transition-all text-xs"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Baixar .user.js
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant={copied ? "default" : "secondary"}
+                        onClick={() => copyScript(getSisfoodScript())}
+                        className="h-8 gap-1.5 transition-all text-xs"
+                      >
+                        {copied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                        {copied ? 'Copiado!' : 'Copiar Código'}
+                      </Button>
+                    </div>
                   </div>
                   <div className="relative">
                     <pre className="p-4 bg-[#1e1e1e] text-[#d4d4d4] rounded-xl text-xs overflow-auto max-h-[400px] font-mono border border-border/10 custom-scrollbar shadow-inner">

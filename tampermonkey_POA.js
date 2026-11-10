@@ -1,14 +1,14 @@
 // ==UserScript==
-// @name         Integração SISFOOD x FilaLab (LOJA POA) - v14.0 (Com Seleção de Bags)
+// @name         Integração SISFOOD x FilaLab (LOJA POA) - v14.1 (Filtro Diário & Re-despacho)
 // @namespace    http://tampermonkey.net/
-// @version      14.0
-// @description  Lê a fila do Sisfood, Chamar e Despachar direto no Sisfood com Seleção de Bags (Normal, Trem, etc), Enter inteligente, Baixa 2x2 e Comanda Diária
+// @version      14.1
+// @description  Lê a fila do Sisfood, Chamar e Despachar direto no Sisfood com Reconhecimento Diário, Baixa 2x2 e Seleção de Bags
 // @match        https://app.sisfood.com.br/*
 // @grant        none
 // ==/UserScript==
 
 (function() {
-    console.log("🚀 [FILALAB POA v14.0] Painel Rápido com Bags Cadastradas Iniciado!");
+    console.log("🚀 [FILALAB POA v14.1] Filtro Diário & Re-despacho Inteligente Iniciado!");
 
     const API_FILALAB = "https://kegbvaikqelwezpehlhf.supabase.co/functions/v1/sisfood-webhook";
     const SUPABASE_URL = "https://kegbvaikqelwezpehlhf.supabase.co";
@@ -251,7 +251,7 @@
             <div id="filalab-hud-header" title="Clique para minimizar ou expandir">
                 <div id="filalab-hud-title">
                     <span class="filalab-dot pulse" id="filalab-status-dot"></span>
-                    <span>FilaLab Poá <span style="font-size:10px; color:#10b981; font-weight:normal;">v14.0</span></span>
+                    <span>FilaLab Poá <span style="font-size:10px; color:#10b981; font-weight:normal;">v14.1</span></span>
                 </div>
                 <span id="filalab-hud-toggle" style="color: #9ca3af; font-size: 14px; font-weight: bold;">_</span>
             </div>
@@ -304,7 +304,7 @@
 
                 <!-- FEED DE EVENTOS RECENTES COM NÚMERO DIÁRIO -->
                 <div id="filalab-hud-logs">
-                    <div class="filalab-hud-log info">🟢 Integração v14.0 pronta (Bags cadastradas ativas)</div>
+                    <div class="filalab-hud-log info">🟢 Integração v14.1 pronta (Filtro Diário & Bags ativas)</div>
                 </div>
             </div>
         `;
@@ -863,7 +863,7 @@
                     unidade_id: UNIDADE_ID,
                     fila: filaCount, 
                     pedidos_fila: pedidosFila, 
-                    sistema: "SISFOOD_V14_0" 
+                    sistema: "SISFOOD_V14_1" 
                 })
             });
         } catch (e) {
@@ -893,22 +893,37 @@
         }
     }
 
-    function resolverIdPedido(codRaw) {
-        if (!codRaw) return null;
-        const codLimpo = String(codRaw).trim();
+    function resolverIdPedido(codRaw, comandaDiaria = null) {
         const fila = window._pedidosFilaSisfood || [];
+        const codLimpo = codRaw ? String(codRaw).trim() : '';
+        const comandaLimpa = comandaDiaria ? String(comandaDiaria).trim() : '';
 
-        const matchId = fila.find(p => p.id_interno === codLimpo);
-        if (matchId) return matchId.id_interno;
+        // 1. Tenta casar com ID interno exato que está ATUALMENTE na fila do Sisfood
+        if (codLimpo) {
+            const matchId = fila.find(p => String(p.id_interno).trim() === codLimpo);
+            if (matchId) return matchId.id_interno;
+        }
 
-        const targetSanit = sanitizeComanda(codLimpo);
-        if (targetSanit) {
-            const matchComanda = fila.find(p => sanitizeComanda(p.comanda) === targetSanit);
-            if (matchComanda) {
-                return matchComanda.id_interno;
+        // 2. Tenta casar pelo número da comanda diária que está na fila atual do Sisfood
+        // Isso garante que se a comanda 8 já foi despachada mas AINDA está na fila, ela é resolvida para tentar despachar de novo!
+        if (comandaLimpa) {
+            const targetComanda = sanitizeComanda(comandaLimpa);
+            if (targetComanda) {
+                const matchComanda = fila.find(p => sanitizeComanda(p.comanda) === targetComanda);
+                if (matchComanda) return matchComanda.id_interno;
             }
         }
 
+        // 3. Tenta casar se codLimpo for o próprio número da comanda (ex: digitou "8")
+        if (codLimpo) {
+            const targetSanit = sanitizeComanda(codLimpo);
+            if (targetSanit) {
+                const matchComanda = fila.find(p => sanitizeComanda(p.comanda) === targetSanit);
+                if (matchComanda) return matchComanda.id_interno;
+            }
+        }
+
+        // 4. Se for ID interno longo (>= 6 dígitos) e não achou na fila, usa diretamente
         if (codLimpo.length >= 6 && /^\d+$/.test(codLimpo)) {
             return codLimpo;
         }
@@ -982,7 +997,7 @@
 
         for (let cmd of comandos) {
             const codRaw = cmd.cod_pedido_interno ? cmd.cod_pedido_interno.replace(/\s+/g, '') : '';
-            const idResolvido = resolverIdPedido(codRaw);
+            const idResolvido = resolverIdPedido(codRaw, cmd.comanda_diaria);
             const numVisual = cmd.comanda_diaria ? '#' + cmd.comanda_diaria : '#' + codRaw;
 
             if (idResolvido) {
@@ -1047,11 +1062,51 @@
     }
 
     // ==========================================
-    // ⏱️ [PARTE 3: POLLING] Varredura Periódica de Comandos
+    // ⏱️ [PARTE 3: POLLING] Varredura Periódica de Comandos (Apenas do Dia Atual)
     // ==========================================
+    function getInicioDoDiaLocalISO() {
+        const d = new Date();
+        const ano = d.getFullYear();
+        const mes = String(d.getMonth() + 1).padStart(2, '0');
+        const dia = String(d.getDate()).padStart(2, '0');
+        // 00:00:00 da data local do restaurante (America/Sao_Paulo)
+        return `${ano}-${mes}-${dia}T00:00:00`;
+    }
+
+    let _ultimaLimpezaDia = "";
+
+    async function limparComandosDiasAnteriores() {
+        const hojeStr = new Date().toISOString().split('T')[0];
+        if (_ultimaLimpezaDia === hojeStr) return;
+        _ultimaLimpezaDia = hojeStr;
+
+        const inicioDia = getInicioDoDiaLocalISO();
+        try {
+            console.log("🧹 [FILALAB POA] Expirando comandos pendentes de dias anteriores à data de hoje...");
+            await fetch(SUPABASE_URL + "/rest/v1/sisfood_comandos?status=eq.PENDENTE&unidade_id=eq." + UNIDADE_ID + "&created_at=lt." + encodeURIComponent(inicioDia), {
+                method: 'PATCH',
+                headers: {
+                    "apikey": ANON_KEY,
+                    "Authorization": "Bearer " + ANON_KEY,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    status: 'IGNORADO',
+                    observacao: 'Expirado automaticamente na virada de dia'
+                })
+            });
+        } catch (e) {
+            console.error("Erro ao expirar comandos anteriores:", e);
+        }
+    }
+
     async function pollComandos() {
         try {
-            const resp = await fetch(SUPABASE_URL + "/rest/v1/sisfood_comandos?status=eq.PENDENTE&unidade_id=eq." + UNIDADE_ID, {
+            await limparComandosDiasAnteriores();
+
+            const inicioDia = getInicioDoDiaLocalISO();
+            const urlQuery = SUPABASE_URL + "/rest/v1/sisfood_comandos?status=eq.PENDENTE&unidade_id=eq." + UNIDADE_ID + "&created_at=gte." + encodeURIComponent(inicioDia);
+            const resp = await fetch(urlQuery, {
                 headers: { "apikey": ANON_KEY, "Authorization": "Bearer " + ANON_KEY }
             });
             
